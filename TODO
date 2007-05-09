@@ -1,0 +1,62 @@
+Cleanup tasks:
+  * Improve documentation comments (jgre)
+  * More UnitTests
+  * Systematic log messages (jgre)
+
+* Error handling
+
+Client lib: (Hannes)
+  * State machine on the application side
+  * Event subscriptions
+  * without Event-Loop
+
+Link:
+  * try to establish links after failure
+
+TCP CL:
+  * ACKs (Hannes)
+  * Keepalive (Hannes)
+
+Bundle parser:
+  * Fragmentation (v0.2)
+  * Flags (jgre)
+  * Protocol version 6 (jgre)
+  * Custody handling
+  * Administrative records
+  * Extension bundle blocks
+    => Factory for state objects
+  * FilePayload for Bundles (receive into files) (v0.2)
+
+Storage: (xi)
+  * Controller that listens for events
+  * separate meta information (primary bundle block) from payload 
+    => do not hold payload in memory all the time
+  * Meta-Infos for bundles
+  * change: write each bundle in separate PStors
+  * need unique file names for bundle-PStores: hash(Sender-EID, Receiver-EID, TS, fragment offset)
+  * plus separate index (Meta-Info -> file name)
+
+Routing:
+  * Implement routing interface (jgre)
+  * Simple Flood router (jgre) (v0.2)
+  * PROPHET router
+
+
+Config file (xi)
+  * change syntax (Ruby hash for CL arguments instead of optstring)
+
+* Start Daemon from apps when it is not running
+* Consider replacing event loop with threads
+* Implement Bundle Security
+* Block-passing in generic parser (jgre)
+
+
+Service-Location (0.2++)
+  * Bonjour?
+  * Avahi?
+  * DDA?
+
+
+File Directory CL (0.2++)
+  * receive from and write to directories (similar to Uni-DTN)
+

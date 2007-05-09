@@ -1,0 +1,64 @@
+#!/usr/bin/env ruby
+# -*-ruby-*-
+
+$:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
+
+require 'optparse'
+require "clientapi"
+require "clientlib"
+require "clientregcl"
+
+
+require "event-loop/timer"
+
+require 'bundle'
+require 'tcpcl'
+require 'rdtnlog'
+
+
+log=RdtnLogger.instance()
+log.level=Logger::DEBUG
+RDTNConfig.instance.local_eid = "dtn://dtncat"
+dest=""
+
+opts = OptionParser.new do |opts|
+  opts.on("-d", "--dest EID", "destination EID") do |d|
+    dest=d
+  end
+  opts.on("-l", "--local EID", "local EID") do |l|
+    RDTNConfig.instance.local_eid = "dtn://dtncat"
+  end
+end
+
+opts.parse!(ARGV)
+
+
+
+log.debug("Starting dtncat")
+
+payload=$stdin.sysread(256) # FIXME
+
+ri = RegInfo.new(RDTNConfig.instance.local_eid)
+c=RdtnClient.new
+
+EventLoop.later do
+  log.debug("registering")
+  c.open("localhost",7777)
+  c.register(ri)
+  b = Bundling::Bundle.new(payload)
+  b.dest_eid = dest
+  log.debug("sending bundle")
+  c.sendBundle(b)
+end
+
+EventLoop.after(1) do
+  c.close
+  log.debug("Stopping notifier")
+  EventLoop.quit()
+end
+    
+EventLoop.run()
+
+
+
+

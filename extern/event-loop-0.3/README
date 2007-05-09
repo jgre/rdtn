@@ -1,0 +1,708 @@
+------------------------------------------------------------
+ This file was automatically generated from `README.utf-8'.
+------------------------------------------------------------
+
+README for event-loop 0.3
+Copyright (C) 2005, 2006  Daniel Brockman
+
+Author: Daniel Brockman <daniel@brockman.se>
+Written: August 19, 2005
+Updated: October 19, 2006
+
+This document describes a simple signal system and an event
+loop that uses said signal system.
+
+Permission is granted to copy, distribute and/or modify this
+document under the terms of the GNU Free Documentation
+License, Version 1.2 or any later version published by the
+Free Software Foundation; with no Invariant Sections, no
+Front-Cover Texts, and no Back-Cover Texts.  You should have
+received a copy of the license along with this document; if
+not, write to the Free Software Foundation, 51 Franklin
+Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+The next screenful of paragraphs is mostly side-chatter.
+If you scroll down a bit, you'll find a table of contents.
+
+If you have any questions, comments, requests, bug reports,
+or patches, please send them to me at <daniel@brockman.se>.
+
+I have a Darcs repository at this URL,
+
+   <http://www.brockman.se/software/ruby-event-loop/>
+
+so you can easily grab a copy of the latest version:
+
+   $ darcs get http://www.brockman.se/software/ruby-event-loop/
+
+If you make any changes, you can send them back to me:
+
+   $ darcs record
+   $ darcs send
+
+You can also reach me on IRC as `dbrock' on Freenode.
+But I'll say that a couple more times below.
+
+This software originated in a Direct Connect client
+codenamed Refusde, but now stands on its own.
+
+Thanks to Tilman Sauerbeck for prompting me to wrap these
+files up in a self-contained package, and then demanding
+documentation.  Without him, this file wouldn't exist. :-)
+
+Tilman also helped by creating a RubyGems specification,
+and by translating the Makefile into a Rakefile.
+
+To counteract confusion, I'll say a few words about
+version numbers before I begin.
+
+Prior to version 0.1, this package used to have version
+numbers like 0.0.20051116 --- a kind of self-inflicted FUD.
+Now that it's been used by at least a couple of people other
+than myself, I've decided to switch to a more conventional
+line of version numbers: 0.1, 0.2, ..., 0.10, and so on.
+
+Should a smart person read the code today and come across
+some deeply embedded idiocy, I can point to these other
+people as proof that I'm not the only idiot around here.
+Then I can proceed to fix the idiocy by completely changing
+the API, totally breaking compatibility, and if anyone
+complains I can always tell them they're idiots.
+
+
+Table of Contents
+=================
+
+This document is getting long enough that I'm starting to
+have trouble navigating it myself.  I probably should
+convert it into an Info manual.  But until that happens,
+maybe this table of contents will help a little.
+
+You will note that there's no section that says anything
+about the file `better-definers.rb'.  I don't have any good
+excuse for this; maybe I'll write that section some day.
+In the meantime, the code itself is really easy to follow.
+
+ * Installation
+ * The Signal System: `signal-system.rb'
+   - Emitting Signals
+   - Receiving Signals
+ * The Event Loop: `event-loop.rb'
+   - Creating Event Loops
+   - Event Sources
+   - IO Events: `io.rb'
+   - Timer Events: `timer.rb'
+   - Running the Event Loop
+
+Installation
+============
+
+I suppose the recommended way of using this software is to
+install the gem package.  But if you don't want to do that,
+you could simply copy or symlink the files into your project
+directory and require whichever ones you need.
+
+The files in `lib/event-loop/' must reside in a directory
+called `event-loop/' for the dependencies to work, so if you
+are taking anything, take the whole `event-loop/' directory.
+
+While `signal-system.rb' depends on `better-definers.rb',
+and `event-loop.rb' depends on both the aforementioned two,
+it is quite possible to use `signal-system.rb' without
+`event-loop.rb', or `better-definers.rb' without either.
+
+Indeed, `better-definers.rb' and `signal-system.rb' are two
+very general-purpose libraries, and you are likely to be
+able to put them to use for most applications, regardless of
+whether or not they are based on an event loop.
+
+For completeness, `timer.rb' depends on `event-loop.rb',
+and `event-loop.rb' and `io.rb' depend on each other.
+
+
+The Signal System
+=================
+
+This package comes with an intra-process signal system.
+I call these signals "intra-process signals" to distinguish
+them from Unix signals, which are "inter-process signals".
+
+But now that I've made that clear, I'm going to go ahead and
+refer to intra-process signals as just "signals", and to the
+intra-process signal system simply as "the signal system".
+
+Anyway, the signal system is a generic callback mechanism,
+similar in spirit to the `observable' library that comes
+with the standard Ruby distribution.  It allows anonymous
+observers to track the events of signal-emitting objects
+(thereby helping to decrease coupling).
+
+The idea is similar to that of the GObject signal system,
+and a myriad of others like it.  (If you know INTERCAL,
+signals are to methods as COME FROM is to GO TO.)
+
+
+Emitting Signals
+----------------
+
+If you want your objects to be capable of emitting signals,
+their classes should include the `SignalEmitter' module.
+That will automatically rig the classes with everything you
+need to define signals (the `SignalEmitterModule' module).
+
+For example, this code
+
+   class Dog
+     include SignalEmitter
+     define_signal :bark
+     def bark
+       puts "Bark!"
+       signal :bark
+     end
+   end
+
+   spot = Dog.new
+   spot.on_signal :bark do
+     puts "Hush, Spot!"
+   end
+
+   3.times { spot.bark }
+
+results in the following output:
+
+   Bark!
+   Hush, Spot!
+   Bark!
+   Hush, Spot!
+   Bark!
+   Hush, Spot!
+
+
+Receiving Signals
+-----------------
+
+The true name for the method that connects a block or proc
+to a signal is `add_signal_handler'.  However, that gets
+awfully long when connecting to lots of signals, so there
+are a couple of shortcuts.
+
+First, there are the `on' and `on_signal' aliases.
+These synonyms just delegate to `add_signal_handler'.
+
+Second, every predefined signal FOO gets a shorthand
+connector method called `on_FOO'.  So in the above example,
+we could have written this instead:
+
+   spot = Dog.new
+   spot.on_bark { puts "Hush, Spot!" }
+
+The `on_FOO' variant is nice for connecting to signals whose
+names are known statically.  Otherwise, `on_signal' is
+usually preferable; these other cases are typically not
+common enough to justify the short form `on'.
+
+Connecting signal handlers is a breeze, but *disconnecting*
+them is actually a minor pain in the ass.  Without having an
+explicit reference to the handler, you cannot identify it,
+which means that you cannot tell `remove_signal_handler'
+what handler you want to remove.
+
+An example of the obvious but painful solution follows:
+
+   spot = Dog.new
+   @bark_handler = lambda { puts "Hush, Spot!" }
+   spot.on_bark &@bark_handler
+   # ...
+   spot.remove_signal_handler @bark_handler
+
+The `SignalObserver' module provides a slightly
+better solution:
+
+   class DogOwner
+     include SignalObserver
+
+     def initialize(dog=nil)
+       @dog = dog || Dog.new("Spot")
+       observe_signal @dog, :bark do
+         puts "Shut up, #{@dog.name}"
+       end
+     end
+
+     def stop_yelling
+       ignore_signal @dog, :bark
+     end
+   end
+
+But `SignalObserver' has a few caveats that make it
+insufficient as a general solution (see the source).
+
+In the future, I'd like to provide a more powerful mechanism
+for connecting to signals.  Perhaps involving handler tags.
+If you want this feature, nagging me about it on IRC (I'm
+`dbrock' on Freenode) or via e-mail usually works best.
+
+
+The Event Loop
+==============
+
+This section explains how IO multiplexing works in general
+(albeit briefly and not very in-depth), and specifically the
+issues relevant for Ruby applications.  You may safely skip
+it if you (a) already know this subject, or (b) don't care.
+
+Plain ol' blocking IO works well when you're reading from
+just a single file descriptor.  But when you're interested
+in a whole bunch of FDs, you can't wait for any single one
+of them to become readable or writable, because then you'll
+inevitably miss that happening to the other ones.  Instead,
+you need a multiplexer that can wait for them *all at once*.
+
+There are a handful of low-level multiplexing primitives:
+`select', `poll', `epoll', `/dev/poll', and `kqueue'.
+In addition, there are portable low-level wrapper libraries
+such as libevent, which can use any of those primitives.
+The event loop in this package uses the standard `select'
+wrapper shipped with Ruby, `IO::select'.  But in the future,
+I'd like to use libevent instead, because that'd be cooler.
+
+Most applications use a higher-level abstraction built on
+top of the low-level multiplexer, usually called a `main
+loop', an `event loop', or an `event source'.  There are
+also libraries such as liboop, which generalizes the event
+source and event sink concepts, so that components (event
+sinks) written against liboop become event-source-agnostic.
+
+Actually, the combination of blocking IO and Ruby's green
+threads works well in most cases where you would normally
+use an event loop.  When you call `IO#read' on an empty file
+descriptor, for instance, Ruby suspends that thread until
+its internal event loop, known as the scheduler (currently
+based on `select'), determines that the file descriptor has
+become readable.  In particular, Ruby never calls the
+low-level `read' function unless it knows that it will not
+block (because `select' said it wouldn't, but see below).
+
+There are several reasons why you would use an event loop
+such as the one implemented by this library instead of
+not-so-plain ol' blocking IO with Ruby's green threads.
+
+First of all, you may consider the event loop API more
+pleasant than Ruby's threads and not-quite-blocking IO.
+Otherwise, don't listen to me; go on using the latter. :-)
+
+Blocking IO can occasionally cause unexpected problems.
+For example, in some cases a blocking read *can* block even
+though select said that the file descriptor was readable.
+This problem may be rare (it can happen, for instance, when
+the checksum of a piece of data fails to match the payload),
+but the bottom line is that non-blocking IO is safer.
+
+Perhaps most importantly, while Ruby's threads are green,
+they are still effectively preemptively scheduled, with all
+the implications thereof --- in a word, synchronization hell.
+By contrast, event handlers are executed in a strictly
+sequential manner; an event loop will never run two event
+handlers simultaneously.  (Though, of course, all bets are
+off if you run multiple event loops in separate threads.)
+
+
+Creating Event Loops
+--------------------
+
+You create a new event loop by calling `EventLoop.new'.
+However, if you only need one --- which is likely --- you
+can get it for free by reading from `EventLoop.default'.
+
+If you need multiple event loops in separate threads, put
+them in `EventLoop.current', which will make each of them
+end up in a thread-local variable.
+
+Actually, if you read from `EventLoop.current' before
+writing to it, it defaults to `EventLoop.default', so you
+might as well use `EventLoop.current' in single-threaded
+applications as well.
+
+In fact, `EventLoop.current' is so common that it can be
+shortened to just `EventLoop', if there is no ambiguity.
+So `EventLoop.run' is short for `EventLoop.current.run'.
+
+To dynamically change the "current event loop" for a block
+of code, it is convenient to use `EventLoop.with_current'.
+
+Once you've got the event loop sitting in front of you just
+waiting to be used, you'll want to add some event sources,
+and then finally run the loop.  So, first things first:
+What are event sources, and how do you add them to the loop?
+
+
+Event Sources
+-------------
+
+As for the first question, this package currently supports
+two kinds of event sources: watchable IO objects and timers.
+The former kind is used to detect file descriptor activity;
+the latter is used for wall-clock scheduling of execution.
+
+Typically, you don't add event sources to the loop manually.
+Both watchable IO objects and timers provide convenient ways
+of making them add themselves to the "current" event loop.
+
+For example, to add `@io' to the current event loop, you
+might write something like the following:
+
+   @io.monitor_events :readable, :writable
+
+That's short for the following more explicit code:
+
+   EventLoop.current.monitor_io(@io, :readable, :writable)
+
+The call to `EventLoop#monitor_io' causes the event loop to
+wake up --- if it was sleeping in a call to `IO.select' --- and
+adds `@io' to the event loop's set of monitored IO objects.
+For the next event loop iteration, `@io' will be included in
+one or more of the sets passed to `IO.select'.
+
+To add the IO object to another event loop,
+
+   other_loop.monitor_io(@io, :readable, :writable)
+
+you can do it like this,
+
+   EventLoop.with_current(other_loop) do
+     @io.monitor_events :readable, :writable end
+
+which is especially convenient when adding multiple objects.
+
+For timers, it's even easier:
+
+   @timer = EventLoop::PeriodicTimer.new(1.second)
+   @timer.start
+
+That call to `@timer.start' causes the following to happen:
+
+   EventLoop.current.monitor_timer(@timer)
+
+The call to `EventLoop#monitor_timer' may force the event
+loop to wake up, depending on the timer readings and the
+current timeout of the event loop.  In any case, the timer
+is added to the event loop's set of monitored timers.
+
+But there's a caveat.  This will not work as expected:
+
+   EventLoop.with_current(other_loop) { @timer.start }
+
+That's because timer objects decide in advance which event
+loop they are going to use.  Once initialized, timer objects
+no longer care about the value of the current event loop.
+Hence, this code starts a timer in a different event loop:
+
+   @timer = EventLoop.with_current(other_loop) do
+     EventLoop::PeriodicTimer.new(1.second) end
+   @timer.start
+
+Here is another way of writing it:
+
+   @timer = EventLoop::PeriodicTimer.new \
+     1.second, :event_loop => other_loop
+   @timer.start
+   
+In addition, there are quite a few convenient short forms.
+For example, you can write things like this:
+
+   3.seconds.from_now { puts "Boo!" }
+
+Read on, because the next two sections describe with better
+examples and in more detail how IO and timer events work.
+
+[Actually, there are no examples of using timers at all.
+But it would be nice to have some under "Timer Events".]
+
+
+IO Events
+---------
+
+In Ruby, file descriptors are instances of the class IO.
+Before you can use one of these with the event loop, you
+need to extend it with the module `EventLoop::Watchable'.
+That module defines two signals, `readable' and `writable',
+and a pair of methods for activating and deactivating them.
+
+When you want to start receiving `readable' signals, for
+instance, you call `io.monitor_event :readable'.  This makes
+the current event loop monitor `io' for readability, and
+emit the `readable' signal on it when the condition occurs.
+
+   require "socket"
+
+   def initialize (host, port)
+     @socket = TCPSocket.new(host, port)
+     @socket.extend EventLoop::Watchable
+     @socket.will_block = false
+     @socket.on_readable { perform_read }
+   end
+
+   def start_listening
+     @socket.monitor_event :readable
+   end
+
+The `will_block?' property is provided by this package as a
+convenient way of setting up non-blocking IO streams.
+(See `lib/event-loop/io.rb', circa line 81.)
+
+The method that actually performs the reading will probably
+look more or less like so:
+
+   def perform_read
+     process_data @socket.sysread(BUFFER_SIZE, @buffer)
+   rescue EOFError
+     ...
+   rescue Errno::ECONNRESET
+     ...
+   rescue
+     ...
+   end
+
+If you don't want to receive any more `readable' signals,
+you just call `io.ignore_event :readable'.
+
+   def stop_listening
+     @socket.ignore_event :readable
+   end
+
+The "current event loop" is just `EventLoop.current'.
+To make another event loop (say `other_loop') monitor or
+ignore an IO event, either call `other_loop.monitor_io' or
+`other_loop.ignore_io' directly,
+
+   other_loop.monitor_io(io, :readable)
+   other_loop.ignore_io(io, :writable)
+
+or use the `EventLoop.with_current' form,
+
+   EventLoop.with_current(other_loop) do
+     io.monitor_event :readable
+     io.ignore_event :writable
+   end
+
+which implements "dynamic scoping" of `EventLoop.current'.
+
+If you simply want readable signals to be emitted whenever
+there are handlers connected to the `readable' signal (and
+likewise for `writable'), without having to mess around with
+`monitor_event' and `ignore_event', you can extend the IO
+object with the `EventLoop::Watchable::Automatic' module
+instead of `EventLoop::Watchable'.
+
+The `EventLoop::Watchable::Automatic' module sets it up so
+that when you connect a handler to either the `readable' or
+the `writable' signal, the current event loop begins
+monitoring the IO object for the corresponding condition,
+and, inversely, when you remove the last handler, it tells
+the event loop to stop monitoring the condition.
+
+Because this is so often useful, you don't even have to
+extend the IO object yourself.  Stub implementations of the
+`on_readable' and `on_writable' methods are provided, which
+automatically bootstrap the IO by extending it with the
+`EventLoop::Watchable::Automatic' module when invoked.
+
+     @socket = TCPSocket.new(host, port)
+     @socket.will_block = false
+
+     # By invoking the stub `on_readable' method,
+     # we implicitly extend the IO object with the
+     # module `EventLoop::Watchable::Automatic'.
+     #
+     # That module hooks into the signal system and
+     # reacts when we start watching the `readable'
+     # signal by starting to monitor that event.
+     @socket.on_readable { perform_read }
+
+Note that once an IO object has been extended with the
+`EventLoop::Watchable::Automatic' module, there is currently
+no way to make it non-automatic (Ruby does not yet allow you
+to un-extend an object with a module).  So if you don't want
+the automatic behavior, you *have* to manually extend the
+object with the `EventLoop::Watchable' module before calling
+either of the `or_readable' and `on_writable' methods.
+
+There is actually a third signal: `exceptional', which is
+emitted when `select' reports that the file descriptor is in
+an "exceptional state".  You probably don't need to worry
+about this (and if you do, you'll probably know it already).
+
+But in case you're wondering, I think you can use it to
+watch for out-of-band data coming through a socket, provided
+you've set the right socket options.  I also believe you can
+use it to determine that a non-blocking connection attempt
+has failed.  (When such an attempt succeeds, a writability
+event is fired for the socket.)  But that doesn't matter,
+because you can't do non-blocking connects in Ruby. :-)
+
+
+Timer Events
+------------
+
+If you need to do something after a given amount of
+wall-clock time has passed, just do the following:
+
+ 1.  Create an `EventLoop::SporadicTimer', passing the
+     timeout (in seconds) to the constructor.
+ 2.  Connect to its `alarm' signal (using `on_alarm').
+ 3.  Start the timer (using `start').
+
+Sporadic timers only sound their alarm once, and then stop.
+If you want to do something periodically, like every second,
+use `EventLoop::PeriodicTimer' instead.
+
+You can start a sporadic timer as many times as you want,
+but it will still stop itself every time it goes off.
+Periodic timers must be stopped explicitly (using `stop'),
+or they will keep going off as long as the event loop runs.
+
+You can get the effect of an "idle function" by creating an
+periodic timer with a zero-second interval, meaning its
+alarm will sound as often as possible.
+
+If you pass a block to a timer constructor, then that block
+will become the timer's canonical "alarm handler", which is
+just a signal handler for the `alarm' signal, except that
+you can easily replace it, using `replace_alarm_handler'.
+
+Another way to replace the alarm handler is to pass a block
+to the `start' method or to the `restart' method, which will
+just cause `replace_alarm_handler' to be called first.
+
+There are a number of short forms for creating a timer and
+setting its alarm handler.  The following statements are
+pairwise equivalent:
+
+   sporadic_timer = EventLoop.after(3.seconds) do ... end
+   sporadic_timer = 3.seconds.from_now { ... }
+
+   periodic_timer = EventLoop.every(3.seconds) do ... end
+   periodic_timer = 3.seconds.from_now_and_repeat { ... }
+
+   sporadic_timer = other_loop.after(3.seconds) do ... end
+   EventLoop.with_current(other_loop) do
+     sporadic_timer = 3.seconds.from_now { ... } end
+
+   periodic_timer = other_loop.every(3.seconds) do ... end
+   EventLoop.with_current(other_loop) do
+     periodic_timer = 3.seconds.from_now_and_repeat { ... } end
+
+   idle_function_timer = EventLoop.every(0) { ... }
+   idle_function_timer = EventLoop.repeat { ... }
+
+   one_shot_idle_function_timer = EventLoop.after(0) { ... }
+   one_shot_idle_function_timer = EventLoop.later { ... }
+
+All of the above forms automatically start the timer.
+
+When a timer is started, the event loop associated with the
+timer is notified and its timeout value updated accordingly.
+(Unlike `Watchable#monitor_event', the `Timer#start' method
+does not depend on the value of `EventLoop.current'.)
+
+By passing `:event_loop => foo' to the timer constructor,
+you can specify which event loop the timer should use;
+otherwise, the "current event loop" (`EventLoop.current')
+will be used as a default.
+
+You can ask a timer for the amount of time left by invoking
+its `time_left' method.  When called from an alarm handler,
+it will typically return a negative value, representing the
+amount of time passed since the alarm was supposed to sound.
+
+However, if you specify `:tolerance => 0.1' when creating
+the timer, you are saying it's okay for the alarm to sound
+one-tenth of a second too early.  In that case, `time_left'
+can return a positive value even when called from within an
+alarm handler, indicating the alarm sounded too early.
+
+The next section explains why you should set the tolerance
+higher than zero (it is currently 0.001 by default).
+
+
+Timer Tolerances
+................
+
+It is useful for timers to have some amount of tolerance
+because the timeout specified to `select' is an upper bound.
+This means that the process will usually wake up slightly
+earlier than expected.  For example, if you start a timer
+set for two seconds and then enter an event loop iteration,
+the call to `select' is likely to return in 1.99 seconds.
+
+If your timer's tolerance is set to zero, that means that
+the alarm must not be sounded yet, and the event loop is
+forced to perform an extra iteration with a 0.01 timeout.
+If, on the other hand, the tolerance of the timer is set to
+at least 0.01 seconds, then that means it's okay for the
+alarm to sound slightly too early; in this case, the need
+for an extra iteration can be avoided.
+
+Currently, the error made by a tolerant timer during one
+iteration is not compensated for during the next iteration.
+Combined with the fact that a tolerant timer will usually
+sound too early rather than too late (because the kernel
+tries hard not to wake the process too late), this means
+that the more tolerant your timer is, the more frequently it
+will sound.  In other words, the error accumulates.
+
+This should not be a problem in most cases, simply because
+of the fact that people do not in most cases use Ruby for
+applications that need this kind of precision (the default
+timer tolerance is one millisecond).  However, if you would
+like to see this problem addressed, please contact me.
+
+
+Running the Event Loop
+----------------------
+
+To run the current event loop, just call `EventLoop.run'.
+That'll block until an event handler says `EventLoop.quit'.
+
+One typical event loop application looks like this:
+
+  ...
+  @socket.on_writable { ... }
+  @socket.on_readable do
+    ...
+    if something_or_other
+      EventLoop.quit
+    end
+  end
+  ...
+  @timer.start
+  ...
+  EventLoop.run
+
+While the event loop is running, everything that the
+application does takes place in event handlers.
+
+If you want more control, you can run a single iteration of
+the event loop by calling `EventLoop.iterate', which takes
+an optional argument specifying (in seconds) the upper bound
+on the amount of time to block.  The default value (`nil')
+means infinity; it causes the upper bound to be the amount
+of time left before the next timer is due.  If you're not
+using timers, `EventLoop.iterate' without an argument blocks
+until the first interesting IO event occurs.
+
+That should be all you need to know to use this event loop.
+If it turns out not to be, please bug me on IRC (as I said,
+I'm `dbrock' on Freenode) or send me an e-mail.  The source
+shouldn't be particularly hard to understand either.
+
+Thanks for your interest, and happy hacking!
+
+                        --- Daniel Brockman
+
+
+## Local Variables:
+## coding: utf-8
+## time-stamp-format: "%:b %:d, %:y"
+## time-stamp-start: "Updated: "
+## time-stamp-end: "$"
+## End:

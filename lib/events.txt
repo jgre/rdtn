@@ -1,0 +1,14 @@
+Symbol			Parameters
+------			----------
+
+:linkCreated		Link
+:linkClosed		Link
+:bundleData		Queue, finished, convergence layer
+				        # When the bundle is received in
+					# multiple parts (i.e. this event is
+					# sent multiple times) the same Queue
+					# object MUST be used.
+:bundleParsed		Bundle
+
+
+

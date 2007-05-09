@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# -*-ruby-*-
+
+$:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
+
+require 'bundle'
+require 'tcpcl'
+require 'rdtnlog'
+
+
+log=RdtnLogger.instance()
+log.level=Logger::DEBUG
+RDTNConfig.instance.local_eid = "dtn://dtnrcv"
+
+log.debug("Starting dtnrcv")
+
+
+@interface=TCPCL::TCPInterface.new
+@payload = ""
+
+
+EventDispatcher.instance().subscribe(:bundleReady) do |queue|
+  puts "Received bundle: #{queue}"
+  @payload << queue
+end
+
+EventDispatcher.instance().subscribe(:linkCreated) do |link|
+  puts "New link created: #{link.class.name}"
+end
+
+EventDispatcher.instance().subscribe(:linkClosed) do |link|
+  puts "Link closed: #{link.class.name}"
+end
+
+
+while(true) do                  # not quite right, but it works for now
+  begin
+    EventLoop.run()
+    
+  rescue SystemCallError
+    retry
+  end
+end
+
+
+

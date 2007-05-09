@@ -1,0 +1,161 @@
+#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Dirk Kutscher <dku@tzi.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
+
+require 'rdtnlog'
+require 'cl'
+require 'routetab'
+
+
+class RDTNConf
+  
+  :debug
+  :info
+  :error
+  :warn
+  :fatal
+
+  
+  :add
+
+  :tcp
+  :client
+
+  :ondemand
+  :alwayson
+
+
+  def self.load(filename)
+    conf = new
+    conf.instance_eval(File.read(filename), filename)
+    conf.loglevel(:debug)
+    conf
+  end
+
+  def loglevel(level)
+    @lg=RdtnLogger.instance()    
+    
+    lv={
+      :debug => Logger::DEBUG,
+      :info  => Logger::INFO,
+      :error => Logger::ERROR,
+      :warn  => Logger::WARN,
+      :fatal => Logger::FATAL
+    }
+
+    @lg.level=lv[level] || Logger::UNKOWN
+
+  end
+
+  def log(level, msg)
+    case level
+    when :debug: @lg.debug(msg)
+    when :info: @lg.info(msg)
+    when :warn: @lg.warn(msg)
+    when :error: @lg.error(msg)
+    when :fatal: @lg.fatal(msg)
+    else @lg.info(msg)
+    end
+  end
+  
+  def interface(action, cl, name, options="")
+    case action
+    when :add: addIf(cl, name, options)
+    when :remove: rmIf(cl, name, options)
+    else raise "syntax error: interface #{action}"
+    end
+  end
+  
+  def link(action, name, nexthop, type, cl)
+    case action
+    when :add: addLink(cl, name, "-n #{nexthop} -t #{type}")
+    when :remove: rmLink(cl, name, options)
+    else raise "syntax error: link #{action}"
+    end
+  end
+
+
+def route(action, dest, link)
+    case action
+    when :add: addRoute(dest, link)
+    when :remove: rmRoute(dest, link)
+    else raise "syntax error: link #{action}"
+    end
+end
+  
+  private
+  
+  def addIf(cl, name, options)
+    log(:debug, "adding interface #{name} for CL #{cl} with options: '#{options}'")
+    
+    clreg = CLReg.instance()
+    
+    ifClass = clreg.cl[cl]
+
+    if (ifClass)
+      interface = ifClass[0].new(name, options)
+    else
+      log(:error, "no such convergence layer: #{cl}")
+    end
+
+  end
+
+
+  def addLink(cl, name, options)
+    log(:debug, "adding link #{name} for CL #{cl} with options: '#{options}'")
+    
+    clreg = CLReg.instance()
+    
+    ifClass = clreg.cl[cl]
+
+    if (ifClass)
+      link = ifClass[1].new()
+      link.open(name, options)
+    else
+      log(:error, "no such convergence layer: #{cl}")
+    end
+
+  end
+
+
+  def addRoute(dest, link)
+    log(:debug, "adding route to #{dest} over link #{link}")
+    
+    RoutingTable.instance().addEntry(dest,link)
+
+  end
+
+
+  
+
+end # class RDTNConf
+  
+
+#require 'tcpcl'
+#require 'clientregcl'
+
+#conf = RDTNConf.load("rdtn.conf")
+
+
+
+
+
+
+
+
+
