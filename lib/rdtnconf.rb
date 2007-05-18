@@ -73,7 +73,24 @@ class RDTNConf
     end
   end
   
-  def interface(action, cl, name, options="")
+
+  def self.hash_to_optString(hash={})
+    options = []
+    hash.each do |k, v|
+      case k
+      when :port: options << "-p #{v}" #TODO test 0 < int(v) < 65536
+      when :host: options << "-h #{v}" #TODO no blanks in string v
+      else
+	raise ArgumentError, "Unknown hash key: #{k}."
+      end
+    end
+    return options.join(" ")
+  end
+ 
+
+  def interface(action, cl, name, optionHash={})
+    options = RDTNConf::hash_to_optString(optionHash)
+    
     case action
     when :add: addIf(cl, name, options)
     when :remove: rmIf(cl, name, options)
