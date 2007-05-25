@@ -147,22 +147,37 @@ module Bundling
     def to_s
       data = ""
       data << @version # For now we implement only version 4 like DTN2
-      data << @procFlags
-      data << @cosFlags
-      data << @srrFlags
       pbb = ""
       dict = buildDict()
-      pbb << [@destSchemeOff].pack('n')
-      pbb << [@destSspOff].pack('n')
-      pbb << [@srcSchemeOff].pack('n')
-      pbb << [@srcSspOff].pack('n')
-      pbb << [@repToSchemeOff].pack('n')
-      pbb << [@repToSspOff].pack('n')
-      pbb << [@custSchemeOff].pack('n')
-      pbb << [@custSspOff].pack('n')
-      pbb << [@creationTimestamp].pack('N')
-      pbb << [@creationTimestampSeq].pack('N')
-      pbb << [@lifetime].pack('N')
+      if @version == 4
+	data << @procFlags
+	data << @cosFlags
+	data << @srrFlags
+	pbb << [@destSchemeOff].pack('n')
+	pbb << [@destSspOff].pack('n')
+	pbb << [@srcSchemeOff].pack('n')
+	pbb << [@srcSspOff].pack('n')
+	pbb << [@repToSchemeOff].pack('n')
+	pbb << [@repToSspOff].pack('n')
+	pbb << [@custSchemeOff].pack('n')
+	pbb << [@custSspOff].pack('n')
+	pbb << [@creationTimestamp].pack('N')
+	pbb << [@creationTimestampSeq].pack('N')
+	pbb << [@lifetime].pack('N')
+      elsif @version == 5
+	data << Sdnv.encode(@procFlags)
+	pbb << Sdnv.encode(@destSchemeOff)
+	pbb << Sdnv.encode(@destSspOff)
+	pbb << Sdnv.encode(@srcSchemeOff)
+	pbb << Sdnv.encode(@srcSspOff)
+	pbb << Sdnv.encode(@repToSchemeOff)
+	pbb << Sdnv.encode(@repToSspOff)
+	pbb << Sdnv.encode(@custSchemeOff)
+	pbb << Sdnv.encode(@custSspOff)
+	pbb << Sdnv.encode(@creationTimestamp)
+	pbb << Sdnv.encode(@creationTimestampSeq)
+	pbb << Sdnv.encode(@lifetime)
+      end
       pbb << Sdnv.encode(dict.length)
       pbb << dict
 
@@ -236,9 +251,14 @@ module Bundling
 		 :handler => :cosFlags=)
 	defField(:srrFlags, :length => 1, :decode => GenParser::NumDecoder,
 		 :handler => :srrFlags=)
-	defField(:blockLength, :decode => GenParser::SdnvDecoder,
-		 :object => @bundle,
-		 :handler => :blockLength=)
+      elsif version == 5
+	defField(:procFlags, :decode => GenParser::SdnvDecoder, 
+		 :handler => :procFlags=)
+      end
+      defField(:blockLength, :decode => GenParser::SdnvDecoder,
+	       :object => @bundle,
+	       :handler => :blockLength=)
+      if version == 4
 	defField(:destSchemeOff, :length => 2, :decode => GenParser::NumDecoder,
 		 :object => @bundle,
 		 :handler => :destSchemeOff=)
@@ -274,21 +294,56 @@ module Bundling
 	defField(:lifetime, :length => 4, :decode => GenParser::NumDecoder,
 		 :object => @bundle,
 		 :handler => :lifetime=)
-	defField(:dictLength, :decode => GenParser::SdnvDecoder,
+      elsif version == 5
+	defField(:destSchemeOff, :decode => GenParser::SdnvDecoder,
 		 :object => @bundle,
-		 :handler => :dictLength=,
-		 :block => lambda {|len| defField(:dict, :length => len)})
-	defField(:dict, :handler => :dict=)
-	# These fields are only enabled (ignore => false) when the
-	# corresponding flags are set
-	defField(:fragmentOff, :ignore => true, :handler => :fragmentOff=,
-		 :decode => GenParser::SdnvDecoder,
-		 :object => @bundle)
-	defField(:totalADUlen, :ignore => true, :handler => :totalADULen=,
-		 :decode => GenParser::SdnvDecoder,
-		 :object => @bundle)
-	#TODO: fields for version 5
+		 :handler => :destSchemeOff=)
+	defField(:destSspOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :destSspOff=)
+	defField(:srcSchemeOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :srcSchemeOff=)
+	defField(:srcSspOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :srcSspOff=)
+	defField(:repToSchemeOff,:decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :repToSchemeOff=)
+	defField(:repToSspOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :repToSspOff=)
+	defField(:custSchemeOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :custSchemeOff=)
+	defField(:custSspOff, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :custSspOff=)
+	defField(:creationTimestamp, 
+		 :object => @bundle,
+		 :decode => GenParser::SdnvDecoder, 
+		 :handler => :creationTimestamp=)
+	defField(:creationTimestampSeq, 
+		 :object => @bundle,
+		 :decode => GenParser::SdnvDecoder, 
+		 :handler => :creationTimestampSeq=)
+	defField(:lifetime, :decode => GenParser::SdnvDecoder,
+		 :object => @bundle,
+		 :handler => :lifetime=)
       end
+      defField(:dictLength, :decode => GenParser::SdnvDecoder,
+	       :object => @bundle,
+	       :handler => :dictLength=,
+	       :block => lambda {|len| defField(:dict, :length => len)})
+      defField(:dict, :handler => :dict=)
+      # These fields are only enabled (ignore => false) when the
+      # corresponding flags are set
+      defField(:fragmentOff, :ignore => true, :handler => :fragmentOff=,
+	       :decode => GenParser::SdnvDecoder,
+	       :object => @bundle)
+      defField(:totalADUlen, :ignore => true, :handler => :totalADULen=,
+	       :decode => GenParser::SdnvDecoder,
+		 :object => @bundle)
     end
 
     def procFlags=(flags)
