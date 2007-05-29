@@ -32,7 +32,7 @@ class RoutingTable
       # TODO see if we can send stored bundles over this link.
     end
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-      links = self.match(bundle.destEid)
+      links = self.match(bundle.destEid.to_s)
       # TODO policy to decide, if we forward over multiple links or just over
       # one.
       self.forward(bundle, links)
@@ -70,7 +70,7 @@ class RoutingTable
   def forward(bundle, links)
     links.each do |link|
       link.sendBundle(bundle)
-      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.dest_eid}) to #{link.remote_eid.")
+      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) to #{link.remoteEid}.")
       EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
     end
     return nil
