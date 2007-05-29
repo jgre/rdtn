@@ -29,6 +29,13 @@ class RoutingTable
 
     EventDispatcher.instance().subscribe(:contactEstablished) do |*args|
       self.contactEstablished(*args)
+      # TODO see if we can send stored bundles over this link.
+    end
+    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+      links = self.match(bundle.destEid)
+      # TODO policy to decide, if we forward over multiple links or just over
+      # one.
+      self.forward(bundle, links)
     end
   end
 
@@ -58,5 +65,15 @@ class RoutingTable
     return res
   end
 
+  # Forward a bundle. Takes a bundle and a list of links. Returns nil.
+ 
+  def forward(bundle, links)
+    links.each do |link|
+      link.sendBundle(bundle)
+      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.dest_eid}) to #{link.remote_eid.")
+      EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
+    end
+    return nil
+  end
   
 end

@@ -9,6 +9,6 @@ Symbol			Parameters
 					# sent multiple times) the same Queue
 					# object MUST be used.
 :bundleParsed		Bundle
-
+:bundleForwarded	Bundle, Link
 
 

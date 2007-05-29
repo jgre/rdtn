@@ -20,7 +20,6 @@ TCP CL:
 Bundle parser:
   * Fragmentation (v0.2)
   * Flags (jgre)
-  * Protocol version 6 (jgre)
   * Custody handling
   * Administrative records
   * Extension bundle blocks
@@ -51,7 +50,7 @@ Config file (xi)
 * Block-passing in generic parser (jgre)
 
 
-Service-Location (0.2++)
+Service-Location (0.1)
   * Bonjour?
   * Avahi?
   * DDA?
