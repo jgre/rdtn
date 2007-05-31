@@ -69,8 +69,16 @@ class RoutingTable
  
   def forward(bundle, links)
     links.each do |link|
+      if not link.kind_of?(Link)
+	link = ContactManager.instance.findLink do |lnk| 
+	  lnk.name and lnk.name == link
+	end
+	if not link.kind_of?(Link)
+	  next
+	end
+      end
       link.sendBundle(bundle)
-      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) to #{link.remoteEid}.")
+      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) to #{link.remoteEid} over #{link.name}.")
       EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
     end
     return nil

@@ -23,6 +23,8 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'optparse'
 require 'bundle'
 require 'tcpcl'
+require 'udpcl'
+require 'flutecl'
 require 'rdtnlog'
 require 'contactmgr'
 require 'storage'
@@ -48,8 +50,8 @@ opts.parse!(ARGV)
 
 
 
-#cmgr = ContactManager.new
-#router = Router.new(cmgr)
+cmgr = ContactManager.instance
+router = RoutingTable.instance
 store = Storage.new
 conf = RDTNConf.load(configFileName)
 

@@ -20,6 +20,7 @@
 require "rdtnevent"
 require "cl"
 require "eidscheme"
+require "singleton"
 
 class ContactManager
   def initialize
@@ -38,8 +39,10 @@ class ContactManager
     end
   end
 
+  include Singleton
+
   def linkCreated(link)
-    RdtnLogger.instance.debug("Link created #{link.object_id}")
+    RdtnLogger.instance.debug("Link created #{link.name}")
     @links << link
   end
 

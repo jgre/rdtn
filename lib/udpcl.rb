@@ -47,6 +47,7 @@ module UDPCL
     end
 
     def open(name, options)
+      self.name = name
       port = UDPCLPORT 
       host = nil 
 
@@ -88,6 +89,7 @@ module UDPCL
   class UDPInterface < Interface
 
     def initialize(name, options)
+      self.name = name
       host = nil
       port = UDPCLPORT
 

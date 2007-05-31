@@ -112,7 +112,7 @@ module Bundling
 		  custodianEid=nil)
       @bundleId=@@bundleCount+=1
       @payload = payload
-      @version = 4
+      @version = 5
       @procFlags = 0
       @cosFlags = 0
       @srrFlags = 0
@@ -146,7 +146,7 @@ module Bundling
 
     def to_s
       data = ""
-      data << @version # For now we implement only version 4 like DTN2
+      data << @version
       pbb = ""
       dict = buildDict()
       if @version == 4
@@ -194,10 +194,11 @@ module Bundling
     end
 
     def marshal_load(bundleStr)     
-      bundle = Bundle.new
+      @bundleId=@@bundleCount+=1
+      @state = PrimaryBundleBlock.new(self)
       io=StringIO.new(bundleStr)
-      bundle.parse(io)
-      return bundle
+      self.parse(io)
+      return self
     end
 
     def marshal_dump
@@ -236,6 +237,8 @@ module Bundling
 
   class State
 
+    attr_accessor :bundle
+
     def initialize(bundle)
       @bundle = bundle
     end
@@ -255,6 +258,7 @@ module Bundling
     end
 
     def defineFields(version)
+      @bundle.version = version
       if version == 4
 	defField(:procFlags, :length => 1, :decode => GenParser::NumDecoder,
 		 :handler => :procFlags=)
@@ -451,7 +455,7 @@ module Bundling
 	defField(:procFlags, :decode => GenParser::SdnvDecoder,
 		 :handler => :procFlags=)
       end
-      defField(:blockLength, :decode => GenParser::SdnvDecoder,
+      defField(:plblockLength, :decode => GenParser::SdnvDecoder,
 	       :object => @bundle, :handler => :payloadLength=,
 	       :block => lambda {|len| defField(:payload, :length => len)})
       defField(:payload, :handler => :payload=, :object => @bundle)

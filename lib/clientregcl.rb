@@ -44,15 +44,21 @@ module AppIF
     end
 
     def getObj(data, type)
+      p data
       input=StringIO.new(data)
       obj=Marshal.load(input)
+      p obj
       begin
         if obj.class!=type
           raise ProtocolError, "invalid paramter"
         end
       end
       bytesRead=input.pos()
-      @@log.debug("AppIF::getObj -- read #{bytesRead} bytes")
+      @@log.debug("AppIF::getObj -- read #{bytesRead} bytes of class #{obj.class}")
+      if obj.class == Bundling::Bundle
+	#@@log.debug("AppIF::getObj -- eid #{obj}")
+      end
+	
       data.consume!(bytesRead)
       return obj
     end
@@ -145,6 +151,7 @@ module AppIF
       obj=getObj(data,Bundling::Bundle)
       
       # call send...
+      RdtnLogger.instance.debug("Sending bundle from ClientCL to #{obj.destEid}")
       EventDispatcher.instance().dispatch(:bundleParsed, obj)
       return ConnectedState.new(@appProxy), false
     end

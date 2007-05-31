@@ -367,6 +367,7 @@ module TCPCL
     def open(name, options)
       @@log.debug("TCPLINK::open -- opening socket #{@s}")
       
+      self.name = name
       port = 0
       host = ""
       
@@ -587,6 +588,7 @@ module TCPCL
 
     def initialize(name, options)
       
+      self.name = name
       host = "localhost"
       port = TCPCLPORT          # default port
      

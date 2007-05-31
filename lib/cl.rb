@@ -29,7 +29,7 @@ end
 # Interface class for incoming connections
 # Interface objects can generate new Links
 class Interface
-
+  attr_accessor :name
 end
 
 
@@ -42,6 +42,7 @@ class Link
   MIN_READ_BUFFER=1024
 
   attr_reader :bytesToRead
+  attr_accessor :name
 
   def initialize
     EventDispatcher.instance().dispatch(:linkCreated, self)

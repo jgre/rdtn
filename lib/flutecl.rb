@@ -46,6 +46,7 @@ module FluteCL
     end
 
     def open(name, options)
+      self.name = name
       @ppgDir = File.expand_path("papageno_outgoing") # default directory
 
       if options.has_key?(:directory)
@@ -105,6 +106,7 @@ module FluteCL
   class FluteInterface < Interface
 
     def initialize(name, options)
+      self.name = name
       @ppgDir = File.expand_path("papageno_incoming") # default directory
       @pollInterval = 10 # seconds
 
