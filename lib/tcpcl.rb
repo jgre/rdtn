@@ -20,7 +20,7 @@
 # TCP convergence layer
 
 require "socket"
-require "optparse"
+#require "optparse"
 require "event-loop"
 
 require "rdtnlog"
@@ -370,19 +370,15 @@ module TCPCL
       port = 0
       host = ""
       
-      opts = OptionParser.new do |opts|
-        
-        opts.on("-n", "--nexthop NAME", "next hop") do |n|
-          nexthop = n
-          host,port=nexthop.split(':')
-        end
-        
-        opts.on("-t", "--type TYPE", "ONDEMAND|ALWAYSON") do |t|
-          type = t
-        end        
+      if options.has_key?(:host)
+	host = options[:host]
       end
-      
-      opts.parse!(options.split)
+      if options.has_key?(:port)
+	port = options[:port]
+      end
+      if options.has_key?(:type)
+	type = options[:type]
+      end
       
       if(socketOK?())
 	close
@@ -596,18 +592,13 @@ module TCPCL
      
       @links = []      
 
-      opts = OptionParser.new do |opts|
-        opts.on("-p", "--port NUMBER", "TCP port number") do |p|
-          port = p
-        end
-        
-        opts.on("-h", "--host NAME", "local interface address or name") do |h|
-          host = h
-        end      
+      if options.has_key?(:host)
+	host = options[:host]
       end
-      
-      opts.parse!(options.split)
-      
+      if options.has_key?(:port)
+	port = options[:port]
+      end
+
       @@log.debug("Building TCP interface with port=#{port} and hostname=#{host}")
       
       @s = TCPServer.new(host,port)

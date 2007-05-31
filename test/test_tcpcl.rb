@@ -37,9 +37,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     log.debug("starting contact exchange")
     
-    @interface=TCPCL::TCPInterface.new("tcp0", "-h localhost -p 3456")
+    @interface=TCPCL::TCPInterface.new("tcp0", :host=> "localhost", :port => 3456)
     @link=TCPCL::TCPLink.new
-    @link.open("link1", "-n localhost:3456")
+    @link.open("link1", :host => "localhost", :port => 3456)
 
     2.seconds.from_now { EventLoop.quit()}
     
@@ -62,9 +62,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
       outBundle += queue.read
       log.debug("Received bundle1: #{outBundle}")
     end
-    interface=TCPCL::TCPInterface.new("tcp0", "-h localhost -p 3456")
+    interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
     link=TCPCL::TCPLink.new
-    link.open("link1", "-n localhost:3456")
+    link.open("link1", :host => "localhost", :port => 3456)
 
     1.seconds.from_now { link.sendBundle(inBundle) }
     3.seconds.from_now { EventLoop.quit()}
@@ -100,12 +100,12 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
        log.debug("Received bundle2: #{outBundle}")
     end
     
-    interface=TCPCL::TCPInterface.new("tcp0", "-h localhost -p 3456")
+    interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
     link=TCPCL::TCPLink.new
     
     link.options[:acks] = false
     
-    link.open("link1", "-n localhost:3456")
+    link.open("link1", :host => "localhost", :port => 3456)
     
     1.seconds.from_now { link.sendBundle(inBundle) }
     3.seconds.from_now { EventLoop.quit()}
@@ -133,7 +133,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     log.debug("starting contact exchange")
     
-    @interface=TCPCL::TCPInterface.new("tcp0", "-h localhost -p 3456")
+    @interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
     s = TCPSocket.new("localhost", 3456)
 
     i = 1

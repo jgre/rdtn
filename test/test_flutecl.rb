@@ -64,7 +64,8 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   end
 
   def test_receiver
-    fluteIF = FluteCL::FluteInterface.new("flute0", "-d #{@@inDirname} -i 1")
+    fluteIF = FluteCL::FluteInterface.new("flute0", :directory => @@inDirname,
+					  :interval => 1)
 
     counter = 0
     EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|

@@ -88,8 +88,8 @@ class RDTNConf
   end
  
 
-  def interface(action, cl, name, optionHash={})
-    options = RDTNConf::hash_to_optString(optionHash)
+  def interface(action, cl, name, options={})
+    #options = RDTNConf::hash_to_optString(optionHash)
     
     case action
     when :add: addIf(cl, name, options)
@@ -98,9 +98,9 @@ class RDTNConf
     end
   end
   
-  def link(action, name, nexthop, type, cl)
+  def link(action, cl, name, options)
     case action
-    when :add: addLink(cl, name, "-n #{nexthop} -t #{type}")
+    when :add: addLink(cl, name, options)
     when :remove: rmLink(cl, name, options)
     else raise "syntax error: link #{action}"
     end

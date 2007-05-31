@@ -19,7 +19,7 @@
 
 # FLUTE convergence layer
 
-require "optparse"
+#require "optparse"
 require "event-loop"
 
 require "rdtnlog"
@@ -42,29 +42,18 @@ module FluteCL
 
     def initialize(papagenoDir="papageno_outgoing")
       super()
-      self.open("flute#{self.object_id}", "-d #{papagenoDir}")
+      self.open("flute#{self.object_id}", :directory => papagenoDir)
     end
 
     def open(name, options)
       @ppgDir = File.expand_path("papageno_outgoing") # default directory
 
-      opts = OptionParser.new do |opts|
-	opts.on("-d", "--directory DIR", "Papageno outgoing directory") do |dir|
-	  @ppgDir = File.expand_path(dir)
-	end
-	opts.on("-s", "--flute-send EXECUTABLE", "Path to the flute-send executable") do |exec|
-	  @ppgProg = File.expand_path(exec)
-	end
-	#opts.on("-a", "--address ADDR", "Address for channel 0") do |addr| 
-	#  @ppgAddr = addr
-        #end
-	#opts.on("-p", "--port PORT", "Port for channel 0") do |port| 
-	#  @ppgPort = port
-        #end
-
+      if options.has_key?(:directory)
+	@ppgDir = File.expand_path(options[:directory])
       end
-
-      opts.parse!(options.split)
+      if options.has_key?(:fluteSend)
+	@ppgProg = options[:fluteSend]
+      end
 
       RdtnLogger.instance.debug("Flute link writes data for Papageno to #{@ppgDir}")
 
@@ -119,20 +108,15 @@ module FluteCL
       @ppgDir = File.expand_path("papageno_incoming") # default directory
       @pollInterval = 10 # seconds
 
-      opts = OptionParser.new do |opts|
-	opts.on("-d", "--directory DIR", "Papageno incoming directory") do |dir|
-	  @ppgDir = File.expand_path(dir)
-	end
-
-	opts.on("-i", "--interval INT", "Poll interval in seconds") do |inter|
-	  @pollInterval = inter.to_i
-	end
-	opts.on("-s", "--flute-send EXECUTABLE", "Path to the flute-send executable") do |exec|
-	  @ppgProg = File.expand_path(exec)
-	end
+      if options.has_key?(:directory)
+	@ppgDir = File.expand_path(options[:directory])
       end
-
-      opts.parse!(options.split)
+      if options.has_key?(:fluteSend)
+	@ppgProg = options[:fluteSend]
+      end
+      if options.has_key?(:interval)
+	@pollInterval = options[:interval]
+      end
 
       RdtnLogger.instance.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
 
