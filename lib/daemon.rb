@@ -33,7 +33,7 @@ require "router"
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
 RDTNConfig.instance.localEid = "dtn://bla.fasel"
-Bundling::initializeBundleLayer
+bl = Bundling::BundleLayer.new
 
 
 configFileName="rdtn.conf"
