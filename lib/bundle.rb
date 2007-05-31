@@ -193,6 +193,17 @@ module Bundling
       return data
     end
 
+    def marshal_load(bundleStr)     
+      bundle = Bundle.new
+      io=StringIO.new(bundleStr)
+      bundle.parse(io)
+      return bundle
+    end
+
+    def marshal_dump
+      return self.to_s
+    end
+
     private
     def buildDict
       eids = [[:destEid, :destSchemeOff=, :destSspOff=],
