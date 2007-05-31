@@ -28,7 +28,7 @@ require 'contactmgr'
 require 'storage'
 require 'clientregcl'
 require 'rdtnconf'
-require "router"
+#require "router"
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
@@ -48,8 +48,8 @@ opts.parse!(ARGV)
 
 
 
-cmgr = ContactManager.new
-router = Router.new(cmgr)
+#cmgr = ContactManager.new
+#router = Router.new(cmgr)
 store = Storage.new
 conf = RDTNConf.load(configFileName)
 
