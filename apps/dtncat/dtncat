@@ -18,7 +18,7 @@ require 'rdtnlog'
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-RDTNConfig.instance.local_eid = "dtn://dtncat"
+RDTNConfig.instance.localEid = EID.new("dtn://dtncat")
 dest=""
 
 opts = OptionParser.new do |opts|
@@ -26,7 +26,7 @@ opts = OptionParser.new do |opts|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RDTNConfig.instance.local_eid = "dtn://dtncat"
+    RDTNConfig.instance.localEid = EID.new("dtn://dtncat")
   end
 end
 
@@ -38,7 +38,7 @@ log.debug("Starting dtncat")
 
 payload=$stdin.sysread(256) # FIXME
 
-ri = RegInfo.new(RDTNConfig.instance.local_eid)
+ri = RegInfo.new(RDTNConfig.instance.localEid)
 c=RdtnClient.new
 
 EventLoop.later do
@@ -46,7 +46,7 @@ EventLoop.later do
   c.open("localhost",7777)
   c.register(ri)
   b = Bundling::Bundle.new(payload)
-  b.dest_eid = dest
+  b.destEid = EID.new(dest)
   log.debug("sending bundle")
   c.sendBundle(b)
 end
