@@ -267,17 +267,12 @@ module AppIF
       host = "localhost"
       port = RDTNAPPIFPORT
 
-      opts = OptionParser.new do |opts|
-        opts.on("-p", "--port NUMBER", "TCP port number") do |p|
-          port = p
-        end
-
-        opts.on("-h", "--host NAME", "local interface address or name") do |h|
-          host = h
-        end
+      if options.has_key?(:host)
+	host = options[:host]
       end
-      
-      opts.parse!(options.split)
+      if options.has_key?(:port)
+	port = options[:port]
+      end
 
       @@log.debug("Building client interface with port=#{port} and hostname=#{host}")
 
