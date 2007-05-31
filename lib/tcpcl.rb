@@ -638,4 +638,3 @@ end # module TCPCL
       
      
 regCL(:tcp, TCPCL::TCPInterface, TCPCL::TCPLink)
-      
