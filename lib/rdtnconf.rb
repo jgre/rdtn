@@ -89,6 +89,7 @@ class RDTNConf
  
 
   def interface(action, cl, name, options={})
+    puts "IF func: #{action}, #{name}"
     #options = RDTNConf::hash_to_optString(optionHash)
     
     case action
@@ -106,11 +107,13 @@ class RDTNConf
     end
   end
 
-  def storageDir=(dir)
+  def storageDir(dir)
+    puts "StorageDir = #{dir}"
     RDTNConfig.instance.storageDir = dir
   end
 
-  def localEid=(eid)
+  def localEid(eid)
+    puts "LocalEid = #{eid}"
     RDTNConfig.instance.localEid = eid
   end
 

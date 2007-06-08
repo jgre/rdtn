@@ -10,7 +10,7 @@ require 'rdtnlog'
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-RDTNConfig.instance.local_eid = "dtn://dtnrcv"
+RDTNConfig.instance.localEid = "dtn://dtnrcv"
 
 log.debug("Starting dtnrcv")
 

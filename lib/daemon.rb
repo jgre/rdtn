@@ -34,7 +34,7 @@ require 'rdtnconf'
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-RDTNConfig.instance.localEid = "dtn://bla.fasel"
+#RDTNConfig.instance.localEid = "dtn://bla.fasel"
 bl = Bundling::BundleLayer.new
 
 
