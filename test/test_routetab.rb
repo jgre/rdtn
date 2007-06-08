@@ -40,6 +40,11 @@ class TestRoutetab < Test::Unit::TestCase
     @link1.remoteEid = "dtn:oink"
     @link2 = DummyLink.new
     @link2.remoteEid = "dtn:grunt"
+    RDTNConfig.instance.storageDir = "store"
+  end
+
+  def teardown
+    File.delete(RDTNConfig.instance.storageDir)
   end
 
   def test_forward
@@ -55,7 +60,6 @@ class TestRoutetab < Test::Unit::TestCase
 
   def test_delayed_forward
 
-    RDTNConfig.instance.storageDir = "store"
     # Initialize routing table
     store = Storage.instance
     router = RoutingTable.instance

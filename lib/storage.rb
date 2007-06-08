@@ -127,8 +127,6 @@ class Storage
   def getBundlesMatchingDest(destEid)
     blist=getBundlesMatching() do |bundleInfo|
       r=Regexp.new(destEid.to_s)
-      #puts bundleInfo.destEid.to_s =~ r
-      #puts bundleInfo.destEid, destEid
       r =~ bundleInfo.destEid.to_s
     end
     
