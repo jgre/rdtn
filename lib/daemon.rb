@@ -50,9 +50,10 @@ opts.parse!(ARGV)
 
 
 
+# Initialize Contact manager and routing table
 cmgr = ContactManager.instance
 router = RoutingTable.instance
-store = Storage.new
+store = Storage.instance
 conf = RDTNConf.load(configFileName)
 
 log.debug("Starting DTN daemon main loop")

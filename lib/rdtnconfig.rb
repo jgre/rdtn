@@ -22,5 +22,5 @@ require 'singleton'
 class RDTNConfig
   include Singleton
 
-  attr :localEid, true
+  attr_accessor :localEid, :storageDir
 end

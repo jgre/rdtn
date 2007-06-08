@@ -106,6 +106,13 @@ class RDTNConf
     end
   end
 
+  def storageDir=(dir)
+    RDTNConfig.instance.storageDir = dir
+  end
+
+  def localEid=(eid)
+    RDTNConfig.instance.localEid = eid
+  end
 
 def route(action, dest, link)
     case action
