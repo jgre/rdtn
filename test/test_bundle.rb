@@ -104,5 +104,21 @@ class TestBundle < Test::Unit::TestCase
     assert(eventSent, "The ':bundleParsed' event was not received.")
   end
 
+  def test_fragmentation
+    data = open(__FILE__) { |f| f.read }
+    sender = "dtn:test"
+    dest = "dtn:bubbler"
+    maxSize = 100
+    bundle = Bundling::Bundle.new(data, dest, sender)
+    fragments = bundle.fragmentMaxSize(maxSize)
+    assert(fragments.length > 1, "Expected more than one fragment")
+    fragments.each do |fragment|
+      assert(fragment.to_s.length <= maxSize, "Fragments must be smaller than #{maxSize} bytes")
+      assert_equal(dest, fragment.destEid.to_s)
+      assert_equal(sender, fragment.srcEid.to_s)
+    end
+    assembled = Bundling::Bundle.reassembleArray(fragments.reverse)
+    assert_equal(bundle.to_s, assembled.to_s, "Reassembled bundle must equal the original")
+  end
 
 end

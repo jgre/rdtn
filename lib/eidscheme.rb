@@ -23,7 +23,7 @@ class EID
   attr_accessor :scheme, :ssp
 
   def initialize(str=nil)
-    if str
+    if str and str != ""
       str = str.to_s # Just in case str is actually an EID object
       if str =~ /([[:alnum:]]+):([[:print:]]+)/
 	@scheme = $1

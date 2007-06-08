@@ -99,7 +99,7 @@ module Bundling
       :creationTimestamp, :creationTimestampSeq, :lifetime, :dictLength,
       :destEid, :srcEid, :reportToEid, :custodianEid,
       :fragmentOffset, :aduLength,
-      :payloadFlags, :payloadLength, :payload,
+      :payloadFlags, :payload,
       :bytesToRead, :queue
 
     attr_reader :state, :bundleId
@@ -141,6 +141,204 @@ module Bundling
       @queue = io
       while not @queue.eof?
 	@state = @state.readData(@queue)
+      end
+    end
+
+    def fragment=(set)
+      @procFlags = set ? @procFlags | 0x1 : @procFlags & ~0x1
+    end
+    
+    def fragment?
+      (@procFlags & 0x1) == 1
+    end
+    
+    def administrative=(set)
+      @procFlags = set ? @procFlags | 0x2 : @procFlags & ~0x2
+    end
+    
+    def administrative?
+      (@procFlags & 0x2) == 1
+    end
+    
+    def dontFragment=(set)
+      @procFlags = set ? @procFlags | 0x4 : @procFlags & ~0x4
+    end
+    
+    def dontFragment?
+      (@procFlags & 0x4) == 1
+    end  
+    
+    def requestCustody=(set)
+      @procFlags = set ? @procFlags | 0x8 : @procFlags & ~0x8
+    end
+    
+    def requestCustody?
+      (@procFlags & 0x8) == 1
+    end  
+    
+    def destinationIsSingleton=(set)
+      @procFlags = set ? @procFlags | 0x10 : @procFlags & ~0x10
+    end
+    
+    def destinationIsSingleton?
+      (@procFlags & 0x10) == 1
+    end  
+    
+    def requestApplicationAcknowledgement=(set)
+      @procFlags = set ? @procFlags | 0x20 : @procFlags & ~0x20
+    end
+    
+    def requestApplicationAcknowledgement?
+      (@procFlags & 0x20) == 1
+    end  
+    
+    
+    # 00 :bulk, 
+    # 01 :normal, 
+    # 10 :expedited
+    # 11 :undefined - for future use
+    def priority
+      if version == 4  
+        return :undefined if (@cosFlags & 0x3) == 1 
+        return :expedited if (@cosFlags & 0x2) == 1  
+        return :normal    if (@cosFlags & 0x1) == 1 
+        return :bulk  
+      end   
+    end
+    
+    def priority=(priority)
+      if version == 4  
+        @cosFlags & ~0x3 # this sets :bulk
+        case priority
+        when :expedited: @cosFlags | 0x2  
+        when :normal:    @cosFlags | 0x1
+        end
+      end
+    end   
+    
+    
+    def receptionSrr=(set)
+      @srrFlags = set ? @srrFlags | 0x1 : @srrFlags & ~0x1
+    end
+    
+    def receptionSrr?
+      (@srrFlags & 0x1) == 1
+    end
+    
+    def custodyAcceptanceSrr=(set)
+      @srrFlags = set ? @srrFlags | 0x2 : @srrFlags & ~0x2
+    end
+    
+    def custodyAcceptanceSrr?
+      (@srrFlags & 0x2) == 1
+    end
+    
+    def forwardingSrr=(set)
+      @srrFlags = set ? @srrFlags | 0x4 : @srrFlags & ~0x4
+    end
+    
+    def forwardingSrr?
+      (@srrFlags & 0x4) == 1
+    end
+    
+    def deliverySrr=(set)
+      @srrFlags = set ? @srrFlags | 0x8 : @srrFlags & ~0x8
+    end
+    
+    def deliverySrr?
+      (@srrFlags & 0x8) == 1
+    end
+    
+    def deletetionSrr=(set)
+      @srrFlags = set ? @srrFlags | 0x10 : @srrFlags & ~0x10
+    end
+    
+    def deletionSrr?
+      (@srrFlags & 0x10) == 1
+    end
+    
+    
+    def replicateBlockForEveryFragment=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x1 : @payloadFlags & ~0x1
+      end
+    end
+    
+    def replicateBlockForEveryFragment?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x1 == 1 
+      end
+    end
+    
+    def transmitStatusIfBlockNotProcessed=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x2 : @payloadFlags & ~0x2
+      end
+    end
+    
+    def transmitStatusIfBlockNotProcessed?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x2 == 1 
+      end
+    end
+    
+    def discardBundleIfBlockNotProcessed=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x4 : @payloadFlags & ~0x4
+      end
+    end
+    
+    def discardBundleIfBlockNotProcessed?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x4 == 1 
+      end
+    end
+    
+    def lastBlock=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x8 : @payloadFlags & ~0x8
+      end
+    end
+    
+    def lastBlock?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x8 == 1 
+      end
+    end
+    
+    def discardBlockIfNotProcessed=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x10 : @payloadFlags & ~0x10
+      end
+    end
+    
+    def discardBlockIfNotProcessed?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x10 == 1 
+      end
+    end
+    
+    def forwardedBlockWithoutProcessing=(set, type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags = set ? @payloadFlags | 0x20 : @payloadFlags & ~0x20
+      end
+    end
+    
+    def forwardedBlockWithoutProcessing?(type = :payload)
+      case type 
+      when :payload: 
+          @payloadFlags & 0x20 == 1 
       end
     end
 
@@ -205,6 +403,59 @@ module Bundling
       return self.to_s
     end
 
+    def fragmentNParts(n=2)
+      fragmentMaxSize(((self.bundleSize + n*self.headerSize).to_f/n.to_f).ceil)
+    end
+
+    def fragmentMaxSize(maxBytes)
+      fragments = []
+      if self.bundleSize > maxBytes
+	frg1, frg2 = doFragment(maxBytes)
+	return [frg1].concat(frg2.fragmentMaxSize(maxBytes))
+      else
+	return [self]
+      end
+    end
+
+    def bundleSize
+      # FIXME: this should be done more efficiently
+      self.to_s.length
+      #return @payload.length + 50
+    end
+
+    def Bundle.reassemble(fragment1, fragment2)
+      if not fragment1.fragment? or not fragment2.fragment?
+	raise ProtocolError, "Bundles that are not fragments cannot be reassembled"
+      end
+      if fragment1.fragmentOffset > fragment2.fragmentOffset
+	fragment1, fragment2 = fragment2, fragment1
+      end
+      if fragment1.fragmentOffset + fragment1.payload.length < fragment2.fragmentOffset
+	raise ProtocolError, "Cannot reassemble the fragments. There are missing bytes between them"
+      end
+
+      #FIXME see if we need to take some blocks from the second fragment as well
+      res = fragment1.clone
+
+      res.payload = fragment1.payload[0,fragment2.fragmentOffset] + fragment2.payload
+      if res.payload.length == res.aduLength
+	res.fragment = false
+	res.aduLength = res.fragmentOffset = nil
+      end
+      return res
+    end
+
+    def Bundle.reassembleArray(fragments)
+      case fragments.length
+      when 0: return nil
+      when 1: return fragments[0]
+      else
+	fragments.sort {|f1, f2| f1.fragmentOffset <=> f2.fragmentOffset}
+	f1, *rest = fragments
+	return Bundle.reassemble(f1, Bundle.reassembleArray(rest))
+      end
+    end
+
     private
     def buildDict
       eids = [[:destEid, :destSchemeOff=, :destSspOff=],
@@ -231,6 +482,46 @@ module Bundling
 	self.send(sspOff, rbDict[ssp])
       end
       return strDict
+    end
+
+    # Calculate the size of the "headers" (the primary block, extension
+    # blocks, and the headers of the payload block). This is (roughly) the
+    # stuff that needs to be repeated in all the fragments. As some
+    # blocks only need to appear in one fragment and some SDNVs may become
+    # smaller we err a bit on the high side here.
+    
+    def headerSize
+      self.bundleSize - @payload.length
+    end
+
+    # Returns two bundles. The first is no greater that targetSize bytes
+    # containg first bytes of this
+    # bundle, the second bundle contains the rest.
+
+    def doFragment(targetSize)
+      offset = targetSize-headerSize
+      if offset <= 0
+	raise ProtocolError, "Cannot fragment to target size #{targetSize} bytes, as the header requires #{headerSize} bytes."
+      end
+
+      fragment1 = self.clone
+      fragment2 = self.clone
+      fragment1.payload = @payload[0,offset]
+      fragment2.payload = @payload[offset..-1]
+      fragment1.fragment = fragment2.fragment = true
+      if not self.fragment?
+	fragment1.fragmentOffset = 0
+	fragment2.fragmentOffset = offset
+	fragment1.aduLength = fragment2.aduLength = @payload.length
+      else
+	# If we are fragmenting a bundle that is already a fragment the total
+	# ADU is unchanged and the offset of the first fragment is the same as
+	# the old offset. Only the offset of the second fragment is changed.
+	fragment2.fragmentOffset = offset + @fragmentOffset
+      end
+
+      return fragment1, fragment2
+
     end
 
   end
@@ -456,7 +747,7 @@ module Bundling
 		 :handler => :procFlags=)
       end
       defField(:plblockLength, :decode => GenParser::SdnvDecoder,
-	       :object => @bundle, :handler => :payloadLength=,
+	       :object => @bundle,
 	       :block => lambda {|len| defField(:payload, :length => len)})
       defField(:payload, :handler => :payload=, :object => @bundle)
 
