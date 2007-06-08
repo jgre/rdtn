@@ -21,22 +21,23 @@
 # Bundle information relevant to storage and internal processing
 
 require "pstore"
+require "singleton"
 
 
 class BundleInfo
-  attr_accessor :dest_eid, :src_eid, :creation_timestamp, :lifetime, :bundleId
+  attr_accessor :destEid, :srcEid, :creationTimestamp, :lifetime, :bundleId
 
   
   def initialize(bundle)
-    @dest_eid=bundle.dest_eid
-    @src_eid=bundle.src_eid
-    @creation_timestamp=bundle.creation_timestamp
+    @destEid=bundle.destEid
+    @srcEid=bundle.srcEid
+    @creationTimestamp=bundle.creationTimestamp
     @lifetime=bundle.lifetime
     @bundleId=bundle.bundleId
   end
 
   def to_s
-    @dest_eid.to_s + @src_eid.to_s + @creation_timestamp.to_s + @lifetime.to_s + @bundleId.to_s
+    @destEid.to_s + @srcEid.to_s + @creationTimestamp.to_s + @lifetime.to_s + @bundleId.to_s
     # FIXME: compute Hash
   end
 
@@ -56,7 +57,13 @@ class Storage
     @bundleIds = []
     @bundles = {}
     @bundleInfos = {}
+    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+      self.storeBundle(bundle)
+      self.save
+    end
   end
+
+  include Singleton
   
   def listBundles
     # return list of ids
@@ -84,8 +91,8 @@ class Storage
     @bundles[id]=bundle
   end
 
-   def save(filename)
-    store=PStore.new(filename)
+   def save
+    store=PStore.new(RDTNConfig.instance.storageDir)
     store.transaction do
        store["bundleIds"] = @bundleIds
        store["bundleInfos"] = @bundleInfos
@@ -93,8 +100,8 @@ class Storage
     end
   end
   
-  def load(filename)
-    store=PStore.new(filename)
+  def load
+    store=PStore.new(RDTNConfig.instance.storageDir)
     store.transaction do
       @bundleIds = store["bundleIds"]
       @bundleInfos = store["bundleInfos"]
@@ -111,7 +118,7 @@ class Storage
     0.upto(@bundleInfos.length()-1) do |i|
       bi=@bundleInfos[@bundleIds[i]]
       if yield(bi)
-        res << i
+        res << @bundles[@bundleIds[i]]
       end
     end
     return res
@@ -119,8 +126,10 @@ class Storage
 
   def getBundlesMatchingDest(destEid)
     blist=getBundlesMatching() do |bundleInfo|
-      r=Regexp.new("#{destEid}")
-      bundleInfo.dest_eid =~ r
+      r=Regexp.new(destEid.to_s)
+      #puts bundleInfo.destEid.to_s =~ r
+      #puts bundleInfo.destEid, destEid
+      r =~ bundleInfo.destEid.to_s
     end
     
   end
