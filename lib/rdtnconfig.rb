@@ -23,4 +23,9 @@ class RDTNConfig
   include Singleton
 
   attr_accessor :localEid, :storageDir
+
+  def initialize
+    @localEid = ""
+    @storageDir = "store"
+  end
 end
