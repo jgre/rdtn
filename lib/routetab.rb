@@ -21,6 +21,8 @@ require 'singleton'
 require "rdtnevent"
 require "cl"
 require "eidscheme"
+require "storage"
+require "contactmgr"
 
 class RoutingTable
 
@@ -29,7 +31,6 @@ class RoutingTable
 
     EventDispatcher.instance().subscribe(:contactEstablished) do |*args|
       self.contactEstablished(*args)
-      # TODO see if we can send stored bundles over this link.
     end
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
       links = self.match(bundle.destEid.to_s)
@@ -43,6 +44,9 @@ class RoutingTable
 
   def addEntry(dest, link)
     @routes[Regexp.new(dest)]=link
+    # See if we can send stored bundles over this link.
+    bundles = Storage.instance.getBundlesMatchingDest(dest)
+    bundles.each {|bundle| self.forward(bundle, [link])}
   end
 
   def contactEstablished(link)

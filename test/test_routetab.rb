@@ -24,7 +24,7 @@ require "bundle"
 require "queue"
 require "routetab"
 
-class DummyLink
+class DummyLink < Link
   attr_accessor :remoteEid, :bundle
 
   def sendBundle(bundle)
@@ -48,6 +48,22 @@ class TestRoutetab < Test::Unit::TestCase
     EventDispatcher.instance.dispatch(:bundleParsed, bndl)
 
     EventLoop.after(1) { EventLoop.quit }
+    EventLoop.run
+
+    assert(@link1.bundle.payload == "test")
+  end
+
+  def test_delayed_forward
+
+    RDTNConfig.instance.storageDir = "store"
+    # Initialize routing table
+    store = Storage.instance
+    router = RoutingTable.instance
+    bndl = Bundling::Bundle.new("test", "dtn:receiver")
+    EventDispatcher.instance.dispatch(:bundleParsed, bndl)
+
+    EventLoop.after(1) { RoutingTable.instance.addEntry(".*receiver", @link1) }
+    EventLoop.after(2) { EventLoop.quit }
     EventLoop.run
 
     assert(@link1.bundle.payload == "test")
