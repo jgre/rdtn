@@ -10,5 +10,6 @@ Symbol			Parameters
 					# object MUST be used.
 :bundleParsed		Bundle
 :bundleForwarded	Bundle, Link
+:storeMe		Object
 
 
