@@ -32,11 +32,16 @@ end
 
 opts.parse!(ARGV)
 
-
-
 log.debug("Starting dtncat")
 
-payload=$stdin.sysread(256) # FIXME
+if not ARGV.empty?
+  plFile = open(ARGV[0])
+else
+  plFile = $stdin
+end
+
+payload=plFile.read
+plFile.close
 
 ri = RegInfo.new(RDTNConfig.instance.localEid)
 c=RdtnClient.new
