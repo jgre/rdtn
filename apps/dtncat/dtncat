@@ -26,7 +26,10 @@ opts = OptionParser.new do |opts|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RDTNConfig.instance.localEid = EID.new("dtn://dtncat")
+    RDTNConfig.instance.localEid = EID.new(l)
+  end
+  opts.on("-L", "--loop INTERVAL", Integer) do |val|
+    loopInterval = val
   end
 end
 
@@ -42,6 +45,7 @@ end
 
 payload=plFile.read
 plFile.close
+puts "Payload length: #{payload.length}"
 
 ri = RegInfo.new(RDTNConfig.instance.localEid)
 c=RdtnClient.new
@@ -56,10 +60,18 @@ EventLoop.later do
   c.sendBundle(b)
 end
 
-EventLoop.after(1) do
-  c.close
-  log.debug("Stopping notifier")
-  EventLoop.quit()
+if not defined?(loopInterval)
+  EventLoop.after(1) do
+    c.close
+    log.debug("Stopping notifier")
+    EventLoop.quit()
+  end
+else
+  EventLoop.every(loopInterval.seconds) do
+    log.debug("sending bundle")
+    c.sendBundle(b)
+end
+
 end
     
 EventLoop.run()
