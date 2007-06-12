@@ -82,7 +82,7 @@ class RoutingTable
 	end
       end
       link.sendBundle(bundle)
-      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) to #{link.remoteEid} over #{link.name}.")
+      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
       EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
     end
     return nil
