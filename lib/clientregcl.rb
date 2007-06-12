@@ -44,10 +44,8 @@ module AppIF
     end
 
     def getObj(data, type)
-      p data
       input=StringIO.new(data)
       obj=Marshal.load(input)
-      p obj
       begin
         if obj.class!=type
           raise ProtocolError, "invalid paramter"
@@ -148,7 +146,11 @@ module AppIF
 
 
     def readData(data)
-      obj=getObj(data,Bundling::Bundle)
+      begin
+	obj=getObj(data,Bundling::Bundle)
+      rescue ArgumentError
+	return self, true
+      end
       
       # call send...
       RdtnLogger.instance.debug("Sending bundle from ClientCL to #{obj.destEid}")
