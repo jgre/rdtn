@@ -91,6 +91,8 @@ end
 
 if defined?(loopInterval)
   EventLoop.every(loopInterval.seconds) do
+    b = Bundling::Bundle.new(payload)
+    b.destEid = EID.new(dest)
     log.debug("sending bundle")
     EventDispatcher.instance().dispatch(:bundleParsed, b)
   end

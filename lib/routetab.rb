@@ -87,13 +87,15 @@ class RoutingTable
 	else
 	  fragments = [bundle]
 	end
-	fragments.each {|frag| link.sendBundle(frag) }
+	fragments.each do |frag| 
+	  link.sendBundle(frag) 
+	  RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	  EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
+	end
       rescue ProtocolError => err
 	RdtnLogger.instance.error("Routetab::forward #{err}")
       end
       #link.sendBundle(bundle)
-      RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-      EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
     end
     return nil
   end
