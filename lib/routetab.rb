@@ -92,6 +92,7 @@ class RoutingTable
 	  RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
+	return nil
       rescue ProtocolError => err
 	RdtnLogger.instance.error("Routetab::forward #{err}")
       end
