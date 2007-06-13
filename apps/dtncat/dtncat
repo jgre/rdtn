@@ -20,6 +20,7 @@ log=RdtnLogger.instance()
 log.level=Logger::DEBUG
 RDTNConfig.instance.localEid = EID.new("dtn://dtncat")
 dest=""
+duration = 1
 
 opts = OptionParser.new do |opts|
   opts.on("-d", "--dest EID", "destination EID") do |d|
@@ -30,6 +31,9 @@ opts = OptionParser.new do |opts|
   end
   opts.on("-L", "--loop INTERVAL", Integer) do |val|
     loopInterval = val
+  end
+  opts.on("-D", "--duration SECONDS", Integer) do |val|
+    duration = val
   end
 end
 
@@ -60,17 +64,17 @@ EventLoop.later do
   c.sendBundle(b)
 end
 
-if not defined?(loopInterval)
-  EventLoop.after(1) do
-    c.close
-    log.debug("Stopping notifier")
-    EventLoop.quit()
-  end
-else
+EventLoop.after(duration) do
+  c.close
+  log.debug("Stopping notifier")
+  EventLoop.quit()
+end
+
+if defined?(loopInterval)
   EventLoop.every(loopInterval.seconds) do
     log.debug("sending bundle")
     c.sendBundle(b)
-end
+  end
 
 end
     
