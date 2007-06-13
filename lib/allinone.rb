@@ -86,6 +86,8 @@ EventDispatcher.instance().dispatch(:bundleParsed, b)
 
 EventLoop.after(duration) do
   log.debug("Stopping notifier")
+  ObjectSpace.each_object(Link) {|link| link.close}
+  ObjectSpace.each_object(Interface) {|iface| iface.close}
   EventLoop.quit()
 end
 

@@ -64,7 +64,8 @@ module FluteCL
 
       if defined? @ppgProg
 	# Spawn a papageno process
-	if fork.nil?
+	@pid = fork do
+	#if fork.nil?
 	  # TODO let the parameters be given in options
 	  exec("#{@ppgProg} -L -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
 	end
@@ -73,6 +74,7 @@ module FluteCL
     end
 
     def close()
+      Process.kill("HUP", @pid)
       EventDispatcher.instance().dispatch(:linkClosed, self)
     end
 
@@ -130,7 +132,8 @@ module FluteCL
 
       if defined? @ppgProg
 	# Spawn a papageno process
-	if fork.nil?
+	@pid = fork do
+	#if fork.nil?
 	  Dir.chdir(@ppgDir)
 	  puts "Starting papageno in #{Dir.pwd}"
 	  # TODO let the parameters be given in options
@@ -154,6 +157,7 @@ module FluteCL
     end
 
     def close()
+      Process.kill("HUP", @pid)
       @timer.stop
     end
 
