@@ -43,7 +43,7 @@ module Stats
     end
 
     def to_s
-      "#{@time}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
+      "#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
     end
 
   end
