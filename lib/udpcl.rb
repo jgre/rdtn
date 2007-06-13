@@ -39,7 +39,7 @@ UDPCLPORT = 4557
 module UDPCL
 
   class UDPLink < Link
-    attr_accessor :remoteEid
+    attr_accessor :remoteEid, :maxBundleSize
 
     def initialize(socket = 0)
       super()
@@ -56,6 +56,9 @@ module UDPCL
       end
       if options.has_key?(:port)
 	port = options[:port]
+      end
+      if options.has_key?(:maxBundleSize)
+	@maxBundleSize = options(:maxBundleSize)
       end
 
       if(socketOK?())
