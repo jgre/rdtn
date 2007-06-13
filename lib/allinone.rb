@@ -85,7 +85,6 @@ log.debug("sending bundle")
 EventDispatcher.instance().dispatch(:bundleParsed, b)
 
 EventLoop.after(duration) do
-  c.close
   log.debug("Stopping notifier")
   EventLoop.quit()
 end
