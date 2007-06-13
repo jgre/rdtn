@@ -48,7 +48,7 @@ module FluteCL
     def open(name, options)
       self.name = name
       @ppgDir = File.expand_path("papageno_outgoing") # default directory
-      bandwidth = 62976 # 492kbit/s
+      bandwidth = 629760 # 492kbit/s
 
       if options.has_key?(:directory)
 	@ppgDir = File.expand_path(options[:directory])
@@ -67,7 +67,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  # TODO let the parameters be given in options
-	  exec("#{@ppgProg} -r 2.0 -o -i 1.0 -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
+	  exec("#{@ppgProg} -E -r 1.5 -i 1.0 -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
 	end
       end
 
@@ -87,7 +87,7 @@ module FluteCL
       File.open(@ppgDir + "/" + "#{id}.meta.lock", "w") {}
       File.open(@ppgDir + "/"+ "#{id}.meta", "w") do |file|
         file << "URI: uni-dtn://#{bundle.srcEid.to_s}/#{bundle.creationTimestamp}/#{bundle.creationTimestampSeq}/#{bundle.fragmentOffset}\r\n"
-        file << "COS: #{bundle.cosFlags}\r\n"
+        file << "COS: 0\r\n"
         file << "Destination-EID: #{bundle.destEid.to_s}\r\n"
         file << "Router-EID: #{RDTNConfig.instance.localEid}\r\n"
       end
