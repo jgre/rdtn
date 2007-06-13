@@ -48,12 +48,16 @@ module FluteCL
     def open(name, options)
       self.name = name
       @ppgDir = File.expand_path("papageno_outgoing") # default directory
+      bandwidth = 62976 # 492kbit/s
 
       if options.has_key?(:directory)
 	@ppgDir = File.expand_path(options[:directory])
       end
       if options.has_key?(:fluteSend)
 	@ppgProg = options[:fluteSend]
+      end
+      if options.has_key?(:bandwidth)
+	bandwidth = options[:bandwidth]
       end
 
       RdtnLogger.instance.debug("Flute link writes data for Papageno to #{@ppgDir}")
@@ -62,7 +66,7 @@ module FluteCL
 	# Spawn a papageno process
 	if fork.nil?
 	  # TODO let the parameters be given in options
-	  exec("#{@ppgProg} -L -a 224.1.2.3 #{@ppgDir}")
+	  exec("#{@ppgProg} -L -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
 	end
       end
 
