@@ -199,7 +199,6 @@ module AppIF
     end
     
     def whenReadReady
-      @@log.debug("AppProxy::whenReadReady #{self.object_id}")
       readData=true
       begin
         data = @s.recvfrom(@bytesToRead)
@@ -208,8 +207,6 @@ module AppIF
         
         readData=false
       end
-      
-      @@log.debug("AppProxy::whenReadReady: read #{data[0].length} bytes")
       
       readData=readData && (data[0].length()>0)
       

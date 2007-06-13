@@ -58,7 +58,7 @@ module UDPCL
 	port = options[:port]
       end
       if options.has_key?(:maxBundleSize)
-	@maxBundleSize = options(:maxBundleSize)
+	@maxBundleSize = options[:maxBundleSize]
       end
 
       if(socketOK?())
