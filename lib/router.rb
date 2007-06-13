@@ -41,6 +41,15 @@ class Router
   end
 
   def forward(bundle, link)
-    link.sendBundle(bundle)
+    begin
+      if defined?(link.maxBundleSize)
+	fragments = bundle.fragmentMaxSize(link.maxBundleSize)
+      else
+	fragments = [bundle]
+      end
+      fragments.each {|frag| link.sendBundle(frag) }
+    rescue ProtocolError => err
+      RdtnLogger.instance.error("Routetab::forward #{err}")
+    end
   end
 end
