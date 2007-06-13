@@ -39,6 +39,9 @@ bl = Bundling::BundleLayer.new
 stats = Stats::StatGrabber.new("out.stat", "in.stat")
 
 configFileName="rdtn.conf"
+loopInterval = 10
+duration = 1
+dest = "dtn://hamlet.dtn/test"
 
 opts = OptionParser.new do |opts|
   opts.on("-c", "--config FILE", "config file name") do |c|
