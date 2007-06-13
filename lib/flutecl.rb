@@ -67,7 +67,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  # TODO let the parameters be given in options
-	  exec("#{@ppgProg} -L -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
+	  exec("#{@ppgProg} -r 2.0 -o -i 1.0 -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
 	end
       end
 
