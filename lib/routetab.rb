@@ -82,7 +82,7 @@ class RoutingTable
 	end
       end
       begin
-	if defined?(link.maxBundleSize)
+	if defined?(link.maxBundleSize) and link.maxBundleSize
 	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
 	else
 	  fragments = [bundle]
@@ -90,7 +90,7 @@ class RoutingTable
 	fragments.each do |frag| 
 	  link.sendBundle(frag) 
 	  RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	  EventDispatcher.instance.dispatch(:bundleForwarded, bundle, link)
+	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
       rescue ProtocolError => err
 	RdtnLogger.instance.error("Routetab::forward #{err}")
