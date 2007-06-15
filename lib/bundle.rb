@@ -149,7 +149,7 @@ module Bundling
     end
     
     def fragment?
-      (@procFlags & 0x1) == 1
+      (@procFlags & 0x1) != 0
     end
     
     def administrative=(set)
@@ -157,7 +157,7 @@ module Bundling
     end
     
     def administrative?
-      (@procFlags & 0x2) == 1
+      (@procFlags & 0x2) != 0
     end
     
     def dontFragment=(set)
@@ -165,7 +165,7 @@ module Bundling
     end
     
     def dontFragment?
-      (@procFlags & 0x4) == 1
+      (@procFlags & 0x4) != 0
     end  
     
     def requestCustody=(set)
@@ -173,7 +173,7 @@ module Bundling
     end
     
     def requestCustody?
-      (@procFlags & 0x8) == 1
+      (@procFlags & 0x8) != 0
     end  
     
     def destinationIsSingleton=(set)
@@ -181,7 +181,7 @@ module Bundling
     end
     
     def destinationIsSingleton?
-      (@procFlags & 0x10) == 1
+      (@procFlags & 0x10) != 0
     end  
     
     def requestApplicationAcknowledgement=(set)
@@ -189,7 +189,7 @@ module Bundling
     end
     
     def requestApplicationAcknowledgement?
-      (@procFlags & 0x20) == 1
+      (@procFlags & 0x20) != 0
     end  
     
     
@@ -198,63 +198,113 @@ module Bundling
     # 10 :expedited
     # 11 :undefined - for future use
     def priority
-      if version == 4  
-        return :undefined if (@cosFlags & 0x3) == 1 
-        return :expedited if (@cosFlags & 0x2) == 1  
-        return :normal    if (@cosFlags & 0x1) == 1 
+      if @version == 4  
+        return :undefined if (@cosFlags & 0x3) != 0 
+        return :expedited if (@cosFlags & 0x2) != 0  
+        return :normal    if (@cosFlags & 0x1) != 0 
         return :bulk  
+      elsif @version == 5  
+        return :expedited if (@procFlags & 0x100) != 0
+        return :normal    if (@procFlags & 0x80) != 0
+        return :bulk      if (@procFlags & 0x180) == 0  
+        return :undefined 
       end   
     end
     
     def priority=(priority)
-      if version == 4  
+      if @version == 4  
         @cosFlags & ~0x3 # this sets :bulk
-        case priority
-        when :expedited: @cosFlags | 0x2  
-        when :normal:    @cosFlags | 0x1
-        end
+        @cosFlags = case priority
+		    when :expedited: @cosFlags | 0x2  
+		    when :normal:    @cosFlags | 0x1
+		    end
+      elsif @version == 5
+        @procFlags = @procFlags ^ 0x180 # this sets :bulk
+	@procFlags = case priority
+		     when :expedited: @procFlags | 0x100
+		     when :normal: @procFlags | 0x80
+		     end
       end
     end   
     
-    
     def receptionSrr=(set)
-      @srrFlags = set ? @srrFlags | 0x1 : @srrFlags & ~0x1
+      if @version == 4
+	@srrFlags = set ? @srrFlags | 0x1 : @srrFlags & ~0x1
+      elsif @version == 5
+	@procFlags = set ? @procFlags | 0x4000 : @procFlags ^ 0x4000
+      end
     end
     
     def receptionSrr?
-      (@srrFlags & 0x1) == 1
+      if @version == 4
+	(@srrFlags & 0x1) == 1
+      elsif @version == 5
+	(@procFlags & 0x4000) != 0
+      end
     end
     
     def custodyAcceptanceSrr=(set)
-      @srrFlags = set ? @srrFlags | 0x2 : @srrFlags & ~0x2
+      if @version == 4
+	@srrFlags = set ? @srrFlags | 0x2 : @srrFlags & ~0x2
+      elsif @version == 5
+	@procFlags = set ? @procFlags | 0x8000 : @procFlags ^ 0x8000
+      end
     end
     
     def custodyAcceptanceSrr?
-      (@srrFlags & 0x2) == 1
+      if @version == 4
+	(@srrFlags & 0x2) == 1
+      elsif @version == 5
+	(@procFlags & 0x8000) != 0
+      end
     end
     
     def forwardingSrr=(set)
-      @srrFlags = set ? @srrFlags | 0x4 : @srrFlags & ~0x4
+      if @version == 4
+	@srrFlags = set ? @srrFlags | 0x4 : @srrFlags & ~0x4
+      elsif @version == 5
+	@procFlags = set ? @procFlags | 0x10000 : @procFlags ^ 0x10000
+      end
     end
     
     def forwardingSrr?
-      (@srrFlags & 0x4) == 1
+      if @version == 4
+	(@srrFlags & 0x4) == 1
+      elsif @version == 5
+	(@procFlags & 0x10000) != 0
+      end
     end
     
     def deliverySrr=(set)
-      @srrFlags = set ? @srrFlags | 0x8 : @srrFlags & ~0x8
+      if @version == 4
+	@srrFlags = set ? @srrFlags | 0x8 : @srrFlags & ~0x8
+      elsif @version == 5
+	@procFlags = set ? @procFlags | 0x20000 : @procFlags ^ 0x20000
+      end
     end
     
     def deliverySrr?
-      (@srrFlags & 0x8) == 1
+      if @version == 4
+	(@srrFlags & 0x8) == 1
+      elsif @version == 5
+	(@procFlags & 0x20000) != 0
+      end
     end
     
     def deletetionSrr=(set)
-      @srrFlags = set ? @srrFlags | 0x10 : @srrFlags & ~0x10
+      if @version == 4
+	@srrFlags = set ? @srrFlags | 0x10 : @srrFlags & ~0x10
+      elsif @version == 5
+	@procFlags = set ? @procFlags | 0x40000 : @procFlags ^ 0x40000
+      end
     end
     
     def deletionSrr?
-      (@srrFlags & 0x10) == 1
+      if @version == 4
+	(@srrFlags & 0x10) == 1
+      elsif @version == 5
+	(@procFlags & 0x40000) != 0
+      end
     end
     
     
