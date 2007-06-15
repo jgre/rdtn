@@ -42,6 +42,7 @@ configFileName="rdtn.conf"
 loopInterval = 10
 duration = 1
 dest = "dtn://hamlet.dtn/test"
+terminationDelay = 0
 
 opts = OptionParser.new do |opts|
   opts.on("-c", "--config FILE", "config file name") do |c|
@@ -58,6 +59,9 @@ opts = OptionParser.new do |opts|
   end
   opts.on("-D", "--duration SECONDS", Integer) do |val|
     duration = val
+  end
+  opts.on("-t", "--termination-delay SECONDS", "Delay termination after the last bundle was sent.", Integer) do |val|
+    terminationDelay = val
   end
 end
 
@@ -86,8 +90,6 @@ EventDispatcher.instance().dispatch(:bundleParsed, b)
 
 EventLoop.after(duration) do
   log.debug("Stopping notifier")
-  ObjectSpace.each_object(Link) {|link| link.close}
-  ObjectSpace.each_object(Interface) {|iface| iface.close}
   EventLoop.quit()
 end
 
@@ -103,5 +105,7 @@ end
 log.debug("Starting DTN daemon main loop")
 EventLoop.run()
 
-
+sleep(terminationDelay)
+ObjectSpace.each_object(Link) {|link| link.close}
+ObjectSpace.each_object(Interface) {|iface| iface.close}
 
