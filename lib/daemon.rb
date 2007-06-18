@@ -53,7 +53,7 @@ opts.parse!(ARGV)
 cmgr = ContactManager.instance
 router = RoutingTable.instance
 store = Storage.instance
-conf = RDTNConf.load(configFileName)
+conf = RdtnConfig::Reader.load(File.join(File.dirname(__FILE__),configFileName))
 
 log.debug("Starting DTN daemon main loop")
 EventLoop.run()
