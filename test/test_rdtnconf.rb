@@ -19,36 +19,36 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'test/unit'
-require 'settings'
+require 'configuration'
  
 
 class TestConfig < Test::Unit::TestCase
 
   def test_rubyHash_instead_optString 
-    options = RDTNConf::hash_to_optString()
+    options = RdtnConfig::Reader::hash_to_optString()
     assert_equal("", options)
 
-    options = RDTNConf::hash_to_optString({:port => 8888})
+    options = RdtnConfig::Reader::hash_to_optString({:port => 8888})
     assert_equal("-p 8888", options)
 
-    options = RDTNConf::hash_to_optString({:host => "localhost"})
+    options = RdtnConfig::Reader::hash_to_optString({:host => "localhost"})
     assert_equal("-h localhost", options)
 
-    options = RDTNConf::hash_to_optString({:port => 8888,
+    options = RdtnConfig::Reader::hash_to_optString({:port => 8888,
 					   :host => "localhost"})
     assert_equal("-p 8888 -h localhost", options)
 
     assert_raise(ArgumentError){
-      options = RDTNConf::hash_to_optString({:unknown => 8888})
+      options = RdtnConfig::Reader::hash_to_optString({:unknown => 8888})
     }
   end
 
   def test_interface
     assert_raise(RuntimeError){
-      RDTNConf.new.interface(:noaction, :cl, "name")
+      RdtnConfig::Reader.new.interface(:noaction, :cl, "name")
     }
     assert_raise(RuntimeError){
-      RDTNConf.new.interface(:noaction, :cl, "name", {:port => "low"})
+      RdtnConfig::Reader.new.interface(:noaction, :cl, "name", {:port => "low"})
     }
   end
 
