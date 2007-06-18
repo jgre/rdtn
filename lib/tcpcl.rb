@@ -25,7 +25,7 @@ require "event-loop"
 
 require "rdtnlog"
 require "rdtnerror"
-require "rdtnconfig"
+require "configuration"
 require "cl"
 require "sdnv"
 require "queue"
@@ -481,8 +481,8 @@ module TCPCL
       keepaliveInterval = 120
       # use array#pack to get a short in network byte order
       hdr << [keepaliveInterval].pack('n')
-      hdr << Sdnv.encode(RDTNConfig.instance.localEid.length)
-      hdr << RDTNConfig.instance.localEid
+      hdr << Sdnv.encode(RdtnConfig::Settings.instance.localEid.length)
+      hdr << RdtnConfig::Settings.instance.localEid
       
       self.send(hdr)
     end

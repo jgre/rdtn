@@ -40,11 +40,11 @@ class TestRoutetab < Test::Unit::TestCase
     @link1.remoteEid = "dtn:oink"
     @link2 = DummyLink.new
     @link2.remoteEid = "dtn:grunt"
-    RDTNConfig.instance.storageDir = "store"
+    RdtnConfig::Settings.instance.storageDir = "store"
   end
 
   def teardown
-    File.delete(RDTNConfig.instance.storageDir)
+    File.delete(RdtnConfig::Settings.instance.storageDir)
   end
 
   def test_forward

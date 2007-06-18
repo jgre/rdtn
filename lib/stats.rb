@@ -19,7 +19,7 @@
 
 require "rdtnlog"
 require "rdtnerror"
-require "rdtnconfig"
+require "configuration"
 require "sdnv"
 require "queue"
 require "eidscheme"

@@ -24,7 +24,7 @@ require "event-loop"
 
 require "rdtnlog"
 require "rdtnerror"
-require "rdtnconfig"
+require "configuration"
 require "cl"
 require "sdnv"
 require "queue"

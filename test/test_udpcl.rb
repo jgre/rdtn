@@ -25,12 +25,13 @@ require "event-loop/timer"
 require "rdtnlog"
 require "rdtnevent"
 require "udpcl"
+require "configuration"
 
 
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def test_bundle_sending
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
     log.level=Logger::DEBUG
     

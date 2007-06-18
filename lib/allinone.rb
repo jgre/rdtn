@@ -29,12 +29,11 @@ require 'rdtnlog'
 require 'contactmgr'
 require 'storage'
 require 'clientregcl'
-require 'rdtnconf'
+require 'configuration'
 require "stats"
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-#RDTNConfig.instance.localEid = "dtn://bla.fasel"
 bl = Bundling::BundleLayer.new
 stats = Stats::StatGrabber.new("out.stat", "in.stat")
 
@@ -52,7 +51,7 @@ opts = OptionParser.new do |opts|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RDTNConfig.instance.localEid = EID.new(l)
+    RdtnConfig::Settings.instance.localEid = EID.new(l)
   end
   opts.on("-L", "--loop INTERVAL", Integer) do |val|
     loopInterval = val

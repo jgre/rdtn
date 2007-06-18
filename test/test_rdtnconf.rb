@@ -19,7 +19,7 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'test/unit'
-require 'rdtnconf.rb'
+require 'settings'
  
 
 class TestConfig < Test::Unit::TestCase

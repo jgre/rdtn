@@ -88,7 +88,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
     createReceived = closedReceived = false
     srcEid = "dtn://test/bla"
     destEid = "dtn://oink/grunt"
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     bundle = Bundling::Bundle.new("mypayload", destEid, srcEid)
     bundle.cosFlags = 1
 

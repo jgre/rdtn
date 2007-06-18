@@ -18,7 +18,7 @@ require 'rdtnlog'
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-RDTNConfig.instance.localEid = EID.new("dtn://dtncat")
+RdtnConfig::Settings.instance.localEid = EID.new("dtn://dtncat")
 dest=""
 duration = 1
 
@@ -27,7 +27,7 @@ opts = OptionParser.new do |opts|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RDTNConfig.instance.localEid = EID.new(l)
+    RdtnConfig::Settings.instance.localEid = EID.new(l)
   end
   opts.on("-L", "--loop INTERVAL", Integer) do |val|
     loopInterval = val
@@ -51,7 +51,7 @@ payload=plFile.read
 plFile.close
 puts "Payload length: #{payload.length}"
 
-ri = RegInfo.new(RDTNConfig.instance.localEid)
+ri = RegInfo.new(RdtnConfig::Settings.instance.localEid)
 c=RdtnClient.new
 
 EventLoop.later do

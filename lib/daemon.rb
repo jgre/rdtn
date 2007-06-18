@@ -29,12 +29,11 @@ require 'rdtnlog'
 require 'contactmgr'
 require 'storage'
 require 'clientregcl'
-require 'rdtnconf'
+require 'configuration'
 require "stats"
 
 log=RdtnLogger.instance()
 log.level=Logger::DEBUG
-#RDTNConfig.instance.localEid = "dtn://bla.fasel"
 bl = Bundling::BundleLayer.new
 stats = Stats::StatGrabber.new("out.stat", "in.stat")
 

@@ -90,7 +90,7 @@ class Storage
   end
 
    def save
-    store=PStore.new(RDTNConfig.instance.storageDir)
+    store=PStore.new(RdtnConfig::Settings.instance.storageDir)
     store.transaction do
        store["bundleIds"] = @bundleIds
        store["bundleInfos"] = @bundleInfos
@@ -99,7 +99,7 @@ class Storage
   end
   
   def load
-    store=PStore.new(RDTNConfig.instance.storageDir)
+    store=PStore.new(RdtnConfig::Settings.instance.storageDir)
     store.transaction do
       @bundleIds = store["bundleIds"]
       @bundleInfos = store["bundleInfos"]

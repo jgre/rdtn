@@ -31,7 +31,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
 
   def test_contact_exchange
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
     log.level=Logger::INFO
     
@@ -45,12 +45,12 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     EventLoop.run()
     
-    assert_equal(RDTNConfig.instance.localEid.to_s, @link.remoteEid.to_s)
+    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, @link.remoteEid.to_s)
 
   end
 
   def test_bundle_sending
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
     log.level=Logger::DEBUG
     
@@ -73,7 +73,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     EventDispatcher.instance().unsubscribe(:bundleData, handler)
 
-    assert_equal(RDTNConfig.instance.localEid.to_s, link.remoteEid.to_s)
+    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, link.remoteEid.to_s)
     assert_equal(inBundle, outBundle)
     
     assert_equal(true, link.connection[:acks])
@@ -89,7 +89,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     log=RdtnLogger.instance()
     log.level=Logger::DEBUG
     
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     
     log.debug("starting contact exchange")
     
@@ -114,7 +114,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   
     EventDispatcher.instance().unsubscribe(:bundleData, handler)
 
-    assert_equal(RDTNConfig.instance.localEid.to_s, link.remoteEid.to_s)
+    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, link.remoteEid.to_s)
     assert_equal(inBundle, outBundle)
   
     assert_equal(false, link.connection[:acks])
@@ -127,7 +127,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_too_short
     contact_hdr = "dtn!\003\000\000x\017dtn://bla.fasel"
 
-    RDTNConfig.instance.localEid = "dtn://bla.fasel"
+    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
     log.level=Logger::INFO
     
@@ -151,7 +151,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     EventLoop.run()
     
-    assert_equal(RDTNConfig.instance.localEid.to_s, contactEid.to_s)
+    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, contactEid.to_s)
 
   end
 

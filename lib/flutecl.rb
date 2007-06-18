@@ -24,7 +24,7 @@ require "event-loop"
 
 require "rdtnlog"
 require "rdtnerror"
-require "rdtnconfig"
+require "configuration"
 require "cl"
 require "sdnv"
 require "queue"
@@ -89,7 +89,7 @@ module FluteCL
         file << "URI: uni-dtn://#{bundle.srcEid.to_s}/#{bundle.creationTimestamp}/#{bundle.creationTimestampSeq}/#{bundle.fragmentOffset}\r\n"
         file << "COS: 0\r\n"
         file << "Destination-EID: #{bundle.destEid.to_s}\r\n"
-        file << "Router-EID: #{RDTNConfig.instance.localEid}\r\n"
+        file << "Router-EID: #{RdtnConfig::Settings.instance.localEid}\r\n"
       end
       #Delete lock file
       File.delete(@ppgDir + "/" + "#{id}.meta.lock")

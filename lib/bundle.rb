@@ -19,7 +19,7 @@
 
 require "rdtnlog"
 require "rdtnerror"
-require "rdtnconfig"
+require "configuration"
 require "sdnv"
 require "queue"
 require "eidscheme"
@@ -121,7 +121,7 @@ module Bundling
       @lifetime = 3600
       @destEid = EID.new(destEid)
       if not srcEid
-	@srcEid = EID.new(RDTNConfig.instance.localEid)
+	@srcEid = EID.new(RdtnConfig::Settings.instance.localEid)
       else
 	@srcEid = EID.new(srcEid)
       end
