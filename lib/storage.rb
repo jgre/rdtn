@@ -20,9 +20,11 @@
 
 # Bundle information relevant to storage and internal processing
 
+require "fileutils"
 require "pstore"
 require "singleton"
 require "rdtnevent"
+
 
 
 class BundleInfo
@@ -30,18 +32,34 @@ class BundleInfo
   attr_accessor :destEid, :srcEid, :creationTimestamp, :lifetime, :bundleId, :fragmentOffset
   
   def initialize(bundle)
-    @destEid=bundle.destEid
-    @srcEid=bundle.srcEid
-    @creationTimestamp=bundle.creationTimestamp
-    @lifetime=bundle.lifetime
-    @bundleId=bundle.bundleId
-    @fragmentOffset=bundle.fragmentOffset
+    @destEid = bundle.destEid.to_s
+    @srcEid = bundle.srcEid.to_s
+    @creationTimestamp = bundle.creationTimestamp
+    @lifetime = bundle.lifetime
+    @bundleId = bundle.bundleId
+    @fragmentOffset = bundle.fragmentOffset
   end
 
   def to_s
-    @destEid.to_s + @srcEid.to_s + @creationTimestamp.to_s + @lifetime.to_s + @bundleId.to_s
-    # FIXME: compute Hash
+    @destEid + "-" + @srcEid + "-" + @creationTimestamp.to_s + "-" + @lifetime.to_s + "-" + @bundleId.to_s
   end
+
+  #override the method eql? for Hash key equality. 
+  def eql?(other)
+    return (self.class == other.class) \
+	   && (@destEid == other.destEid) \
+           && (@srcEid == other.srcEid) \
+           && (@creationTimestamp == other.creationTimestamp) \
+           && (@lifetime == other.lifetime) \
+           && (@bundleId == other.bundleId) \
+           && (@fragmentOffset == other.fragmentOffset)
+  end
+
+  def hash
+    return @destEid.hash ^ @srcEid.hash ^ @creationTimestamp.hash \
+           ^ @lifetime.hash ^ @bundleId.hash ^ @fragmentOffset.hash
+  end
+
 end#BundleInfo
 
 
@@ -134,20 +152,20 @@ end#Storage
 
 class Storage_perBundle
 #every bundle will be saved in a separate file.
-
+  attr_reader :bundleInfos
+  
   Metainfo_Filename = "Metainfo.pstore"
 
   def initialize(mfname=Metainfo_Filename)
-    @bundleInfos = PStore.new(mfname) #{metaInfo, filename}
+    mfbasename = File.basename(mfname)
+    @pathname = RDTNConfig.instance.storageDir
+    FileUtils.mkdir_p(@pathname)
+    @bundleInfos = PStore.new(File.join(@pathname, mfbasename)) #{metaInfo, filename}
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-      self.bundleInfos_store(bundle)
+      self.save(bundle)
     end
   end
 
-  def timeToDie?(bundle) #TODO: delete the bundle, if it is expired.
-    return Time.now > bundle.creationTimestamp - bundle.lifetime
-  end
-  
   def self.create_filename(bundle)
     dest = bundle.destEid.hash
     src = bundle.srcEid.hash
@@ -158,7 +176,7 @@ class Storage_perBundle
 
   #persist bundle and it's infos. public interface
   def save(bundle) 
-    fn = create_filename(bundle)
+    fn = File.join(@pathname, Storage_perBundle.create_filename(bundle))
     metaInfo = BundleInfo.new(bundle)
     @bundleInfos.transaction do
       if @bundleInfos.root?(metaInfo)
@@ -170,7 +188,30 @@ class Storage_perBundle
     _save(fn, bundle)
   end
 
+  def timeToDie?(bundleInfo)
+    toDie = false
+    @bundleInfos.transaction(true) do
+      if @bundleInfos.root?(bundleInfo)
+	#FIXME: - Time.gm(2000) in bundle.initialize => normalize(Time.now)
+	toDie = (bundleInfo.creationTimestamp + bundleInfo.lifetime) < (Time.now - Time.gm(2000)).to_i
+      end
+    end
+    return toDie
+  end
+  
+  #delete the bundle and it's Info, if it has expired
+  def delete_expired(bundleInfo)
+    if timeToDie?(bundleInfo)
+      @bundleInfos.transaction do
+	_delete(@bundleInfos[bundleInfo]) 
+	@bundleInfos.delete(bundleInfo)
+      end
+    end
+  end
+
+  #load bundles, which are not expired
   def load(bundleInfo)
+    delete_expired(bundleInfo)
     filename = nil
     @bundleInfos.transaction(true) do
       if @bundleInfos.root?(bundleInfo)
@@ -185,7 +226,7 @@ class Storage_perBundle
     end
     return nil #TODO: raise NoSuchBundle, "No #{bundleInfo} has been stored."
   end
-
+  
   #get a bundleinfo list, to load the bundle you wanted with 'load'
   def get_bundleInfoList(srcEid=nil, destEid=nil,
 			 creationTimestamp=nil, fragmentOffset=nil)
@@ -211,14 +252,15 @@ class Storage_perBundle
   def _save(filename, bundle) 
     bundle_save = PStore.new(filename)
     bundle_save.transaction do
-      bundle_save["bundle"] = bundle
+      bundle_save[:bundle] = bundle
     end
   end
 
   def _load(filename)
+    bundle = nil
     bundle_load = PStore.new(filename)
     bundle_load.transaction(true) do
-      bundle = bundle_load["bundle"]
+      bundle = bundle_load[:bundle]
     end
     return bundle
   end

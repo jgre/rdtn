@@ -31,7 +31,7 @@ Storage: (xi)
   * separate meta information (primary bundle block) from payload 
     => do not hold payload in memory all the time
   * Meta-Infos for bundles
-  * change: write each bundle in separate PStors
+  * change: write each bundle in separate PStores
   * need unique file names for bundle-PStores: hash(Sender-EID, Receiver-EID, TS, fragment offset)
   * plus separate index (Meta-Info -> file name)
 
