@@ -20,169 +20,169 @@
 require 'rdtnlog'
 require 'cl'
 require 'routetab'
+require 'singleton'
+
+module RdtnConfig
+
+  class Reader
+
+    :debug
+    :info
+    :error
+    :warn
+    :fatal
 
 
-class RDTNConf
-  
-  :debug
-  :info
-  :error
-  :warn
-  :fatal
+    :add
 
-  
-  :add
+    :tcp
+    :client
 
-  :tcp
-  :client
-
-  :ondemand
-  :alwayson
+    :ondemand
+    :alwayson
 
 
-  def self.load(filename)
-    conf = new
-    conf.instance_eval(File.read(filename), filename)
-    conf.loglevel(:debug)
-    conf
-  end
-
-  def loglevel(level)
-    @lg=RdtnLogger.instance()    
-    
-    lv={
-      :debug => Logger::DEBUG,
-      :info  => Logger::INFO,
-      :error => Logger::ERROR,
-      :warn  => Logger::WARN,
-      :fatal => Logger::FATAL
-    }
-
-    @lg.level=lv[level] || Logger::UNKOWN
-
-  end
-
-  def log(level, msg)
-    case level
-    when :debug: @lg.debug(msg)
-    when :info: @lg.info(msg)
-    when :warn: @lg.warn(msg)
-    when :error: @lg.error(msg)
-    when :fatal: @lg.fatal(msg)
-    else @lg.info(msg)
+    def self.load(filename)
+      conf = new
+      conf.instance_eval(File.read(filename), filename)
+      conf.loglevel(:debug)
+      conf
     end
-  end
-  
 
-  def self.hash_to_optString(hash={})
-    options = []
-    hash.each do |k, v|
-      case k
-      when :port: options << "-p #{v}" #TODO test 0 < int(v) < 65536
-      when :host: options << "-h #{v}" #TODO no blanks in string v
-      else
-	raise ArgumentError, "Unknown hash key: #{k}."
+    def loglevel(level)
+      @lg=RdtnLogger.instance()    
+
+      lv={
+	:debug => Logger::DEBUG,
+	:info  => Logger::INFO,
+	:error => Logger::ERROR,
+	:warn  => Logger::WARN,
+	:fatal => Logger::FATAL
+      }
+
+      @lg.level=lv[level] || Logger::UNKOWN
+
+    end
+
+    def log(level, msg)
+      case level
+      when :debug: @lg.debug(msg)
+      when :info: @lg.info(msg)
+      when :warn: @lg.warn(msg)
+      when :error: @lg.error(msg)
+      when :fatal: @lg.fatal(msg)
+      else @lg.info(msg)
       end
     end
-    return options.join(" ")
-  end
- 
 
-  def interface(action, cl, name, options={})
-    puts "IF func: #{action}, #{name}"
-    #options = RDTNConf::hash_to_optString(optionHash)
-    
-    case action
-    when :add: addIf(cl, name, options)
-    when :remove: rmIf(cl, name, options)
-    else raise "syntax error: interface #{action}"
-    end
-  end
-  
-  def link(action, cl, name, options)
-    case action
-    when :add: addLink(cl, name, options)
-    when :remove: rmLink(cl, name, options)
-    else raise "syntax error: link #{action}"
-    end
-  end
 
-  def storageDir(dir)
-    puts "StorageDir = #{dir}"
-    RDTNConfig.instance.storageDir = dir
-  end
-
-  def localEid(eid)
-    puts "LocalEid = #{eid}"
-    RDTNConfig.instance.localEid = eid
-  end
-
-def route(action, dest, link)
-    case action
-    when :add: addRoute(dest, link)
-    when :remove: rmRoute(dest, link)
-    else raise "syntax error: link #{action}"
-    end
-end
-  
-  private
-  
-  def addIf(cl, name, options)
-    log(:debug, "adding interface #{name} for CL #{cl} with options: '#{options}'")
-    
-    clreg = CLReg.instance()
-    
-    ifClass = clreg.cl[cl]
-
-    if (ifClass)
-      interface = ifClass[0].new(name, options)
-    else
-      log(:error, "no such convergence layer: #{cl}")
+    def self.hash_to_optString(hash={})
+      options = []
+      hash.each do |k, v|
+	case k
+	when :port: options << "-p #{v}" #TODO test 0 < int(v) < 65536
+	when :host: options << "-h #{v}" #TODO no blanks in string v
+	else
+	  raise ArgumentError, "Unknown hash key: #{k}."
+	end
+      end
+      return options.join(" ")
     end
 
-  end
 
+    def interface(action, cl, name, options={})
+      puts "IF func: #{action}, #{name}"
+      #options = RDTNConf::hash_to_optString(optionHash)
 
-  def addLink(cl, name, options)
-    log(:debug, "adding link #{name} for CL #{cl} with options: '#{options}'")
-    
-    clreg = CLReg.instance()
-    
-    ifClass = clreg.cl[cl]
-
-    if (ifClass)
-      link = ifClass[1].new()
-      link.open(name, options)
-    else
-      log(:error, "no such convergence layer: #{cl}")
+      case action
+      when :add: addIf(cl, name, options)
+      when :remove: rmIf(cl, name, options)
+      else raise "syntax error: interface #{action}"
+      end
     end
 
+    def link(action, cl, name, options)
+      case action
+      when :add: addLink(cl, name, options)
+      when :remove: rmLink(cl, name, options)
+      else raise "syntax error: link #{action}"
+      end
+    end
+
+    def storageDir(dir)
+      puts "StorageDir = #{dir}"
+      Settings.instance.storageDir = dir
+    end
+
+    def localEid(eid)
+      puts "LocalEid = #{eid}"
+      Settings.instance.localEid = eid
+    end
+
+    def route(action, dest, link)
+      case action
+      when :add: addRoute(dest, link)
+      when :remove: rmRoute(dest, link)
+      else raise "syntax error: link #{action}"
+      end
+    end
+
+    private
+
+    def addIf(cl, name, options)
+      log(:debug, "adding interface #{name} for CL #{cl} with options: '#{options}'")
+
+      clreg = CLReg.instance()
+
+      ifClass = clreg.cl[cl]
+
+      if (ifClass)
+	interface = ifClass[0].new(name, options)
+      else
+	log(:error, "no such convergence layer: #{cl}")
+      end
+
+    end
+
+
+    def addLink(cl, name, options)
+      log(:debug, "adding link #{name} for CL #{cl} with options: '#{options}'")
+
+      clreg = CLReg.instance()
+
+      ifClass = clreg.cl[cl]
+
+      if (ifClass)
+	link = ifClass[1].new()
+	link.open(name, options)
+      else
+	log(:error, "no such convergence layer: #{cl}")
+      end
+
+    end
+
+
+    def addRoute(dest, link)
+      log(:debug, "adding route to #{dest} over link #{link}")
+
+      RoutingTable.instance().addEntry(dest,link)
+
+    end
+
+
+
+
+  end # class Reader
+
+  class Settings
+    include Singleton
+
+    attr_accessor :localEid, :storageDir
+
+    def initialize
+      @localEid = ""
+      @storageDir = "store"
+    end
   end
 
-
-  def addRoute(dest, link)
-    log(:debug, "adding route to #{dest} over link #{link}")
-    
-    RoutingTable.instance().addEntry(dest,link)
-
-  end
-
-
-  
-
-end # class RDTNConf
-  
-
-#require 'tcpcl'
-#require 'clientregcl'
-
-#conf = RDTNConf.load("rdtn.conf")
-
-
-
-
-
-
-
-
-
+end #module RdtnConfig
