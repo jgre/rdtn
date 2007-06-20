@@ -22,6 +22,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require "test/unit"
 require "storage"
 require "rdtnlog"
+require "configuration"
 require "bundle"
 require "fileutils"
 
@@ -94,7 +95,7 @@ class Test_storage_perBundle < Test::Unit::TestCase
     
     bundle = Bundling::Bundle.new(payload="bundle stored",
 				  destEid="dtn://test", srcEid="localhost:src")
-    RDTNConfig.instance.storageDir = "/tmp/rdtnTest"
+    RdtnConfig::Settings.instance.storageDir = "/tmp/rdtnTest"
     spb1 = Storage_perBundle.new
 
     #EventDispatcher should be called, but it is difficult to test, 
@@ -134,7 +135,7 @@ class Test_storage_perBundle < Test::Unit::TestCase
 
     assert_equal(bundle.to_s, load.to_s)
 
-    FileUtils.remove_dir(RDTNConfig.instance.storageDir)
+    FileUtils.remove_dir(RdtnConfig::Settings.instance.storageDir)
   end
  
   def test_get_bundleInfoList

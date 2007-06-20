@@ -164,7 +164,7 @@ class Storage_perBundle
 
   def initialize(mfname=Metainfo_Filename)
     mfbasename = File.basename(mfname)
-    @pathname = RDTNConfig.instance.storageDir
+    @pathname = RdtnConfig::Settings.instance.storageDir
     FileUtils.mkdir_p(@pathname)
     @bundleInfos = PStore.new(File.join(@pathname, mfbasename)) #{metaInfo, filename}
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
