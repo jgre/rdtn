@@ -51,6 +51,12 @@ class EventDispatcher
     @subscribers.delete_if(&block)
   end
 
+  # Remove all subscriptions.
+
+  def clear
+    @subscribers.clear
+  end
+
   def dispatch(eventId, *args)
     EventLoop.later { dispatchEvent(eventId, *args) }
   end

@@ -20,9 +20,9 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "bundle"
-require "queue"
+#require "queue"
 
-class DummyLink
+class BDummyLink
   def initialize(&prc)
     @prc = prc
   end
@@ -36,9 +36,11 @@ class TestBundle < Test::Unit::TestCase
 
   def setup
     @inBundle = "\004\020\000\000J\000\000\000\004\000\000\000\026\000\000\000\026\000\000\000(\r\213\274\f\000\000\000\001\000\000\016\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\010\003bla"
+    EventLoop.current = EventLoop.new
   end
 
   def teardown
+    EventDispatcher.instance.clear
   end
 
   def test_parser
@@ -79,7 +81,7 @@ class TestBundle < Test::Unit::TestCase
     sio = StringIO.new(@inBundle[0].chr)
     i = 1
 
-    link = DummyLink.new do 
+    link = BDummyLink.new do 
       if i < @inBundle.length
 	sio.enqueue(@inBundle[i].chr) unless i >= @inBundle.length
 	i += 1

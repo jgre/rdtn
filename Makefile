@@ -1,14 +1,15 @@
-TESTS=test_sdnv.rb test_tcpcl.rb test_logger.rb test_event.rb \
-      test_applib.rb test_storage.rb
+#TESTS=test_sdnv.rb test_tcpcl.rb test_logger.rb test_event.rb \
+#      test_applib.rb test_storage.rb
 
 SOURCES=$(wildcard lib/*.rb)
+TESTS=$(wildcard test/test_*.rb)
 
 .PHONY: tests doc
 
 all: tests doc
 
 tests:
-	cd test; \
+	#cd test; 
 	for t in $(TESTS); do \
 	  ruby $$t; \
         done; \

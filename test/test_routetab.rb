@@ -31,11 +31,15 @@ class DummyLink < Link
     @bundle = bundle
   end
 
+  def close
+  end
+
 end
 
 class TestRoutetab < Test::Unit::TestCase
 
   def setup
+    EventLoop.current = EventLoop.new
     @link1 = DummyLink.new
     @link1.remoteEid = "dtn:oink"
     @link2 = DummyLink.new
@@ -44,7 +48,11 @@ class TestRoutetab < Test::Unit::TestCase
   end
 
   def teardown
-    File.delete(RdtnConfig::Settings.instance.storageDir)
+    begin
+      File.delete(RdtnConfig::Settings.instance.storageDir)
+    rescue
+    end
+    EventDispatcher.instance.clear
   end
 
   def test_forward

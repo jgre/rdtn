@@ -37,6 +37,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
 
   def setup
 
+    EventLoop.current = EventLoop.new
     Dir.mkdir(@@inDirname)
     begin
     Dir.mkdir(@@outDirname)
@@ -47,6 +48,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   end
 
   def teardown
+    EventDispatcher.instance.clear
     begin
       File.delete(@@inDirname + "/" + @@fn1)
       File.delete(@@inDirname + "/" + @@fn2)

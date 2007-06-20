@@ -74,7 +74,9 @@ module FluteCL
     end
 
     def close()
-      Process.kill("HUP", @pid)
+      if defined? @pid and @pid and @pid != 0
+	Process.kill("HUP", @pid)
+      end
       EventDispatcher.instance().dispatch(:linkClosed, self)
     end
 

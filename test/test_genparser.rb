@@ -74,7 +74,7 @@ class TestGenParser< Test::Unit::TestCase
   end
 
   def test_condition
-    input = StringIO.new("bla")
+    input = StringIO.new(2.chr + "bla")
     mp = MyParser.new
     assert_raise(ProtocolError) { mp.parse(input) }
   end

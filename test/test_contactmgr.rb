@@ -29,8 +29,16 @@ require "eidscheme"
 
 class TestContactManager < Test::Unit::TestCase
 
+  def setup
+    EventLoop.current = EventLoop.new
+  end
+
+  def teardown
+    EventDispatcher.instance.clear
+  end
+
   def test_insertion
-    cm = ContactManager.new
+    cm = ContactManager.instance
     link = TCPCL::TCPLink.new
     eid = EID.new("dtn://test/fasel")
     link.remoteEid = eid

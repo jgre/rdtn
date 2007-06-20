@@ -30,6 +30,14 @@ require "configuration"
 
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
+  def setup
+    EventLoop.current = EventLoop.new
+  end
+
+  def teardown
+    EventDispatcher.instance.clear
+  end
+
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()

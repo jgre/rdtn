@@ -22,6 +22,15 @@ require "test/unit"
 require "rdtnevent"
 
 class TestEvent < Test::Unit::TestCase
+  
+  def setup
+    EventLoop.current = EventLoop.new
+  end
+
+  def teardown
+    EventDispatcher.instance.clear
+  end
+
   def test_dispatch
     param = "bla"
     n = 5

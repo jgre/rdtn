@@ -27,43 +27,43 @@ require "clientlib"
 class TestAppLib < Test::Unit::TestCase
 
 
-  def test_applib1
-    log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
-    
-    bundleContent=""
-    bundleOrig="dtn://bla.fasel"
-
-    log.debug("building server interface")
-
-    #a=AppIF::AppInterface.new("app1", "-h localhost -p 7777")
-
-    EventLoop.later do
-      log.debug("block 1")
-      c=RdtnClient.new
-      c.open("localhost",7777)
-      r=RegInfo.new(bundleOrig)
-      c.register(r)
-      b=Bundling::Bundle.new("test!", "dtn://my.dest")
-      c.sendBundle(b)
-      c.unregister(r)
-      c.close()
-    end
-
-    EventLoop.after(1) do
+#  def test_applib1
+#    log=RdtnLogger.instance()
+#    log.level=Logger::DEBUG
+#    
+#    bundleContent=""
+#    bundleOrig="dtn://bla.fasel"
+#
+#    log.debug("building server interface")
+#
+#    #a=AppIF::AppInterface.new("app1", "-h localhost -p 7777")
+#
 #    EventLoop.later do
-      log.debug("block 2")
-      EventLoop.quit
-  end
-
-
-    log.debug("starting main loop")
-
-    EventLoop.run
-
-    log.debug("done")
-
-  end
+#      log.debug("block 1")
+#      c=RdtnClient.new
+#      c.open("localhost",7777)
+#      r=RegInfo.new(bundleOrig)
+#      c.register(r)
+#      b=Bundling::Bundle.new("test!", "dtn://my.dest")
+#      c.sendBundle(b)
+#      c.unregister(r)
+#      c.close()
+#    end
+#
+#    EventLoop.after(1) do
+##    EventLoop.later do
+#      log.debug("block 2")
+#      EventLoop.quit
+#  end
+#
+#
+#    log.debug("starting main loop")
+#
+#    #EventLoop.run
+#
+#    log.debug("done")
+#
+#  end
 
 
 end

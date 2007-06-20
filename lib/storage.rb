@@ -107,7 +107,13 @@ class Storage
     @bundles[id]=bundle
   end
 
-   def save
+  def clear
+    @bundles.clear
+    @bundleInfos.clear
+    @bundles.clear
+  end
+
+  def save
     store=PStore.new(RdtnConfig::Settings.instance.storageDir)
     store.transaction do
        store["bundleIds"] = @bundleIds

@@ -156,9 +156,11 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   end
 
   def setup
+    EventLoop.current = EventLoop.new
   end
 
   def teardown
+    EventDispatcher.instance.clear
     ObjectSpace.each_object(Link) {|link| link.close}
     ObjectSpace.each_object(Interface) {|iface| iface.close}
   end

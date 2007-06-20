@@ -28,12 +28,12 @@ class StringIO
   end
 end
 
-class Queue < String
-  # Remove the first n_bytes bytes from the queue. Called by the parser states
-  # when the data has been processed.
-
-  def consume!(n_bytes)
-    self.slice!(0,n_bytes)
-  end
-
-end
+#class Queue < String
+#  # Remove the first n_bytes bytes from the queue. Called by the parser states
+#  # when the data has been processed.
+#
+#  def consume!(n_bytes)
+#    self.slice!(0,n_bytes)
+#  end
+#
+#end
