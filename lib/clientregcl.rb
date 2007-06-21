@@ -44,20 +44,18 @@ module AppIF
     end
 
     def getObj(data, type)
-      input=StringIO.new(data)
-      obj=Marshal.load(input)
+      obj=Marshal.load(data)
       begin
         if obj.class!=type
           raise ProtocolError, "invalid paramter"
         end
       end
-      bytesRead=input.pos()
+      bytesRead=data.pos()
       @@log.debug("AppIF::getObj -- read #{bytesRead} bytes of class #{obj.class}")
       if obj.class == Bundling::Bundle
 	#@@log.debug("AppIF::getObj -- eid #{obj}")
       end
 	
-      data.consume!(bytesRead)
       return obj
     end
 
@@ -75,14 +73,13 @@ module AppIF
         if data.length<1
 	  raise InputTooShort, (1) - data.length          
         end
-        typeCode=data[0]
+        typeCode = data.getc
         nextState = case typeCode
                     when REG: RegState.new(@appProxy)
                     when UNREG: UnregState.new(@appProxy)
                     when SEND: SendState.new(@appProxy)
                     else raise ProtocolError, "invalid message code"
                     end
-        data.consume!(1)
         return nextState, false
       end
     end
@@ -96,7 +93,7 @@ module AppIF
     end
     
     def readData(data)
-      @tcp_link.queue.consume!(data.length)
+      @tcp_link.queue.read(data.length)
       return self, true
     end
     
@@ -144,9 +141,12 @@ module AppIF
 
 
     def readData(data)
+      RdtnLogger.instance.debug("SendState: Received #{data.length} bytes")
+      oldPos = data.pos
       begin
 	obj=getObj(data,Bundling::Bundle)
-      rescue ArgumentError
+      rescue ArgumentError => err
+	data.pos = oldPos
 	return self, true
       end
       
@@ -170,8 +170,8 @@ module AppIF
     def initialize(socket=0)
       @s=socket
       @remoteEid = ""
-      @queue = Queue.new
-      @bytesToRead = 1024
+      @queue = StringIO.new
+      @bytesToRead = 1048576
       @state = DisconnectedState.new(self)
       if(socketOK?())
         watch()
@@ -183,7 +183,9 @@ module AppIF
     def close
       @@log.debug("AppProxy::close -- closing socket #{@s}")
       @s.ignore_event :readable
-      @s.close
+      if socketOK?
+	@s.close
+      end
     end
 
 
@@ -211,7 +213,7 @@ module AppIF
       
       
       if readData
-        @queue << data[0]
+        @queue.enqueue(data[0])
         
       else
         @@log.error("AppProxyk::whenReadReady: no data read")
@@ -220,10 +222,11 @@ module AppIF
         
         self.close()              
         EventDispatcher.instance().dispatch(:linkClosed, self)
+	return
       end
       
 
-      while @queue.length > 0
+      while not @queue.eof?
 	# FIXME: cancel connection on protocol error
 	@state, wait = @state.readData(@queue)
 	if wait
@@ -267,7 +270,7 @@ module AppIF
     @@log=RdtnLogger.instance()
     
 #    def initialize(host = "localhost", port = RDTNAPPIFPORT)
-    def initialize(name, options)
+    def initialize(name, options = {})
       host = "localhost"
       port = RDTNAPPIFPORT
 
@@ -290,15 +293,22 @@ module AppIF
     end
     
     def whenAccept()
-      @@log.debug("TCPInterface::whenAccept")
+      @@log.debug("AppInterface::whenAccept")
       #FIXME deal with errors
       @link= AppProxy.new(@s.accept())
       @@log.debug("created new AppProxy #{@link.object_id}")
     end
     
     def close
-      @s.close
+      if socketOK?
+	@s.close
+      end
     end
+
+    def socketOK?
+      (@s.class.to_s=="TCPSocket") && !@s.closed?()
+    end
+    
     
   end
 

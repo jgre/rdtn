@@ -29,6 +29,7 @@ class RdtnClient
 
   def initialize
     @@log=RdtnLogger.instance()    
+    @sendBuf = StringIO.new
   end
 
 
@@ -46,7 +47,9 @@ class RdtnClient
     def close
       @@log.debug("RdtnClient::close -- closing socket #{@s}")
       @s.ignore_event :readable
-      @s.close
+      if socketOK?
+	@s.close
+      end
     end
 
     def watch
@@ -95,9 +98,22 @@ class RdtnClient
 
     def send(data)
       res=-1
-      if(socketOK?())
-        @@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
-	res=@s.send(data,0)
+      @sendBuf.enqueue(data)
+      @s.extend EventLoop::Watchable
+      @s.monitor_event :writable
+      @s.will_block = false
+      @s.on_writable do
+	if(socketOK?())
+	  @@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
+	  buf = @sendBuf.read(32768)
+	  res=@s.send(buf,0)
+	  if res < buf.length
+	    @sendBuf.pos -= (buf.length - res)
+	  end
+	  if @sendBuf.eof?
+	    @s.ignore_event :writable
+	  end
+	end
       end
       return res
     end

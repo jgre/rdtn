@@ -39,7 +39,7 @@ end
 
 
 class Link
-  MIN_READ_BUFFER=1024
+  MIN_READ_BUFFER=1048576
 
   attr_reader :bytesToRead
   attr_accessor :name

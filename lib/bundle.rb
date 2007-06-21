@@ -78,7 +78,7 @@ module Bundling
 	    queue.close
 	    @@incomingBundles.delete(queue.object_id)
 	  else
-	    cl.bytesToRead = 1024
+	    cl.bytesToRead = 1048576
 	  end
 	end
       end

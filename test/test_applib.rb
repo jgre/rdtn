@@ -26,43 +26,55 @@ require "clientlib"
 
 class TestAppLib < Test::Unit::TestCase
 
+  def setup
+    RdtnLogger.instance.level = Logger::ERROR
+    EventLoop.current = EventLoop.new
+    @appIf = AppIF::AppInterface.new("client0")
+  end
 
-#  def test_applib1
-#    log=RdtnLogger.instance()
-#    
-#    bundleContent=""
-#    bundleOrig="dtn://bla.fasel"
-#
-#    log.debug("building server interface")
-#
-#    #a=AppIF::AppInterface.new("app1", "-h localhost -p 7777")
-#
-#    EventLoop.later do
-#      log.debug("block 1")
-#      c=RdtnClient.new
-#      c.open("localhost",7777)
-#      r=RegInfo.new(bundleOrig)
-#      c.register(r)
-#      b=Bundling::Bundle.new("test!", "dtn://my.dest")
-#      c.sendBundle(b)
-#      c.unregister(r)
-#      c.close()
-#    end
-#
-#    EventLoop.after(1) do
-##    EventLoop.later do
-#      log.debug("block 2")
-#      EventLoop.quit
-#  end
-#
-#
-#    log.debug("starting main loop")
-#
-#    #EventLoop.run
-#
-#    log.debug("done")
-#
-#  end
+  def teardown
+    EventDispatcher.instance.clear
+    @appIf.close
+  end
+
+  def test_applib1
+    bundleContent="test!"
+    begin
+      bundleContent = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
+	f.read
+      end
+    rescue
+      RdtnLogger.instance.warn("Could not open large testfile")
+    end
+
+    bundleOrig="dtn://bla.fasel"
+
+    c=RdtnClient.new
+    EventLoop.later do
+      c.open("localhost",7777)
+      r=RegInfo.new(bundleOrig)
+      c.register(r)
+      b=Bundling::Bundle.new(bundleContent, "dtn://my.dest")
+      c.sendBundle(b)
+      c.unregister(r)
+    end
+
+    eventSent = false
+    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle| 
+      eventSent = true
+      assert_equal(bundleContent, bundle.payload)
+    end
+
+    EventLoop.after(1) do
+      c.close
+      EventLoop.quit
+    end
+
+    EventLoop.run
+
+    assert(eventSent, "Bundle event was not received")
+
+  end
 
 
 end
