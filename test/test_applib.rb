@@ -29,7 +29,6 @@ class TestAppLib < Test::Unit::TestCase
 
 #  def test_applib1
 #    log=RdtnLogger.instance()
-#    log.level=Logger::DEBUG
 #    
 #    bundleContent=""
 #    bundleOrig="dtn://bla.fasel"

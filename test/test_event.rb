@@ -24,6 +24,7 @@ require "rdtnevent"
 class TestEvent < Test::Unit::TestCase
   
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
     EventLoop.current = EventLoop.new
   end
 
@@ -42,14 +43,12 @@ class TestEvent < Test::Unit::TestCase
 
     n.times do |cur_n|
       EventDispatcher.instance().subscribe(:test_event) do |my_arg|
-	puts "test_event received #{cur_n} #{my_arg}"
 	assert_equal(param, my_arg)
 	n_received += 1
       end
     end
 
     EventDispatcher.instance().subscribe(:other_event) do |my_arg|
-      puts "The other event"
     end
 
     EventDispatcher.instance().dispatch(:test_event, param)
@@ -67,7 +66,6 @@ class TestEvent < Test::Unit::TestCase
     EventLoop.after(3) { EventLoop.quit }
 
     h = EventDispatcher.instance().subscribe(:test_event) do |my_arg|
-      puts "test_event received #{my_arg}"
       assert_equal(param, my_arg)
       n_received += 1
     end
@@ -93,7 +91,6 @@ class TestEvent < Test::Unit::TestCase
     EventLoop.after(3) { EventLoop.quit }
 
     h = lambda  do |my_arg|
-      puts "usi_test_event received #{my_arg}"
       assert_equal(param, my_arg)
       n_received += 1
     end

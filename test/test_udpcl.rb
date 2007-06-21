@@ -31,6 +31,7 @@ require "configuration"
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
     EventLoop.current = EventLoop.new
   end
 
@@ -41,7 +42,6 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     
     log.debug("starting contact exchange")
     

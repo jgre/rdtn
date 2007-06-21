@@ -28,6 +28,8 @@ require "bundle"
 class TestStorage < Test::Unit::TestCase
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
+    EventDispatcher.instance.clear
     RdtnConfig::Settings.instance.storageDir = "store"
     Storage.instance.clear
     begin
@@ -38,7 +40,6 @@ class TestStorage < Test::Unit::TestCase
 
   def test_storage1
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     
     store = Storage.instance
     
@@ -48,6 +49,8 @@ class TestStorage < Test::Unit::TestCase
     end
 
     store.save
+
+    store.clear
 
     newstore=Storage.instance
     newstore.load
@@ -65,7 +68,6 @@ class TestStorage < Test::Unit::TestCase
 
   def test_storage2
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     
     store = Storage.instance
 
@@ -77,11 +79,12 @@ class TestStorage < Test::Unit::TestCase
       store.storeBundle(b)
     end
 
-    #store.save
+    store.save
+    store.clear
 
     log.debug("loading store")
     newstore=Storage.instance
-    #newstore.load
+    newstore.load
 
     log.debug("trying to match 1 bundle")
     blist=newstore.getBundlesMatching() do |bundleInfo|

@@ -91,7 +91,6 @@ class Test_storage_perBundle < Test::Unit::TestCase
   #test for 'save(bundle), without event dispatcher'
   def test_save
     log = RdtnLogger.instance()
-    log.level = Logger::DEBUG
     
     bundle = Bundling::Bundle.new(payload="bundle stored",
 				  destEid="dtn://test", srcEid="localhost:src")

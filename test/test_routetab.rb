@@ -39,6 +39,7 @@ end
 class TestRoutetab < Test::Unit::TestCase
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
     EventLoop.current = EventLoop.new
     @link1 = DummyLink.new
     @link1.remoteEid = "dtn:oink"

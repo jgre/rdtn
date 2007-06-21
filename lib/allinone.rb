@@ -74,7 +74,6 @@ end
 
 payload=plFile.read
 plFile.close
-puts "Payload length: #{payload.length}"
 
 # Initialize Contact manager and routing table
 cmgr = ContactManager.instance

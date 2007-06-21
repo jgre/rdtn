@@ -36,6 +36,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   @@file2 = "fasel"
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
 
     EventLoop.current = EventLoop.new
     Dir.mkdir(@@inDirname)
@@ -119,9 +120,9 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
       assert_equal(bundle.to_s, data)
     end
     #FIXME: test contents of metadata file
-    File.open(@@outDirname + "/#{bundle.object_id}.meta") do |file|
-      puts file.read
-    end
+    #File.open(@@outDirname + "/#{bundle.object_id}.meta") do |file|
+    #  puts file.read
+    #end
 
   end
 

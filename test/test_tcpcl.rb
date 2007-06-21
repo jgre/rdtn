@@ -33,7 +33,6 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_contact_exchange
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
-    log.level=Logger::INFO
     
     log.debug("starting contact exchange")
     
@@ -52,7 +51,6 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     
     log.debug("starting contact exchange")
     
@@ -87,7 +85,6 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
  
   def test_bundle_sending2
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     
@@ -129,7 +126,6 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     log=RdtnLogger.instance()
-    log.level=Logger::INFO
     
     log.debug("starting contact exchange")
     
@@ -156,6 +152,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   end
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
     EventLoop.current = EventLoop.new
   end
 

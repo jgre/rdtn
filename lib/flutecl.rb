@@ -137,7 +137,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  Dir.chdir(@ppgDir)
-	  puts "Starting papageno in #{Dir.pwd}"
+	  RdtnLogger.instance.info("Starting papageno in #{Dir.pwd}")
 	  # TODO let the parameters be given in options
 	  exec("#{@ppgProg} -a 224.1.2.3 #{@ppgDir}")
 	end

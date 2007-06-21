@@ -100,7 +100,7 @@ class Storage
     bi=BundleInfo.new(bundle)
     id=bi.to_s
     if(@bundleInfos.has_key?(id))
-      puts ("id collision")
+      RdtnLogger.instance.warn("id collision")
     end
     @bundleIds.push(id)
     @bundleInfos[id]=bi
@@ -108,7 +108,7 @@ class Storage
   end
 
   def clear
-    @bundles.clear
+    @bundleIds.clear
     @bundleInfos.clear
     @bundles.clear
   end
@@ -136,9 +136,9 @@ class Storage
     # returns matching bundles as a list of ids
 
     res=[]
-    0.upto(@bundleInfos.length()-1) do |i|
+    0.upto(@bundleIds.length()-1) do |i|
       bi=@bundleInfos[@bundleIds[i]]
-      if yield(bi)
+      if bi and yield(bi)
         res << @bundles[@bundleIds[i]]
       end
     end
@@ -186,7 +186,7 @@ class Storage_perBundle
     metaInfo = BundleInfo.new(bundle)
     @bundleInfos.transaction do
       if @bundleInfos.root?(metaInfo)
-	puts "Bundle: #{bundle} has already been stored as file: #{fn}."
+	RdtnLogger.instance.warn("Bundle: #{bundle.bundleId} has already been stored as file: #{fn}.")
       else
 	@bundleInfos[metaInfo] = fn
       end
@@ -223,7 +223,7 @@ class Storage_perBundle
       if @bundleInfos.root?(bundleInfo)
 	filename = @bundleInfos[bundleInfo]
       else
-	puts "No bundleinfo: #{bundleInfo} has been stored."
+	RdtnLogger.instance.error("No bundleinfo: #{bundleInfo} has been stored.")
 	@bundleInfos.abort
       end
     end

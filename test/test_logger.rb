@@ -27,11 +27,9 @@ class TestLogger < Test::Unit::TestCase
 
   def test_log1
     log=RdtnLogger.instance()
-    log.level=Logger::DEBUG
     log.debug("testing RdtnLogger")
 
     foo=RdtnLogger.instance()
-    foo.level=Logger::DEBUG
     foo.debug("testing RdtnLogger")
 
     assert(log.object_id==foo.object_id)

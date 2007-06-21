@@ -114,7 +114,6 @@ module AppIF
       obj=getObj(data,RegInfo)
       
       # call register...
-      puts("register #{obj}")
       @appProxy.remoteEid = EID.new(obj.to_s)
       EventDispatcher.instance().dispatch(:linkCreated, @appProxy)
       EventDispatcher.instance().dispatch(:contactEstablished, @appProxy)
@@ -132,7 +131,6 @@ module AppIF
       obj=getObj(data,RegInfo)
       
       # call unregister...
-      puts("unregister #{obj}")
       return ConnectedState.new(@appProxy), false
     end
   end

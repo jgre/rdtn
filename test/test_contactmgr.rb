@@ -30,6 +30,7 @@ require "eidscheme"
 class TestContactManager < Test::Unit::TestCase
 
   def setup
+    RdtnLogger.instance.level = Logger::ERROR
     EventLoop.current = EventLoop.new
   end
 
