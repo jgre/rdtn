@@ -415,19 +415,19 @@ module TCPCL
       @@log.debug("TCPLink::whenReadReady #{self.object_id}")
       readData=true
       begin
-        data = @s.recvfrom(@bytesToRead)
+        data = @s.read(@bytesToRead)
       rescue SystemCallError    # lost TCP connection 
         @@log.error("TCPLink::whenReadReady::recvfrom" + $!)
         
         readData=false
       end
       
-      @@log.debug("TCPLink::whenReadReady: read #{data[0].length} bytes")
+      @@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
       
-      readData=readData && (data[0].length()>0)
+      readData=readData && (data.length()>0)
       
       if readData
-        @queue.enqueue(data[0])
+        @queue.enqueue(data)
       else
         @@log.error("TCPLink::whenReadReady: no data read")
         # unregister socket and generate linkClosed event so that this
@@ -493,7 +493,7 @@ module TCPCL
     # sending.
     
     def sendBundle(bundle)
-      @segmentLength = 4 # FIXME increase this to a sane value (increase dynamically?) 
+      @segmentLength = 32768# FIXME increase this to a sane value (increase dynamically?) 
       b = bundle.to_s
       buf = ""
       

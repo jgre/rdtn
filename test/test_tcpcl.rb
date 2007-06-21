@@ -55,10 +55,17 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     log.debug("starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
+    begin
+      inBundle = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
+	f.read
+      end
+    rescue
+      RdtnLogger.instance.warn("Could not open large testfile")
+    end
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
       outBundle += queue.read
-      log.debug("Received bundle1: #{outBundle}")
+      log.debug("Received bundle1: #{outBundle.length}")
     end
     interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
     link=TCPCL::TCPLink.new
@@ -72,7 +79,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     EventDispatcher.instance().unsubscribe(:bundleData, handler)
 
     assert_equal(RdtnConfig::Settings.instance.localEid.to_s, link.remoteEid.to_s)
-    assert_equal(inBundle, outBundle)
+    assert_equal(inBundle.length, outBundle.length)
     
     assert_equal(true, link.connection[:acks])
     interface.links.each do |link|
