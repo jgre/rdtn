@@ -422,11 +422,11 @@ module TCPCL
         readData=false
       end
       
-      @@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
       
-      readData=readData && (data.length()>0)
+      readData=data and readData and (data.length()>0)
       
       if readData
+	@@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
         @queue.enqueue(data)
       else
         @@log.error("TCPLink::whenReadReady: no data read")

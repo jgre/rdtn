@@ -83,7 +83,6 @@ class RdtnClient
         typeCode=data[0]
         if typeCode == DELIVER
 	  bundle = Marshal.load(input)
-	  puts "Bundle received #{bundle.payload}"
 	  @bundleHandler.call(bundle)
         end
       else
