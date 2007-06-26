@@ -20,7 +20,7 @@ TCP CL:
 Bundle parser:
   * Fragmentation (v0.2)
   * Flags (jgre)
-  * Custody handling
+  * Custody handling (jgre)
   * Administrative records
   * Extension bundle blocks
     => Factory for state objects

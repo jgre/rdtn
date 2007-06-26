@@ -32,31 +32,50 @@ require 'clientregcl'
 require 'configuration'
 require "stats"
 
-log=RdtnLogger.instance()
-log.level=Logger::DEBUG
-bl = Bundling::BundleLayer.new
-stats = Stats::StatGrabber.new("out.stat", "in.stat")
+module RdtnDaemon
 
-configFileName="rdtn.conf"
+  class Daemon
 
-opts = OptionParser.new do |opts|
-  opts.on("-c", "--config FILE", "config file name") do |c|
-    configFileName = c
+    def initialize(optParser = OptionParser.new)
+
+      @log=RdtnLogger.instance()
+      bl = Bundling::BundleLayer.new
+
+      configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
+
+      optParser.on("-c", "--config FILE", "config file name") do |c|
+	configFileName = c
+      end
+      optParser.on("-s", "--stat-dir DIR", "Directory for statistics") do |s|
+	dir = File.expand_path(s)
+	begin
+	  Dir.mkdir(dir)
+	rescue
+	end
+	stats = Stats::StatGrabber.new(File.join(dir, "out.stat"),  
+				       File.join(dir, "in.stat"))
+      end
+
+      optParser.parse!(ARGV)
+      
+      # Initialize Contact manager and routing table
+      cmgr = ContactManager.instance
+      router = RoutingTable.instance
+      store = Storage.instance
+      conf = RdtnConfig::Reader.load(configFileName)
+
+    end
+
+    def runLoop
+      @log.debug("Starting DTN daemon main loop")
+      EventLoop.run()
+    end
   end
+
+end #module 
+
+if $0 == __FILE__
+  RdtnDaemon::Daemon.new.runLoop
 end
-
-opts.parse!(ARGV)
-
-
-
-# Initialize Contact manager and routing table
-cmgr = ContactManager.instance
-router = RoutingTable.instance
-store = Storage.instance
-conf = RdtnConfig::Reader.load(File.join(File.dirname(__FILE__),configFileName))
-
-log.debug("Starting DTN daemon main loop")
-EventLoop.run()
-
 
 

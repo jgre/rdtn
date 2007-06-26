@@ -216,7 +216,7 @@ module AppIF
         @queue.enqueue(data[0])
         
       else
-        @@log.error("AppProxyk::whenReadReady: no data read")
+        @@log.info("AppProxy::whenReadReady: no data read")
         # unregister socket and generate linkClosed event so that this
         # link can be removed
         

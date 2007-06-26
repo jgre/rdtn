@@ -45,7 +45,7 @@ module RdtnConfig
     def self.load(filename)
       conf = new
       conf.instance_eval(File.read(filename), filename)
-      conf.loglevel(:debug)
+      #conf.loglevel(:debug)
       conf
     end
 

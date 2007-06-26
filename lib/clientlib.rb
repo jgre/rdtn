@@ -26,12 +26,17 @@ require "stringio"
 
 class RdtnClient
   @s
+  attr_reader :bundleHandler
 
-  def initialize
+  def initialize()
     @@log=RdtnLogger.instance()    
     @sendBuf = StringIO.new
+    @bundleHandler = lambda {}
   end
 
+  def onBundle(&handler)
+    @bundleHandler = handler
+  end
 
     def open(host, port)
       @@log.debug("RdtnClient::open -- opening socket #{@s}")
@@ -61,7 +66,6 @@ class RdtnClient
     end
 
     def whenReadReady
-      # FIXME do error handling and implement other operations
       readData=true
       data=""
       begin
@@ -77,13 +81,13 @@ class RdtnClient
       if readData
         input=StringIO.new(data[1..-1])
         typeCode=data[0]
-        puts "Client data received: #{typeCode}"
-        #if typeCode == DELIVER
-	bundle = Marshal.load(input)
-	puts "Bundle received #{bundle.payload}"
-        #end
+        if typeCode == DELIVER
+	  bundle = Marshal.load(input)
+	  puts "Bundle received #{bundle.payload}"
+	  @bundleHandler.call(bundle)
+        end
       else
-        @@log.error("TCPLink::whenReadReady: no data read")
+        @@log.info("TCPLink::whenReadReady: no data read")
         # unregister socket and generate linkClosed event so that this
         # link can be removed
         
@@ -105,10 +109,12 @@ class RdtnClient
       @s.on_writable do
 	if(socketOK?())
 	  @@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
-	  buf = @sendBuf.read(32768)
-	  res=@s.send(buf,0)
-	  if res < buf.length
-	    @sendBuf.pos -= (buf.length - res)
+	  if not @sendBuf.eof?
+	    buf = @sendBuf.read(32768)
+	    res=@s.send(buf,0)
+	    if res < buf.length
+	      @sendBuf.pos -= (buf.length - res)
+	    end
 	  end
 	  if @sendBuf.eof?
 	    @s.ignore_event :writable

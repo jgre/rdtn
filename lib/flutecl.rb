@@ -49,6 +49,8 @@ module FluteCL
       self.name = name
       @ppgDir = File.expand_path("papageno_outgoing") # default directory
       bandwidth = 629760 # 492kbit/s
+      @addr = "224.1.2.3"
+      @fluteOpts = "-E -r 1.5 -i 1.0"
 
       if options.has_key?(:directory)
 	@ppgDir = File.expand_path(options[:directory])
@@ -59,6 +61,12 @@ module FluteCL
       if options.has_key?(:bandwidth)
 	bandwidth = options[:bandwidth]
       end
+      if options.has_key?(:addr)
+	@addr = options[:addr]
+      end
+      if options.has_key?(:fluteOpts)
+	@fluteOpts = options[:fluteOpts]
+      end
 
       RdtnLogger.instance.debug("Flute link writes data for Papageno to #{@ppgDir}")
 
@@ -67,7 +75,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  # TODO let the parameters be given in options
-	  exec("#{@ppgProg} -E -r 1.5 -i 1.0 -a 224.1.2.3 -b #{bandwidth} #{@ppgDir}")
+	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} -b #{bandwidth} #{@ppgDir}")
 	end
       end
 
@@ -117,6 +125,8 @@ module FluteCL
       self.name = name
       @ppgDir = File.expand_path("papageno_incoming") # default directory
       @pollInterval = 10 # seconds
+      @addr = "224.1.2.3"
+      @fluteOpts = ""
 
       if options.has_key?(:directory)
 	@ppgDir = File.expand_path(options[:directory])
@@ -126,6 +136,12 @@ module FluteCL
       end
       if options.has_key?(:interval)
 	@pollInterval = options[:interval]
+      end
+      if options.has_key?(:addr)
+	@addr = options[:addr]
+      end
+      if options.has_key?(:fluteOpts)
+	@fluteOpts = options[:fluteOpts]
       end
 
       RdtnLogger.instance.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
@@ -139,7 +155,7 @@ module FluteCL
 	  Dir.chdir(@ppgDir)
 	  RdtnLogger.instance.info("Starting papageno in #{Dir.pwd}")
 	  # TODO let the parameters be given in options
-	  exec("#{@ppgProg} -a 224.1.2.3 #{@ppgDir}")
+	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} #{@ppgDir}")
 	end
       end
     end
