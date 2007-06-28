@@ -1,0 +1,237 @@
+= Ruby DTN Implementation =
+
+RDTN is an implementation of [http://www.dtnrg.org Delay Tolerant Networking]
+written in [http://www.ruby-lang.org/ Ruby]. RDTN is free software distributed
+under the GPL.
+
+== Download ==
+
+You can use either one of the packaged releases or access the code directly from
+the version control repository.
+
+ * [source:rdtn SVN Repository]
+ * There is also a [http://bazaar-vcs.org Bazaar] [http://www.tzi.org/~jgre/rdtn repository]
+
+=== Releases ===
+
+ * 2007-06-28: [https://wip.informatik.uni-bremen.de/cgi-bin/trac.cgi/attachment/wiki/RDTN/rdtn-0.1.tar.gz?format=raw Version 0.1]
+
+
+== Getting Started ==
+
+The current version of RDTN requires the
+[http://raa.ruby-lang.org/project/event-loop/ Ruby-Event-Loop] library which
+is included in our repository and in the release tarballs. This library needs to
+be installed by calling its {{{setup.rb}}}.
+
+{{{
+$ cd rdtn/extern/event-loop-0.3
+$ ruby setup.rb
+}}}
+
+The ConfigFile is located in {{{lib/rdtn.conf}}}. Edit it to activate the
+convergence layers and routes for your setting. The configuration is needed for the [wiki:daemon Daemon].
+
+The following example and test applications are included:
+ * [wiki:dtncat]
+ * [wiki:dtnrecv]
+ * [wiki:allinone]
+ * [wiki:send-recv]
+
+RDTN includes tests for its components. The tests are located in the {{{test}}}
+directory. You can use [http://rake.rubyforge.org/ Rake] to run all tests.
+
+= RDTN Configuration =
+
+The configuration file is ruby code that is read when the daemon starts. In the configuration you can set the logging verbosity, the directory for persistent storage, the local EID, and add routes and convergence layers.
+
+== Logging Verbosity ==
+
+{{{
+loglevel LEVEL
+}}}
+
+Possible values for {{{LEVEL}}} are: {{{:debug}}}, {{{:info}}}, {{{:warn}}}, and {{{:error}}}.
+
+== Persistent Storage ==
+
+{{{
+storageDir DIR
+}}}
+
+== Local EID ==
+
+{{{
+localEID EID
+}}}
+
+The local EID is the default source address for bundles originating from the current DTN node.
+
+== Convergence Layers ==
+
+Convergence layers have two parts: links and interfaces. Links handle outgoing traffic, while interfaces listen for incoming data. Links and interfaces are configured independently. Multiple instances of both kinds may be configured for a single type of convergence layer.
+
+The common syntax to configure links is:
+{{{
+link :add, TYPE, NAME, OPTIONS
+}}}
+
+ * {{{TYPE}}} Identifier for the type of convergence layer.
+ * {{{NAME}}} Name by which the link can be referenced.
+ * {{{OPTIONS}}} Covergence layer specific options.
+
+The common syntax to configure interfaces is:
+{{{
+interface :add, TYPE, NAME, OPTIONS
+}}}
+
+ * {{{TYPE}}} Identifier for the type of convergence layer.
+ * {{{NAME}}} Name by which the interface can be referenced.
+ * {{{OPTIONS}}} Covergence layer specific options.
+
+=== TCP ===
+
+The identifier for this type is {{{:tcp}}}. The following options for links are supported:
+
+ * {{{:host}}} The interface (IP address or hostname) to connect to.
+ * {{{:port}}} The port to connect to.
+
+The following options for interfaces are supported:
+
+ * {{{:host}}} The interface (IP address or hostname) to listen on (Default: "localhost").
+ * {{{:port}}} The port to listen on (Default:4557).
+
+=== UDP ===
+
+The identifier for this type is {{{:udp}}}. The following options for links are supported:
+
+ * {{{:host}}} The interface (IP address or hostname) to connect to.
+ * {{{:port}}} The port to connect to.
+ * {{{:maxBundleSize}}} The maximum size of a bundle that can be transmitted without being fragmented.
+
+The following options for interfaces are supported:
+
+ * {{{:host}}} The interface (IP address or hostname) to listen on (Default: "localhost").
+ * {{{:port}}} The port to listen on (Default:4557).
+
+=== FLUTE ===
+
+The identifier for this type is {{{:flute}}}. The following options for links are supported:
+
+ * {{{:directory}}} The directory where the flute sender waits for data to send.
+ * {{{:fluteSend}}} The path to the flute sender executable.
+ * {{{:bandwidth}}} The maximum bandwidth to be used by the flute sender.
+ * {{{:addr}}} The address the flute sender sends to.
+ * {{{:fluteOpts}}} Additional options to be passed to the flute sender.
+
+The following options for interfaces are supported:
+
+ * {{{:directory}}} The directory where the flute receiver puts received data.
+ * {{{:fluteSend}}} The path to the flute receiver executable.
+ * {{{:interval}}} The interval for polling the directory.
+ * {{{:addr}}} The address the flute receiver receives from.
+ * {{{:fluteOpts}}} Additional options to be passed to the flute receiver.
+
+=== Client Interface ===
+
+The client interface is implemented as a convergence layer. An interface of this type ({{{:client}}}) must be configured for applications to be able to communicate with the daemon. Links of this type do not need to be configured, as connections are always started by the application, never by the daemon.
+
+The following options for interfaces are supported:
+
+ * {{{:host}}} The interface (IP address or hostname) to listen on (Default: "localhost").
+ * {{{:port}}} The port to listen on (Default:7777).
+
+== Routes ==
+
+Routes can be added using the following syntax:
+
+{{{
+route :add, DEST_PATTERN, LINK_NAME
+}}}
+
+ * {{{DEST_PATTERN}}} A regular expression for the destination.
+ * {{{LINK_NAME}}} The name of the link over which bundles to the destination are forwarded.
+
+= RDTN Daemon =
+
+The daemon is the core process of RDTN. It communicates with other bundle routers over convergence layers and the bundle protocol and with applications using the ClientInterface.
+
+The daemon executable is located in
+{{{lib/daemon.rb}}} The program has
+the following parameters:
+
+{{{
+daemon.rb [options]
+    -c, --config FILE                config file name
+    -s, --stat-dir DIR               Directory for statistics
+}}}
+
+The configuration is read from the specified file, if {{{--config}}} is given, otherwise the default ConfigFile is in {{{lib/rdtn.conf}}}.
+
+= dtncat =
+
+{{{dtncat}}} is a simple application to send data over DTN. It is located in
+{{{apps/dtncat}}} and requires a running [wiki:daemon Daemon]. The program has
+the following parameters:
+
+{{{
+dtncat [options]
+    -d, --dest EID                   destination EID
+    -l, --local EID                  local EID
+    -L, --loop INTERVAL
+    -D, --duration SECONDS
+}}}
+
+The destination EID is required. If local EID is omitted the value is taken from
+the ConfigFile. If {{{--loop}}} is given, the data will be resent every
+{{{INTERVAL}}} seconds. If {{{--duration}}} is given, the process will stop
+after the specified number of seconds.
+
+The data to be sent is read from standard input.
+
+= dtnrcv =
+
+{{{dtnrcv}}} is a simple application to receive data over DTN. It is located in
+{{{apps/dtnrcv}}} and requires a running [wiki:daemon Daemon]. The program has
+the no parameters and listens for incoming bundles.
+
+= allinone =
+
+{{{allinone}}} is a simple application similar to [wiki:dtncat] to send data over DTN. It is located in
+{{{apps/allinone/allinone.rb}}} and includes the code to start the [wiki:daemon Daemon]. This makes testing easier, as only one process needs to be started. The program has
+the following parameters:
+
+{{{
+allinone.rb [options]
+    -d, --dest EID                   destination EID
+    -l, --local EID                  local EID
+    -L, --loop INTERVAL
+    -D, --duration SECONDS
+}}}
+
+The destination EID is required. If local EID is omitted the value is taken from
+the ConfigFile. If {{{--loop}}} is given, the data will be resent every
+{{{INTERVAL}}} seconds. If {{{--duration}}} is given, the process will stop
+after the specified number of seconds.
+
+The data to be sent is read from standard input.
+
+= send-recv =
+
+{{{send-recv}}} is a simple application to send and receive data over DTN. It is located in
+{{{apps/allinone/send-recv}}} and includes the code to start the [wiki:daemon Daemon]. This makes testing easier, as only one process needs to be started. The program has
+the following parameters:
+
+{{{
+send-recv [options]
+    -d, --dest EID                   destination EID
+    -l, --local EID                  local EID
+    -c, --config FILE                config file name
+    -s, --stat-dir DIR               Directory for statistics
+}}}
+
+The destination EID is required. If local EID is omitted the value is taken from
+the ConfigFile. The configuration is read from the specified file, if {{{--config}}} is given, otherwise the default configuration is in {{{lib/rdtn.conf}}}.
+
+The data to be sent is read from standard input. The received data is written to standard output.
+
