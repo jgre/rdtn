@@ -18,14 +18,13 @@
 # $Id$
 
 require "singleton"
-require "event-loop"
-require "event-loop/timer"
+require "monitor"
 
-class EventDispatcher
+class EventDispatcher < Monitor
   include Singleton
-  include SignalEmitter
 
   def initialize
+    super
     @subscribers = Hash.new()
   end
 
@@ -34,35 +33,38 @@ class EventDispatcher
   # block.
 
   def subscribe(eventId, &handler)
-    if not @subscribers[eventId]: @subscribers[eventId] = [] end
-    @subscribers[eventId] << handler
+    synchronize do
+      if not @subscribers[eventId]: @subscribers[eventId] = [] end
+      @subscribers[eventId] << handler
+    end
   end
 
   # Remove the subscription to an event. The handler is a Proc object (e.g. the
   # one returned by subscribe.
 
   def unsubscribe(eventId, handler)
-    @subscribers.delete_if {|id, h| id == eventId and h == handler}
+    synchronize do
+      @subscribers.delete_if {|id, h| id == eventId and h == handler}
+    end
   end
 
   # Remove every subscription for wich block returns true.
 
   def unsubscribeIf(&block)
-    @subscribers.delete_if(&block)
+    synchronize do
+      @subscribers.delete_if(&block)
+    end
   end
 
   # Remove all subscriptions.
 
   def clear
-    @subscribers.clear
+    synchronize do
+      @subscribers.clear
+    end
   end
 
   def dispatch(eventId, *args)
-    EventLoop.later { dispatchEvent(eventId, *args) }
-  end
-
-  private
-  def dispatchEvent(eventId, *args)
     if @subscribers[eventId]
       @subscribers[eventId].each { |handler| handler.call(*args) }
     end

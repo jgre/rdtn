@@ -18,80 +18,90 @@
 # $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 require "socket"
-require "event-loop"
 require "clientapi"
 require "rdtnlog"
 require "bundle"
-require "stringio"
+require "queue"
+require "rerun_thread"
 
 class RdtnClient
+  include RerunThread
   @s
   attr_reader :bundleHandler
 
   def initialize()
     @@log=RdtnLogger.instance()    
-    @sendBuf = StringIO.new
+    @sendBuf = RdtnStringIO.new
     @bundleHandler = lambda {}
+    @threads = []
   end
 
   def onBundle(&handler)
     @bundleHandler = handler
   end
 
-    def open(host, port)
-      @@log.debug("RdtnClient::open -- opening socket #{@s}")
-      if(socketOK?())
-	close
-      end
-      #XXX: Doesn't this block?
-      @s = TCPSocket.new(host,port)
+  def open(host, port)
+    @@log.debug("RdtnClient::open -- opening socket #{@s}")
+    if(socketOK?())
+      close
+    end
+    connect(host, port)
+  end
 
+  def connect(host, port, blocking=true)
+    connectBlock = lambda do |h, p| 
+      @s = TCPSocket.new(h, p) 
       watch()
     end
+    if blocking
+      connectBlock.call(host, port)
+    else
+      @threads << spawnThread(host, port, &connectBlock) 
+    end
+  end
 
     def close
+      @threads.each   {|thr| thr.kill }
       @@log.debug("RdtnClient::close -- closing socket #{@s}")
-      @s.ignore_event :readable
       if socketOK?
 	@s.close
       end
+      EventDispatcher.instance().dispatch(:linkClosed, self)
     end
 
     def watch
-      @s.extend EventLoop::Watchable
-      @s.will_block = false
-      @s.on_readable { self.whenReadReady }
-      @s.monitor_event :readable
-#      @state = ConnectedState.new(self)
+      @threads << spawnThread { self.whenReadReady }
+      #      @state = ConnectedState.new(self)
     end
 
     def whenReadReady
-      readData=true
-      data=""
-      begin
-        data = @s.recvfrom(1024)[0]
-      rescue SystemCallError    # lost TCP connection 
-        @@log.error("RDTNClient::whenReadReady::recvfrom" + $!)
-        readData=false
-      end
-      @@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
+      while true
+	readData=true
+	data=""
+	begin
+	  data = @s.recv(1024)
+	rescue SystemCallError    # lost TCP connection 
+	  @@log.error("RDTNClient::whenReadReady::recvfrom" + $!)
+	  readData=false
+	end
+	@@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
 
-      readData=readData && (data.length()>0)
+	readData=readData && (data.length()>0)
 
-      if readData
-        input=StringIO.new(data[1..-1])
-        typeCode=data[0]
-        if typeCode == DELIVER
-	  bundle = Marshal.load(input)
-	  @bundleHandler.call(bundle)
-        end
-      else
-        @@log.info("TCPLink::whenReadReady: no data read")
-        # unregister socket and generate linkClosed event so that this
-        # link can be removed
-        
-        self.close()              
-        EventDispatcher.instance().dispatch(:linkClosed, self)
+	if readData
+	  input=RdtnStringIO.new(data[1..-1])
+	  typeCode=data[0]
+	  if typeCode == DELIVER
+	    bundle = Marshal.load(input)
+	    @bundleHandler.call(bundle)
+	  end
+	else
+	  @@log.info("TCPLink::whenReadReady: no data read")
+	  # unregister socket and generate linkClosed event so that this
+	  # link can be removed
+
+	  self.close()              
+	end
       end
     end
 
@@ -100,13 +110,9 @@ class RdtnClient
     end
 
     def send(data)
-      res=-1
       @sendBuf.enqueue(data)
-      @s.extend EventLoop::Watchable
-      @s.monitor_event :writable
-      @s.will_block = false
-      @s.on_writable do
-	if(socketOK?())
+      @threads << spawnThread do
+	while socketOK? and not @sendBuf.eof?
 	  @@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
 	  if not @sendBuf.eof?
 	    buf = @sendBuf.read(32768)
@@ -115,12 +121,8 @@ class RdtnClient
 	      @sendBuf.pos -= (buf.length - res)
 	    end
 	  end
-	  if @sendBuf.eof?
-	    @s.ignore_event :writable
-	  end
 	end
       end
-      return res
     end
 
     def sendPDU(type, pdu)

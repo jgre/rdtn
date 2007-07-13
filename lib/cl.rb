@@ -18,6 +18,7 @@
 # $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 require 'singleton'
+require "rerun_thread"
 
 # Convergence Layer Base Class
 
@@ -30,6 +31,18 @@ end
 # Interface objects can generate new Links
 class Interface
   attr_accessor :name
+  include RerunThread
+
+  def listenerThread(*args, &block)
+    @listenerThread = spawnThread(*args, &block)
+  end
+
+  def close
+    if defined? @listenerThread and @listenerThread
+      @listenerThread.kill
+    end
+  end
+
 end
 
 
@@ -39,6 +52,8 @@ end
 
 
 class Link
+  include RerunThread
+
   MIN_READ_BUFFER=1048576
 
   attr_reader :bytesToRead
@@ -47,6 +62,8 @@ class Link
   def initialize
     EventDispatcher.instance().dispatch(:linkCreated, self)
     @bytesToRead = MIN_READ_BUFFER
+    @senderThreads = []
+    @receiverThreads = []
   end
 
   # When reading data we rather err to the side of greater numbers, as reading
@@ -58,6 +75,23 @@ class Link
     end
   end
 
+  def senderThread(*args, &block)
+    ret = spawnThread(*args, &block)
+    @senderThreads << ret
+    return ret
+  end
+
+  def receiverThread(*args, &block)
+    ret = spawnThread(*args, &block)
+    @receiverThreads << ret
+    return ret
+  end
+
+  def close
+    @senderThreads.each   {|thr| thr.kill }
+    @receiverThreads.each {|thr| thr.kill }
+    EventDispatcher.instance().dispatch(:linkClosed, self)
+  end
 
 end
 

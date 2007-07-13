@@ -40,7 +40,6 @@ class TestRoutetab < Test::Unit::TestCase
 
   def setup
     RdtnLogger.instance.level = Logger::ERROR
-    EventLoop.current = EventLoop.new
     @link1 = DummyLink.new
     @link1.remoteEid = "dtn:oink"
     @link2 = DummyLink.new
@@ -61,9 +60,6 @@ class TestRoutetab < Test::Unit::TestCase
     RoutingTable.instance.addEntry(".*receiver", @link1)
     EventDispatcher.instance.dispatch(:bundleParsed, bndl)
 
-    EventLoop.after(1) { EventLoop.quit }
-    EventLoop.run
-
     assert(@link1.bundle.payload == "test")
   end
 
@@ -75,9 +71,7 @@ class TestRoutetab < Test::Unit::TestCase
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     EventDispatcher.instance.dispatch(:bundleParsed, bndl)
 
-    EventLoop.after(1) { RoutingTable.instance.addEntry(".*receiver", @link1) }
-    EventLoop.after(2) { EventLoop.quit }
-    EventLoop.run
+    RoutingTable.instance.addEntry(".*receiver", @link1)
 
     assert(@link1.bundle.payload == "test")
   end

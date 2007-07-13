@@ -29,7 +29,7 @@ module Sdnv
   def decode(buf, slen=nil)
     if buf.class == String
       sio = StringIO.new(buf)
-    elsif buf.class == StringIO
+    elsif buf.kind_of?(StringIO)
       sio = buf
     else
       raise TypeError, "Need SDNV input as String or StringIO"

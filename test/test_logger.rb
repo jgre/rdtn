@@ -17,7 +17,7 @@
 #
 # $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
-$:.push("../lib")
+$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "rdtnlog"

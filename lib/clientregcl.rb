@@ -22,7 +22,6 @@ RDTNAPPIFPORT=7777
 
 require "stringio"
 require "socket"
-require "event-loop"
 require "rdtnlog"
 require "clientapi"
 require "queue"
@@ -168,9 +167,10 @@ module AppIF
     attr_accessor :remoteEid
     
     def initialize(socket=0)
+      super()
       @s=socket
       @remoteEid = ""
-      @queue = StringIO.new
+      @queue = RdtnStringIO.new
       @bytesToRead = 1048576
       @state = DisconnectedState.new(self)
       if(socketOK?())
@@ -182,55 +182,52 @@ module AppIF
     
     def close
       @@log.debug("AppProxy::close -- closing socket #{@s}")
-      @s.ignore_event :readable
       if socketOK?
 	@s.close
       end
+      super
     end
 
 
     def watch
-      @s.extend EventLoop::Watchable
-      @s.will_block = false
-      @s.on_readable { self.whenReadReady }
-      @s.monitor_event :readable
+      receiverThread { whenReadReady }
       @state = ConnectedState.new(self)
-      EventDispatcher.instance().dispatch(:linkCreated, self)
     end
     
     def whenReadReady
-      readData=true
-      begin
-        data = @s.recvfrom(@bytesToRead)
-      rescue SystemCallError    # lost TCP connection 
-        @@log.error("AppProxy::whenReadReady::recvfrom" + $!)
-        
-        readData=false
-      end
-      
-      readData=readData && (data[0].length()>0)
-      
-      
-      
-      if readData
-        @queue.enqueue(data[0])
-        
-      else
-        @@log.info("AppProxy::whenReadReady: no data read")
-        # unregister socket and generate linkClosed event so that this
-        # link can be removed
-        
-        self.close()              
-        EventDispatcher.instance().dispatch(:linkClosed, self)
-	return
-      end
-      
+      while true
+	readData=true
+	begin
+	  data = @s.recv(@bytesToRead)
+	rescue SystemCallError    # lost TCP connection 
+	  @@log.error("AppProxy::whenReadReady::recvfrom" + $!)
 
-      while not @queue.eof?
-	# FIXME: cancel connection on protocol error
-	@state, wait = @state.readData(@queue)
-	if wait
-	  break
+	  readData=false
+	end
+
+	readData=readData && (data.length()>0)
+
+
+
+	if readData
+	  @queue.enqueue(data)
+
+	else
+	  @@log.info("AppProxy::whenReadReady: no data read")
+	  # unregister socket and generate linkClosed event so that this
+	  # link can be removed
+
+	  self.close()              
+	  return
+	end
+
+
+	while not @queue.eof?
+	  # FIXME: cancel connection on protocol error
+	  @state, wait = @state.readData(@queue)
+	  if wait
+	    break
+	  end
 	end
       end
     end
@@ -240,11 +237,11 @@ module AppIF
     end
     
     def send(buf)
-      res=-1
-      if(socketOK?())
-        res=@s.send(buf, 0)
+      senderThread(bundle) do |bndl|
+	if(socketOK?())
+	  res=@s.send(bndl.to_s, 0)
+	end
       end
-      return res
     end
 
     def sendPDU(type, pdu)
@@ -286,17 +283,7 @@ module AppIF
 
       @s = TCPServer.new(host,port)
       # register this socket
-      @s.extend EventLoop::Watchable
-      @s.will_block = false
-      @s.on_readable { self.whenAccept }
-      @s.monitor_event :readable
-    end
-    
-    def whenAccept()
-      @@log.debug("AppInterface::whenAccept")
-      #FIXME deal with errors
-      @link= AppProxy.new(@s.accept())
-      @@log.debug("created new AppProxy #{@link.object_id}")
+      listenerThread { whenAccept }
     end
     
     def close
@@ -307,6 +294,16 @@ module AppIF
 
     def socketOK?
       (@s.class.to_s=="TCPSocket") && !@s.closed?()
+    end
+    
+    private
+    def whenAccept()
+      while true
+	@@log.debug("AppInterface::whenAccept")
+	#FIXME deal with errors
+	@link= AppProxy.new(@s.accept())
+	@@log.debug("created new AppProxy #{@link.object_id}")
+      end
     end
     
     

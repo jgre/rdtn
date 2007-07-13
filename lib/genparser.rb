@@ -35,7 +35,7 @@ module GenParser
   def parse(buf)
     if buf.class == String
       sio = StringIO.new(buf)
-    elsif buf.class == StringIO
+    elsif buf.kind_of? StringIO
       sio = buf
     else
       raise TypeError, "Parser needs input as String or StringIO."

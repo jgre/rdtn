@@ -20,12 +20,12 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require "test/unit"
 require "rdtnevent"
+require "rdtnlog"
 
 class TestEvent < Test::Unit::TestCase
   
   def setup
     RdtnLogger.instance.level = Logger::ERROR
-    EventLoop.current = EventLoop.new
   end
 
   def teardown
@@ -36,10 +36,6 @@ class TestEvent < Test::Unit::TestCase
     param = "bla"
     n = 5
     n_received = 0
-
-    EventLoop.after(1) {
-      EventLoop.quit
-    }
 
     n.times do |cur_n|
       EventDispatcher.instance().subscribe(:test_event) do |my_arg|
@@ -54,8 +50,6 @@ class TestEvent < Test::Unit::TestCase
     EventDispatcher.instance().dispatch(:test_event, param)
     EventDispatcher.instance().dispatch(:other_event, "other")
 
-    EventLoop.run
-
     assert_equal(n, n_received)
   end
 
@@ -63,23 +57,16 @@ class TestEvent < Test::Unit::TestCase
     param = "bla"
     n_received = 0
 
-    EventLoop.after(3) { EventLoop.quit }
-
     h = EventDispatcher.instance().subscribe(:test_event) do |my_arg|
       assert_equal(param, my_arg)
       n_received += 1
     end
 
-    EventLoop.after(1) do 
-      EventDispatcher.instance().unsubscribe(:test_event, h)
-    end
-    EventLoop.after(2) do 
-      EventDispatcher.instance().dispatch(:test_event, param)
-    end
-
     EventDispatcher.instance().dispatch(:test_event, param)
 
-    EventLoop.run
+    EventDispatcher.instance().unsubscribe(:test_event, h)
+
+    EventDispatcher.instance().dispatch(:test_event, param)
 
     assert_equal(1, n_received)
   end
@@ -87,8 +74,6 @@ class TestEvent < Test::Unit::TestCase
   def test_unsubscribeIf
     param = "bla"
     n_received = 0
-
-    EventLoop.after(3) { EventLoop.quit }
 
     h = lambda  do |my_arg|
       assert_equal(param, my_arg)
@@ -98,20 +83,15 @@ class TestEvent < Test::Unit::TestCase
     EventDispatcher.instance().subscribe(:usi_test_event, &h)
     EventDispatcher.instance().subscribe(:usi_other_event, &h)
 
-    EventLoop.after(1) do 
-      EventDispatcher.instance().unsubscribeIf do |id, handler|
-	handler.to_s == h.to_s
-      end
-    end
-    EventLoop.after(2) do 
-      EventDispatcher.instance().dispatch(:usi_test_event, param)
-      EventDispatcher.instance().dispatch(:usi_other_event, param)
+    EventDispatcher.instance().dispatch(:usi_test_event, param)
+    EventDispatcher.instance().dispatch(:usi_other_event, param)
+
+    EventDispatcher.instance().unsubscribeIf do |id, handler|
+      handler.to_s == h.to_s
     end
 
     EventDispatcher.instance().dispatch(:usi_test_event, param)
     EventDispatcher.instance().dispatch(:usi_other_event, param)
-
-    EventLoop.run
 
     assert_equal(2, n_received)
   end

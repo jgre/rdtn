@@ -20,8 +20,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-require "event-loop/timer"
-
 require "rdtnlog"
 require "rdtnevent"
 require "udpcl"
@@ -32,7 +30,6 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def setup
     RdtnLogger.instance.level = Logger::ERROR
-    EventLoop.current = EventLoop.new
   end
 
   def teardown
@@ -46,6 +43,13 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     log.debug("starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
+    begin
+      inBundle = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
+	f.read(65000)
+      end
+    rescue
+      RdtnLogger.instance.warn("Could not open large testfile")
+    end
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
       outBundle += queue.read
@@ -55,13 +59,11 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     link=UDPCL::UDPLink.new
     link.open("link1", :host => "localhost", :port => 3456)
 
-    1.seconds.from_now { link.sendBundle(inBundle) }
-    3.seconds.from_now { EventLoop.quit()}
+    link.sendBundle(inBundle)
+    sleep(3)
+    link.close
+    interface.close
     
-    EventLoop.run()
-    
-    EventDispatcher.instance().unsubscribe(:bundleData, handler)
-
     assert_equal(inBundle, outBundle)
     
   end

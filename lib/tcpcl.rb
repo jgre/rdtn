@@ -20,9 +20,7 @@
 # TCP convergence layer
 
 require "socket"
-#require "optparse"
-require "event-loop"
-
+require "monitor"
 require "rdtnlog"
 require "rdtnerror"
 require "configuration"
@@ -121,6 +119,7 @@ module TCPCL
 	raise
       end
       
+      EventDispatcher.instance().dispatch(:contactEstablished, @tcpLink)
       return ContactEstablishedState.new(@tcpLink)
     end
   end
@@ -136,7 +135,6 @@ module TCPCL
     
     def initialize(tcpLink)
       super(tcpLink)
-      EventDispatcher.instance().dispatch(:contactEstablished, @tcpLink)
     end
     
     # Parse the type code from the incoming data. Io is a StringIO object
@@ -321,6 +319,7 @@ module TCPCL
 
   class TCPLink < Link
     
+    include MonitorMixin
     @@log=RdtnLogger.instance()
     attr_accessor :remoteEid
     attr_reader   :queue
@@ -331,7 +330,7 @@ module TCPCL
     # DisconnectedState. If a connected socket was passed, a contact header is
     # send and the socket is watched for incoming data.
     
-    def initialize(socket = 0)
+    def initialize(socket = nil)
       super()
       @s = socket
       
@@ -345,14 +344,14 @@ module TCPCL
       @connection[:nacks] = false
       @connection[:reactiveFragmentation] = false
       
-      @state = DisconnectedState.new(self)
-      @queue = StringIO.new
-      @sendQueue = nil # StringIO.new
-      @currentBundle = StringIO.new  
+      self.state = DisconnectedState.new(self)
+      @queue = RdtnStringIO.new
+      @sendQueue = RdtnStringIO.new
+      @currentBundle = RdtnStringIO.new  
       
       if(socketOK?())
 	watch()
-	self.sendContactHeader()
+	sendContactHeader()
 	@@log.debug("TCPLink::initialize: watching new socket")
       end
       
@@ -384,70 +383,135 @@ module TCPCL
       if(socketOK?())
 	close
       end
-      #XXX: Doesn't this block?
-      @s = TCPSocket.new(host, port)
       
-      watch()
-      self.sendContactHeader()
+      connect(host, port)
     end
     
-    
     def close
-      @@log.debug("TCPLINK::close -- Shutting down TCP CL")
-      if socketOK? # FIXME query the state here
-	sendShutdown
+      if socketOK?
+	sdThread = senderThread { sendShutdown }
+	sdThread.join(1) #FIXME: Make this limit configurable
 	@s.close
       end
       @@log.debug("TCPLINK::close -- closing socket #{@s}")
-      @s.ignore_event :readable
+      # Now close the thread
+      super
     end
     
-    def watch
-      @s.extend EventLoop::Watchable
-      @s.will_block = false
-      @s.on_readable { self.whenReadReady }
-      @s.monitor_event :readable
-      @state = ConnectedState.new(self)
-      #EventDispatcher.instance().dispatch(:linkCreated, self)
+    # Transmit a bundle over the TCP CL.
+    #--
+    # FIXME: check if the link is in an error or disconnected state before
+    # sending.
+    
+    def sendBundle(bundle)
+      @segmentLength = 32768# FIXME increase this to a sane value (increase dynamically?) 
+      
+      @sendQueue.enqueue(bundle.to_s)
+      
+      senderThread { sendBundleWhenWriteReady }
     end
+
+    def handleBundleData(startSegment, endSegment, length)
+      @@log.debug("TCPLink::handle_bundle_data length:#{length}")
+      if @currentBundle.size > 0 and startSegment
+        raise ProtocolError, "Receiving new bundle while another one is still inflight."
+      end
+      # Remove the bundle data from the incoming queue and append it to the
+      # current bundle data queue
+      data = @queue.read(length)
+      if data.length < length
+	raise InputTooShort, 1
+      end
+      @currentBundle.enqueue(data)
+      EventDispatcher.instance().dispatch(:bundleData, @currentBundle, endSegment, self)
+      if endSegment
+        @@log.debug("TCPLink::handle_bundle_data Bundle is complete")
+        # We take a new object for the next bundle. The bundle parser must take
+        # care of closing the old one.
+        @currentBundle = RdtnStringIO.new
+        if @queue.eof?
+          # Consume anything that has not been until now
+          @queue.close
+          # Start with a fresh object to allow the memory to be freed
+          @queue = RdtnStringIO.new
+        end
+      end
+      
+      # TODO when acks should be send (accumulation)? for now after every 
+      # recieved segment  
+      if @connection[:acks]
+        sendAck(length)
+      end
+    end
+
+    protected
+
+    def state=(newState)
+      synchronize do
+	@state = newState
+      end
+    end
+
+    private 
+
+    def connect(host, port)
+      receiverThread(host, port) do |h, p| 
+	@s = TCPSocket.new(h, p) 
+	watch()
+	sendContactHeader()
+      end
+    end
+
+    # Start listener thread waiting for data and change the state to 
+    # ConnectedState.
+
+    def watch
+      receiverThread { whenReadReady }
+      self.state = ConnectedState.new(self)
+    end
+
+    # Loop endlessly reading data from the socket. The link is closed (causing 
+    # the thread to terminate) when an error occurs or the connection is closed.
+    # TODO: move processing functionality to superclass (queueing etc.).
     
     def whenReadReady
-      @@log.debug("TCPLink::whenReadReady #{self.object_id}")
-      readData=true
-      begin
-        data = @s.read(@bytesToRead)
-      rescue SystemCallError    # lost TCP connection 
-        @@log.error("TCPLink::whenReadReady::recvfrom" + $!)
-        
-        readData=false
-      end
-      
-      
-      readData=data and readData and (data.length()>0)
-      
-      if readData
-	@@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
-        @queue.enqueue(data)
-      else
-        @@log.error("TCPLink::whenReadReady: no data read")
-        # unregister socket and generate linkClosed event so that this
-        # link can be removed
-        
-        self.close()              
-        EventDispatcher.instance().dispatch(:linkClosed, self)
-      end
-      
-      # Process the currently queued data to the current state handler. Keep
-      # parsing until the queue is empty or the processor raises an exception 
-      # to tell us to wait for more data.
-      begin
-	while not @queue.eof?
-	  # FIXME: cancel connection on protocol error
-	  @state = @state.readData(@queue)
+      while true
+	readData=true
+	begin
+	  data = @s.recv(@bytesToRead)
+	rescue SystemCallError, IOError    # lost TCP connection 
+	  @@log.debug("TCPLink::whenReadReady::recvfrom" + $!)
+
+	  readData=false
 	end
-      rescue InputTooShort => detail
-	@@log.info("Input too short need to read #{detail.bytesMissing} (#{@queue.length} given)")
-	self.bytesToRead = detail.bytesMissing
+
+	@@log.debug("TCPLink::whenReadReady #{self.object_id}")
+
+	readData=data and readData and (data.length()>0)
+
+	if readData
+	  @queue.enqueue(data)
+	  @@log.debug("TCPLink::whenReadReady: read #{@queue.length} bytes")
+	else
+	  @@log.error("TCPLink::whenReadReady: no data read")
+	  # unregister socket and generate linkClosed event so that this
+	  # link can be removed
+
+	  self.close()              
+	end
+
+	# Process the currently queued data to the current state handler. Keep
+	# parsing until the queue is empty or the processor raises an exception 
+	# to tell us to wait for more data.
+	begin
+	  while not @queue.eof?
+	    # FIXME: cancel connection on protocol error
+	    self.state = @state.readData(@queue)
+	  end
+	rescue InputTooShort => detail
+	  @@log.info("Input too short need to read #{detail.bytesMissing} (#{@queue.length} given)")
+	  self.bytesToRead = detail.bytesMissing
+	end
       end
     end
     
@@ -455,6 +519,7 @@ module TCPCL
       (@s.class.to_s=="TCPSocket") && !@s.closed?()
     end
       
+    # Send the data over the current socket. May block the current thread.
     def send(data)
       res=-1
       if(socketOK?())
@@ -462,6 +527,8 @@ module TCPCL
       end
       return res
     end
+
+    # Create the contact header and spawn a thread that sends it.
     
     def sendContactHeader
       hdr = ""
@@ -484,94 +551,55 @@ module TCPCL
       hdr << Sdnv.encode(RdtnConfig::Settings.instance.localEid.length)
       hdr << RdtnConfig::Settings.instance.localEid
       
-      self.send(hdr)
+      senderThread(hdr) {|header| send(header) }
     end
     
-    # Transmit a bundle over the TCP CL.
-    #--
-    # FIXME: check if the link is in an error or disconnected state before
-    # sending.
-    
-    def sendBundle(bundle)
-      @segmentLength = 32768# FIXME increase this to a sane value (increase dynamically?) 
-      b = bundle.to_s
-      buf = ""
-      
-      @sendQueue = StringIO.new(b)
-      
-      @s.extend EventLoop::Watchable
-      @s.on_writable { self.sendBundleWhenWriteReady }
-      @s.monitor_event :writable
-    end
+    # Loop until +@sendQueue+ is empty. Send out the contents of +@sendQueue+ in
+    # segments. Blocks the current thread.
 
     def sendBundleWhenWriteReady
-      @@log.debug("TCPLink::sendBundleWhenWriteReady #{self.object_id}")
-      buf = ""
-      flags = 0
-      flags = 0x2 if @sendQueue.pos == 0
-      
-      data = @sendQueue.read(@segmentLength)
-     
-      if @sendQueue.eof?
-        flags = flags | 0x1
-        @s.ignore_event :writable
-      end 
+      while not @sendQueue.eof?
+	@@log.debug("TCPLink::sendBundleWhenWriteReady #{self.object_id}")
+	buf = ""
+	flags = 0
+	flags = 0x2 if @sendQueue.pos == 0
 
-      return unless data 
-      
-      buf << ((DATA_SEGMENT << 4) | flags)
-      buf << Sdnv.encode(data.length)
-      buf << data
-      
-      @@log.debug("TCPLink::sendBundleWhenWriteReady -- send segment \"#{data}\" ")
-      self.send(buf)    
+	data = @sendQueue.read(@segmentLength)
+
+	if @sendQueue.eof?
+	  flags = flags | 0x1
+	end 
+
+	return unless data 
+
+	buf << ((DATA_SEGMENT << 4) | flags)
+	buf << Sdnv.encode(data.length)
+	buf << data
+
+	@@log.debug("TCPLink::sendBundleWhenWriteReady -- send segment \"#{data}\" ")
+	send(buf)    
+      end
     end
+
+    # Generate an ACK message for +length+ bytes and start a thread to send it.
  
     def sendAck(length)
       buf = ""
       buf << (ACK_SEGMENT << 4)
       buf << Sdnv.encode(length)
-      self.send(buf)
+      senderThread(buf) { |buffer| send(buffer) }
     end
     
-    # Cleanly terminate a TCP CL connection.
+    # Cleanly terminate a TCP CL connection. Blocks the current thread.
     
     def sendShutdown
       buf = ""
       flags = 0
       buf << ((SHUTDOWN << 4) | flags)
       buf << 0 # I don't care about the reason for now
-      self.send(buf)
+      send(buf)
     end
     
-    def handleBundleData(startSegment, endSegment, length)
-      @@log.debug("TCPLink::handle_bundle_data length:#{length}")
-      if @currentBundle.size > 0 and startSegment
-        raise ProtocolError, "Receiving new bundle while another one is still inflight."
-      end
-      # Remove the bundle data from the incoming queue and append it to the
-      # current bundle data queue
-      @currentBundle.enqueue(@queue.read(length))
-      EventDispatcher.instance().dispatch(:bundleData, @currentBundle, endSegment, self)
-      if endSegment
-        @@log.debug("TCPLink::handle_bundle_data Bundle is complete")
-        # We take a new object for the next bundle. The bundle parser must take
-        # care of closing the old one.
-        @currentBundle = StringIO.new
-        if @queue.eof?
-          # Consume anything that has not been until now
-          @queue.close
-          # Start with a fresh object to allow the memory to be freed
-          @queue = StringIO.new
-        end
-      end
-      
-      # TODO when acks should be send (accumulation)? for now after every 
-      # recieved segment  
-      if @connection[:acks]
-        sendAck(length)
-      end
-    end
     
   end
   
@@ -605,20 +633,20 @@ module TCPCL
       
       @s = TCPServer.new(host,port)
       # register this socket
-      @s.extend EventLoop::Watchable
-      @s.will_block = false
-      @s.on_readable { self.whenAccept }
-      @s.monitor_event :readable
+      listenerThread { whenAccept }
     end
     
     def whenAccept()
-      @@log.debug("TCPInterface::whenAccept")
-      #FIXME deal with errors
-      @links << TCPLink.new(@s.accept())
-      @@log.debug("created new link #{@link.object_id}")
+      while true
+	@@log.debug("TCPInterface::whenAccept")
+	#FIXME deal with errors
+	@links << TCPLink.new(@s.accept())
+	@@log.debug("created new link #{@link.object_id}")
+      end
     end
     
     def close
+      super
       if not @s.closed?
         @s.close
       end

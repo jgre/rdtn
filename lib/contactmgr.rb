@@ -34,7 +34,7 @@ class ContactManager
     EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
       self.linkCreated(*args)
     end
-    EventDispatcher.instance().subscribe(:contactClosed) do |*args|
+    EventDispatcher.instance().subscribe(:linkClosed) do |*args|
       self.contactClosed(*args)
     end
   end

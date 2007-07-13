@@ -19,9 +19,6 @@
 
 # FLUTE convergence layer
 
-#require "optparse"
-require "event-loop"
-
 require "rdtnlog"
 require "rdtnerror"
 require "configuration"
@@ -41,8 +38,8 @@ module FluteCL
   class FluteLink < Link
 
     def initialize(papagenoDir="papageno_outgoing")
-      super()
       self.open("flute#{self.object_id}", :directory => papagenoDir)
+      super()
     end
 
     def open(name, options)
@@ -94,8 +91,8 @@ module FluteCL
     def sendBundle(bundle)
       id = "#{bundle.object_id}"
       # Create a lock file
-      File.open(@ppgDir + "/" + "#{id}.meta.lock", "w") {}
-      File.open(@ppgDir + "/"+ "#{id}.meta", "w") do |file|
+      File.open(File.join(@ppgDir, "#{id}.meta.lock"), "w") {}
+      File.open(File.join(@ppgDir, "/"+ "#{id}.meta"), "w") do |file|
         file << "URI: uni-dtn://#{bundle.srcEid.to_s}/#{bundle.creationTimestamp}/#{bundle.creationTimestampSeq}/#{bundle.fragmentOffset}\r\n"
         file << "COS: 0\r\n"
         file << "Destination-EID: #{bundle.destEid.to_s}\r\n"
@@ -146,7 +143,10 @@ module FluteCL
 
       RdtnLogger.instance.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
 
-      @timer = @pollInterval.seconds.from_now_and_repeat {self.poll}
+      listenerThread(@pollInterval) do |interval|
+	self.poll
+	sleep(interval)
+      end
 
       if defined? @ppgProg
 	# Spawn a papageno process
@@ -175,8 +175,8 @@ module FluteCL
     end
 
     def close()
-      Process.kill("HUP", @pid)
-      @timer.stop
+      Process.kill("HUP", @pid) if @pid
+      super
     end
 
   end

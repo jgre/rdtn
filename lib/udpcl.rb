@@ -17,11 +17,9 @@
 #
 # $Id$
 
-# TCP convergence layer
+# UDP convergence layer
 
 require "socket"
-require "event-loop"
-
 require "rdtnlog"
 require "rdtnerror"
 require "configuration"
@@ -65,10 +63,12 @@ module UDPCL
 	close
       end
       @s = UDPSocket.new
+      # For UDP this operation does not block, so we do it without thread
       @s.connect(host, port)
     end
 
     def close
+      super
       RdtnLogger.instance.debug("UDPLink::close")
       if socketOK?
 	@s.close
@@ -80,11 +80,11 @@ module UDPCL
     end
       
     def sendBundle(bundle)
-      res=-1
-      if(socketOK?())
-	res=@s.send(bundle.to_s, 0)
+      senderThread(bundle) do |bndl|
+	if(socketOK?())
+	  res=@s.send(bndl.to_s, 0)
+	end
       end
-      return res
     end
 
   end
@@ -106,30 +106,32 @@ module UDPCL
       RdtnLogger.instance.debug("Building UDP interface with port=#{port} and hostname=#{host}")
       @s = UDPSocket.new
       @s.bind(host, port)
-      @s.will_block = false
-      @s.on_readable {self.whenAccept }
-      @s.monitor_event(:readable)
-    end
-    
-    def whenAccept()
-      RdtnLogger.instance.debug("UDPInterface::whenAccept")
-
-      begin
-        data = @s.recvfrom(MAX_UDP_PACKET)
-      rescue SystemCallError
-        @@log.error("UDPLink::whenReadReady::recvfrom" + $!)
-      end
-      if defined? data && (data[0].length()>0)
-	sio = StringIO.new(data[0])
-	EventDispatcher.instance().dispatch(:bundleData, sio, true, self)
-      end
-
+      listenerThread { whenAccept }
     end
     
     def close
+      super
       if not @s.closed?
         @s.close
       end
+    end
+    
+    private
+    def whenAccept
+      while true
+	RdtnLogger.instance.debug("UDPInterface::whenAccept")
+
+	begin
+	  data = @s.recvfrom(MAX_UDP_PACKET)
+	rescue SystemCallError
+	  @@log.error("UDPLink::whenReadReady::recvfrom" + $!)
+	end
+	if defined? data && (data[0].length()>0)
+	  sio = StringIO.new(data[0])
+	  EventDispatcher.instance().dispatch(:bundleData, sio, true, self)
+	end
+      end
+
     end
     
   end

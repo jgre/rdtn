@@ -17,14 +17,31 @@
 #
 # $Id$
 
-class StringIO
-  def enqueue(data)
-    oldPos = self.pos
-    # Append always at the end
-    self.seek(0, IO::SEEK_END)
-    self << data
+require "monitor"
 
-    self.pos = oldPos
+class RdtnStringIO < StringIO
+  include MonitorMixin
+
+  def initialize(*args)
+    mon_initialize
+    super
+  end
+
+  def enqueue(data)
+    synchronize do
+      oldPos = self.pos
+      # Append always at the end
+      self.seek(0, IO::SEEK_END)
+      self << data
+
+      self.pos = oldPos
+    end
+  end
+
+  def read(*args)
+    synchronize do
+      super
+    end
   end
 end
 

@@ -20,15 +20,14 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "bundle"
-#require "queue"
 
 class BDummyLink
-  def initialize(&prc)
-    @prc = prc
+  def initialize#(&prc)
+    #@prc = prc
   end
 
   def bytesToRead=(bytes)
-    @prc.call
+    #@prc.call
   end
 end
 
@@ -37,7 +36,6 @@ class TestBundle < Test::Unit::TestCase
   def setup
     RdtnLogger.instance.level = Logger::ERROR
     @inBundle = "\004\020\000\000J\000\000\000\004\000\000\000\026\000\000\000\026\000\000\000(\r\213\274\f\000\000\000\001\000\000\016\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\010\003bla"
-    EventLoop.current = EventLoop.new
   end
 
   def teardown
@@ -68,41 +66,24 @@ class TestBundle < Test::Unit::TestCase
 
   def test_bundle_events
     bl = Bundling::BundleLayer.new
-    EventDispatcher.instance.dispatch(:bundleData, StringIO.new(@inBundle), true, nil)
     eventSent = false
     EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
-    EventLoop.after(1) { EventLoop.quit }
-    EventLoop.run
-
+    EventDispatcher.instance.dispatch(:bundleData, StringIO.new(@inBundle), true, nil)
     assert(eventSent)
   end
 
   def test_short_bundles
     bl = Bundling::BundleLayer.new
-    sio = StringIO.new(@inBundle[0].chr)
-    i = 1
-
-    link = BDummyLink.new do 
-      if i < @inBundle.length
-	sio.enqueue(@inBundle[i].chr) unless i >= @inBundle.length
-	i += 1
-	fin = (i >= @inBundle.length)
-	if fin
-	  1.seconds.from_now do 
-	    EventDispatcher.instance.dispatch(:bundleData, sio, fin, link)
-	  end
-	else
-	  EventDispatcher.instance.dispatch(:bundleData, sio, fin, link)
-	end
-      end
-    end
-
-    EventDispatcher.instance.dispatch(:bundleData, sio, false, link)
-
+    link = BDummyLink.new
     eventSent = false
     EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
-    EventLoop.after(4) { EventLoop.quit }
-    EventLoop.run
+
+    sio = RdtnStringIO.new
+    @inBundle.length.times do |i|
+      sio.enqueue(@inBundle[i].chr)
+      fin = (sio.length == @inBundle.length)
+      EventDispatcher.instance.dispatch(:bundleData, sio, fin, link)
+    end
 
     assert(eventSent, "The ':bundleParsed' event was not received.")
   end

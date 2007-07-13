@@ -17,38 +17,29 @@
 #
 # $Id$
 
-$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
+module RerunThread
 
-require "test/unit"
-
-require "contactmgr"
-require "rdtnevent"
-require "tcpcl"
-require "eidscheme"
-
-class TestContactManager < Test::Unit::TestCase
-
-  def setup
-    RdtnLogger.instance.level = Logger::ERROR
+  def spawnThread(*args, &block)
+    RdtnLogger.instance.debug("Starting thread")
+    return Thread.new(*args) do |*args|
+      lastErrorTime = 0
+      
+      # If two error occur within the same second, we give up; 
+      # something is severely broken.
+      while not Time.now.to_i == lastErrorTime
+	begin
+	  block.call(*args)
+	rescue => ex
+	  lastErrorTime = Time.now.to_i
+	  RdtnLogger.instance.error(ex)
+	  RdtnLogger.instance.info("Restarting thread operation in #{self.class.to_s}")
+	else
+	  Thread.current.exit
+	end
+      end
+      RdtnLogger.instance.error("Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
+      Thread.current.exit
+    end
   end
 
-  def teardown
-    EventDispatcher.instance.clear
-  end
-
-  def test_insertion
-    cm = ContactManager.instance
-    link = TCPCL::TCPLink.new
-    eid = EID.new("dtn://test/fasel")
-    link.remoteEid = eid
-
-    result = cm.findLink {|l| l == link}
-    assert_equal(link, result)
-
-    link.close
-
-    result = cm.findLink {|l| l == link}
-    assert_nil(result)
-
-  end
 end

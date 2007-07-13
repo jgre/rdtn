@@ -20,8 +20,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-require "event-loop/timer"
-
 require "rdtnlog"
 require "rdtnevent"
 require "flutecl"
@@ -38,7 +36,6 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   def setup
     RdtnLogger.instance.level = Logger::ERROR
 
-    EventLoop.current = EventLoop.new
     Dir.mkdir(@@inDirname)
     begin
     Dir.mkdir(@@outDirname)
@@ -77,9 +74,8 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
       assert((outBundle == @@file1 or outBundle == @@file2), "Bundle must equal one of the test files")
       counter += 1
     end
-    2.seconds.from_now { EventLoop.quit()}
-    
-    EventLoop.run
+    sleep(2)
+    fluteIF.close
 
     assert_equal(2, counter)
     assert_equal(2, Dir.entries(@@inDirname).length, 
@@ -87,7 +83,6 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   end
 
   def test_sender
-    fluteLink = FluteCL::FluteLink.new(@@outDirname)
     createReceived = closedReceived = false
     srcEid = "dtn://test/bla"
     destEid = "dtn://oink/grunt"
@@ -97,17 +92,17 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
 
     EventDispatcher.instance().subscribe(:linkCreated) do |cl|
       createReceived = true 
-      fluteLink.sendBundle(bundle)
-      fluteLink.close()
+      cl.sendBundle(bundle)
+      cl.close()
     end
 
     EventDispatcher.instance().subscribe(:linkClosed) do |cl|
       closedReceived= true 
     end
 
-    2.seconds.from_now {EventLoop.quit()}
-    EventLoop.run()
-
+    fluteLink = FluteCL::FluteLink.new(@@outDirname)
+    #sleep(2)
+    #fluteLink.close
     assert(createReceived, "Create Event was not received for the FLUTE link")
     assert(closedReceived, "Closed Event was not received for the FLUTE link")
 
