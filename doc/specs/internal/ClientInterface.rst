@@ -1,6 +1,8 @@
 Client Interface
 ================
 
+:Author: Janico Greifenberg
+
 The client interface allows application to communicate with the RDTN daemon.
 Applications do not necessarily run in a separate process, they may be
 integrated with the daemon itself.

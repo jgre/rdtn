@@ -1,6 +1,8 @@
 Separation of Bundle Blocks into Separate Objects
 =================================================
 
+:Author: Janico Greifenberg
+
 A Bundle comprises a number of blocks, at least the primary bundle block and the
 payload block. The number of optional extension blocks (e.g. encryption blocks)
 is unlimited. To be able to deal with the different formats and semantics of

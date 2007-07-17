@@ -1,6 +1,8 @@
 Subscribe-based Routing
 =======================
 
+:Author: Janico Greifenberg
+
 Subscribe bundles are sent to ``[Sender-EID]/subscribe``.
 
 Packet Format

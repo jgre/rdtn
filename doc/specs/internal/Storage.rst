@@ -1,9 +1,11 @@
 Storage
 =======
 
+:Author: Janico Greifenberg
+
 Persistent storage is one of the main components of a DTN bundle router. RDTN
 implements its storage using the Ruby ``PStore``, but the ``DBM`` module from
-the Ruby standard library and even SQLite should be considered as well in the
+the Ruby standard library and even SQLite may be considered as well in the
 future. The RDTN ``Storage`` class is implemented as a singleton, so that only
 one store object exists in an instance of the RDTN daemon.
 
