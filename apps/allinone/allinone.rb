@@ -72,28 +72,28 @@ elsif interactive
   plFile = $stdin
 end
 
-payload=plFile.read
-plFile.close
+if defined? plFile
+  payload=plFile.read
+  plFile.close
 
+  b = Bundling::Bundle.new(payload)
+  b.destEid = EID.new(dest)
+  log.debug("sending bundle")
+  EventDispatcher.instance().dispatch(:bundleParsed, b)
 
-b = Bundling::Bundle.new(payload)
-b.destEid = EID.new(dest)
-log.debug("sending bundle")
-EventDispatcher.instance().dispatch(:bundleParsed, b)
-
-
-if defined?(loopInterval)
-  Thread.new(loopInterval) do |interv|
-    while true
-      sleep(interv)
-      b = Bundling::Bundle.new(payload)
-      b.destEid = EID.new(dest)
-      log.debug("sending bundle")
-      EventDispatcher.instance().dispatch(:bundleParsed, b)
+  if defined?(loopInterval)
+    Thread.new(loopInterval) do |interv|
+      while true
+	sleep(interv)
+	b = Bundling::Bundle.new(payload)
+	b.destEid = EID.new(dest)
+	log.debug("sending bundle")
+	EventDispatcher.instance().dispatch(:bundleParsed, b)
+      end
     end
   end
-end
 
+end
 log.debug("Starting DTN daemon main loop")
 
 #daemon.runLoop
