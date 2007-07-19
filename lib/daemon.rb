@@ -68,7 +68,7 @@ module RdtnDaemon
 
     def runLoop
       @log.debug("Starting DTN daemon main loop")
-      EventLoop.run()
+      sleep # Let the other threads run until the process is killed.
     end
   end
 

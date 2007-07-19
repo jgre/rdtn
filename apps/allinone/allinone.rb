@@ -81,25 +81,27 @@ b.destEid = EID.new(dest)
 log.debug("sending bundle")
 EventDispatcher.instance().dispatch(:bundleParsed, b)
 
-EventLoop.after(duration) do
-  log.debug("Stopping notifier")
-  EventLoop.quit()
-end
 
 if defined?(loopInterval)
-  EventLoop.every(loopInterval.seconds) do
-    b = Bundling::Bundle.new(payload)
-    b.destEid = EID.new(dest)
-    log.debug("sending bundle")
-    EventDispatcher.instance().dispatch(:bundleParsed, b)
+  Thread.new(loopInterval) do |interv|
+    while true
+      sleep(interv)
+      b = Bundling::Bundle.new(payload)
+      b.destEid = EID.new(dest)
+      log.debug("sending bundle")
+      EventDispatcher.instance().dispatch(:bundleParsed, b)
+    end
   end
 end
 
 log.debug("Starting DTN daemon main loop")
 
-daemon.runLoop
+#daemon.runLoop
+sleep (duration)
+log.debug("Stopping notifier")
 
 sleep(terminationDelay)
+exit
 ObjectSpace.each_object(Link) {|link| link.close}
 ObjectSpace.each_object(Interface) {|iface| iface.close}
 

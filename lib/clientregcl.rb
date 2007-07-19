@@ -237,9 +237,9 @@ module AppIF
     end
     
     def send(buf)
-      senderThread(bundle) do |bndl|
+      senderThread(buf) do |buffer|
 	if(socketOK?())
-	  res=@s.send(bndl.to_s, 0)
+	  res=@s.send(buffer, 0)
 	end
       end
     end
