@@ -68,7 +68,7 @@ daemon = RdtnDaemon::Daemon.new(opts)
 
 if not ARGV.empty?
   plFile = open(ARGV[0])
-else
+elsif interactive
   plFile = $stdin
 end
 
