@@ -72,7 +72,7 @@ elsif interactive
   plFile = $stdin
 end
 
-if defined? plFile
+if defined? plFile and plFile
   payload=plFile.read
   plFile.close
 
