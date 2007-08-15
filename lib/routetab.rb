@@ -29,10 +29,12 @@ class RoutingTable
   def initialize
     @routes={}
 
-    EventDispatcher.instance().subscribe(:contactEstablished) do |*args|
-      self.contactEstablished(*args)
+    EventDispatcher.instance().subscribe(:routeAvailable) do |dest, link|
+      #sself.contactEstablished(*args)
+      self.addEntry(dest, link)
     end
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+      RdtnLogger.instance.debug("Bundle Parsed: #{bundle.destEid}, #{bundle.srcEid}")
       links = self.match(bundle.destEid.to_s)
       # TODO policy to decide, if we forward over multiple links or just over
       # one.
@@ -43,7 +45,8 @@ class RoutingTable
   include Singleton
 
   def addEntry(dest, link)
-    @routes[Regexp.new(dest)]=link
+    RdtnLogger.instance.info("Added route to #{dest} over #{link}.")
+    @routes[Regexp.new(dest.to_s)]=link
     # See if we can send stored bundles over this link.
     bundles = Storage.instance.getBundlesMatchingDest(dest)
     bundles.each {|bundle| self.forward(bundle, [link])}
