@@ -44,6 +44,7 @@ module Bundling
       EventDispatcher.instance.subscribe(:bundleData) do |queue, finished, cl|
 	if not @@incomingBundles.has_key?(queue.object_id)
 	  @@incomingBundles[queue.object_id] = Bundle.new
+	  @@incomingBundles[queue.object_id].incomingLink = cl # FIXME
 	  RdtnLogger.instance.debug("Adding new entry to @incomingBundles #{queue.object_id}")
 	end
 
@@ -78,7 +79,7 @@ module Bundling
 	    queue.close
 	    @@incomingBundles.delete(queue.object_id)
 	  else
-	    cl.bytesToRead = 1048576
+	    cl.bytesToRead = 1048576 # FIXME
 	  end
 	end
       end
@@ -100,7 +101,8 @@ module Bundling
       :destEid, :srcEid, :reportToEid, :custodianEid,
       :fragmentOffset, :aduLength,
       :payloadFlags, :payload,
-      :bytesToRead, :queue
+      :bytesToRead, :queue,
+      :incomingLink
 
     attr_reader :state, :bundleId
     
