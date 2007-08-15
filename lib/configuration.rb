@@ -113,7 +113,7 @@ module RdtnConfig
     end
 
     def localEid(eid)
-      Settings.instance.localEid = eid
+      Settings.instance.localEid = EID.new(eid)
     end
 
     def route(action, dest, link)
