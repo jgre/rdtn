@@ -29,15 +29,13 @@ class RdtnClient
   @s
   attr_reader :bundleHandler
 
-  def initialize()
+  def initialize(host="localhost", port=RDTNAPPIFPORT)
     @@log=RdtnLogger.instance()    
     @sendBuf = RdtnStringIO.new
     @bundleHandler = lambda {}
-    @threads = []
-  end
-
-  def onBundle(&handler)
-    @bundleHandler = handler
+    @threads = Queue.new
+    @pendingRequests = Hash.new()
+    self.open(host, port)
   end
 
   def open(host, port)
@@ -56,93 +54,141 @@ class RdtnClient
     if blocking
       connectBlock.call(host, port)
     else
-      @threads << spawnThread(host, port, &connectBlock) 
+      @threads.push(spawnThread(host, port, &connectBlock))
     end
   end
 
-    def close
-      @threads.each   {|thr| thr.kill }
-      @@log.debug("RdtnClient::close -- closing socket #{@s}")
-      if socketOK?
-	@s.close
+  def close
+    until @threads.empty?
+      @threads.pop.kill
+    end
+    @@log.debug("RdtnClient::close -- closing socket #{@s}")
+    if socketOK?
+      @s.close
+    end
+    EventDispatcher.instance().dispatch(:linkClosed, self)
+  end
+
+  def watch
+    @threads.push(spawnThread { self.whenReadReady } )
+  end
+
+  def whenReadReady
+    while true
+      readData=true
+      data=""
+      begin
+	data = @s.recv(1024)
+      rescue SystemCallError    # lost TCP connection 
+	@@log.error("RDTNClient::whenReadReady::recvfrom" + $!)
+	readData=false
       end
-      EventDispatcher.instance().dispatch(:linkClosed, self)
+      @@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
+
+      readData=readData && (data.length()>0)
+
+      if readData
+	input=RdtnStringIO.new(data)
+	processData(input)
+      else
+	@@log.debug("TCPLink::whenReadReady: no data read")
+	# unregister socket and generate linkClosed event so that this
+	# link can be removed
+
+	self.close()              
+      end
+    end
+  end
+
+  def processData(data)
+    oldPos = data.pos
+    typeCode = data.getc
+    begin
+      args=Marshal.load(data)
+    rescue ArgumentError => err
+      data.pos = oldPos
+      return true
     end
 
-    def watch
-      @threads << spawnThread { self.whenReadReady }
-      #      @state = ConnectedState.new(self)
+    handlePendingRequests(typeCode, args)
+    if typeCode == POST and /rdtn:bundles\/(\d+)\// =~ args[:uri] 
+      @bundleHandler.call(args[:bundle])
     end
+  end
 
-    def whenReadReady
-      while true
-	readData=true
-	data=""
-	begin
-	  data = @s.recv(1024)
-	rescue SystemCallError    # lost TCP connection 
-	  @@log.error("RDTNClient::whenReadReady::recvfrom" + $!)
-	  readData=false
-	end
-	@@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
+  def checkError(typeCode, args)
+    if typeCode == STATUS and args[:status] >= 400
+      RdtnLogger.instance.error("An error occured for #{args[:uri]}: #{args[:message]}")
+      return true
+    end
+    return false
+  end
 
-	readData=readData && (data.length()>0)
+  def handlePendingRequests(typeCode, args)
+    if @pendingRequests.has_key?(args[:uri])
+      @pendingRequests[args[:uri]].call(typeCode, args)
+      @pendingRequests.delete(args[:uri])
+    end
+  end
 
-	if readData
-	  input=RdtnStringIO.new(data[1..-1])
-	  typeCode=data[0]
-	  if typeCode == DELIVER
-	    bundle = Marshal.load(input)
-	    @bundleHandler.call(bundle)
+  def sendRequest(typeCode, args, &handler)
+    handler = lambda {} if not handler
+    @pendingRequests[args[:uri]] = handler
+    sendPDU(typeCode, args)
+  end
+
+  def socketOK?
+    (@s.class.to_s=="TCPSocket") && !@s.closed?()
+  end
+
+  def send(data)
+    @sendBuf.enqueue(data)
+    @threads << spawnThread do
+      while socketOK? and not @sendBuf.eof?
+	@@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
+	if not @sendBuf.eof?
+	  buf = @sendBuf.read(32768)
+	  res=@s.send(buf,0)
+	  if res < buf.length
+	    @sendBuf.pos -= (buf.length - res)
 	  end
-	else
-	  @@log.info("TCPLink::whenReadReady: no data read")
-	  # unregister socket and generate linkClosed event so that this
-	  # link can be removed
-
-	  self.close()              
 	end
       end
     end
+    Thread.pass
+  end
 
-    def socketOK?
-      (@s.class.to_s=="TCPSocket") && !@s.closed?()
-    end
+  def sendPDU(type, pdu)
+    buf="" + type.chr() + Marshal.dump(pdu)
+    send(buf)
+  end
 
-    def send(data)
-      @sendBuf.enqueue(data)
-      @threads << spawnThread do
-	while socketOK? and not @sendBuf.eof?
-	  @@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
-	  if not @sendBuf.eof?
-	    buf = @sendBuf.read(32768)
-	    res=@s.send(buf,0)
-	    if res < buf.length
-	      @sendBuf.pos -= (buf.length - res)
-	    end
-	  end
-	end
-      end
-    end
+  def register(pattern, &handler)
+    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern})
+    @bundleHandler = handler
+  end
 
-    def sendPDU(type, pdu)
-      buf="" + type.chr() + Marshal.dump(pdu)
-      send(buf)
-    end
+  def unregister(pattern)
+    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern})
+  end
 
-    def register(reginfo)
-      # FIXME check for correct type of reginfo
-      sendPDU(REG, reginfo)
-    end
+  def sendBundle(bundle)
+    sendRequest(POST, {:uri => "rdtn:bundles/", :bundle => bundle})
+  end
 
-    def unregister(reginfo)
-      sendPDU(UNREG, reginfo)
-    end
+  def addRoute(pattern, link)
+    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern, 
+	    				     :link => link})
+  end
 
-    def sendBundle(bundle)
-      sendPDU(SEND, bundle)
-    end
+  def delRoute(pattern, linkName)
+    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern, 
+	    				       :link => link})
+  end
 
+  def busy?
+    return (not @pendingRequests.empty?)
+  end
 
 end
 

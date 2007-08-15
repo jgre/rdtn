@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-# -*-ruby-*-
 #  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
 #  Dirk Kutscher <dku@tzi.org>
 #
@@ -16,31 +14,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# $Id$
 
-$:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
+$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
-require 'rdtnlog'
-require 'optparse'
-require "clientlib"
+require "test/unit"
+require "eidscheme"
 
 
-log=RdtnLogger.instance()
-#log.level = Logger::ERROR
-eid = "/dtnrcv"
+class TestEID < Test::Unit::TestCase
 
-log.debug("Starting dtnrcv")
+  def test_join
+    eid1 = EID.new("dtn:test")
+    eid2 = EID.new("dtn:test/")
+    eid3 = EID.new
+    str1 = "/test"
+    str2 = "test"
 
-opts = OptionParser.new do |opts|
-  opts.on("-l", "--local EID", "local EID") do |l|
-    eid = EID.new(l)
+    result = "dtn:test/test"
+
+    assert_equal(result, eid1.join(str1).to_s)
+    assert_equal(result, eid2.join(str1).to_s)
+    assert_equal(result, eid1.join(str2).to_s)
+    assert_equal(result, eid2.join(str2).to_s)
   end
-end
-opts.parse!(ARGV)
 
-client = RdtnClient.new
-client.register(eid) do |bundle| 
-  puts "Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
-  puts "Payload:", bundle.payload
 end
-
-sleep

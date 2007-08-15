@@ -1,33 +1,43 @@
 #!/usr/bin/env ruby
 # -*-ruby-*-
+#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Dirk Kutscher <dku@tzi.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 $:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
 
 require 'optparse'
-require "clientapi"
 require "clientlib"
-require "clientregcl"
-
-
-require "event-loop/timer"
 
 require 'bundle'
-require 'tcpcl'
 require 'rdtnlog'
 
 
 log=RdtnLogger.instance()
-log.level=Logger::DEBUG
-RdtnConfig::Settings.instance.localEid = EID.new("dtn://dtncat")
-dest=""
-duration = 1
+dest = ""
+eid = "/dtncat"
+duration = 0
+loopInterval = nil
 
 opts = OptionParser.new do |opts|
   opts.on("-d", "--dest EID", "destination EID") do |d|
-    dest=d
+    dest = d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RdtnConfig::Settings.instance.localEid = EID.new(l)
+    eid = l
   end
   opts.on("-L", "--loop INTERVAL", Integer) do |val|
     loopInterval = val
@@ -51,35 +61,26 @@ payload=plFile.read
 plFile.close
 puts "Payload length: #{payload.length}"
 
-ri = RegInfo.new(RdtnConfig::Settings.instance.localEid)
-c=RdtnClient.new
+client = RdtnClient.new
+client.register(eid) {|bundle| puts "Bundle received #{bundle.payload}" }
 
-EventLoop.later do
-  log.debug("registering")
-  c.open("localhost",7777)
-  c.register(ri)
-  b = Bundling::Bundle.new(payload)
-  b.destEid = EID.new(dest)
-  log.debug("sending bundle")
-  c.sendBundle(b)
-end
+b = Bundling::Bundle.new(payload, dest)
+log.debug("sending bundle")
+client.sendBundle(b)
 
-EventLoop.after(duration) do
-  c.close
-  log.debug("Stopping notifier")
-  EventLoop.quit()
-end
-
-if defined?(loopInterval)
-  EventLoop.every(loopInterval.seconds) do
-    log.debug("sending bundle")
-    c.sendBundle(b)
+if loopInterval
+  Thread.new(loopInterval) do |interv|
+      while true
+	sleep(interv)
+	b = Bundling::Bundle.new(payload, dest)
+	log.debug("sending bundle")
+	client.sendBundle(b)
+      end
   end
-
+  sleep(duration) # If no duration is specified the thread goes on forever.
 end
-    
-EventLoop.run()
 
-
-
-
+# FIXME: no polling
+while client.busy?
+  sleep(1)
+end

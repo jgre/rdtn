@@ -18,24 +18,10 @@
 # $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 
+RDTNAPPIFPORT=7777
 
-REG=0x1                         # client registers with server
-UNREG=0x2                       # client unregisters with server
-SEND=0x3                        # client sends bundle
-DELIVER=0x4                     # server delivers bundle to client
-
-
-class RegInfo
-  attr_accessor :eid
-
-  def initialize(eid="")
-    @eid=eid
-  end
-
-  def to_s
-    @eid.to_s
-  end
-end
-
-
-
+QUERY   = 1		# URI (solicits RESOLVE)
+RESOLVE = 2		# URI, data (in response to a QUERY)
+POST    = 3		# URI, data (create or modify data)
+DELETE  = 4		# URI (delete data)
+STATUS  = 5		# URI, status code 

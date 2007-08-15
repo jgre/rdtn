@@ -100,8 +100,8 @@ log.debug("Starting DTN daemon main loop")
 sleep (duration)
 log.debug("Stopping notifier")
 
-sleep(terminationDelay)
-exit
 ObjectSpace.each_object(Link) {|link| link.close}
 ObjectSpace.each_object(Interface) {|iface| iface.close}
+sleep(terminationDelay)
+exit
 

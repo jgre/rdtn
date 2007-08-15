@@ -47,4 +47,18 @@ class EID
     return self.to_s
   end
 
+  def join(str)
+    res = EID.new
+    res.scheme = @scheme
+    if @ssp[-1].chr == "/" and str[0].chr == "/"
+      res.ssp = @ssp + str[1..-1]
+    elsif @ssp[-1].chr != "/" and str[0].chr != "/"
+      res.ssp = @ssp + "/" + str
+    else
+      res.ssp = @ssp + str
+    end
+    return res
+  end
+
+
 end

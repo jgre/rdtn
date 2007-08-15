@@ -36,24 +36,20 @@ require "stats"
 require "daemon"
 
 log=RdtnLogger.instance()
-localEid = nil
 
 dest = "dtn://hamlet.dtn/test"
+eid = "send-recv"
 
 opts = OptionParser.new do |opts|
   opts.on("-d", "--dest EID", "destination EID") do |d|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    localEid = EID.new(l)
+    eid = l
   end
 end
 
 daemon = RdtnDaemon::Daemon.new(opts)
-
-if localEid
-  RdtnConfig::Settings.instance.localEid = localEid
-end
 
 if not ARGV.empty?
   plFile = open(ARGV[0])
@@ -62,11 +58,8 @@ else
 end
 
 puts RdtnConfig::Settings.instance.localEid
-ri = RegInfo.new(RdtnConfig::Settings.instance.localEid)
 c=RdtnClient.new
-c.open("localhost",7777)
-c.register(ri)
-c.onBundle do |bundle| 
+c.register(eid) do |bundle|
   puts "Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
   puts "Payload:", bundle.payload
 end
@@ -74,7 +67,7 @@ end
 Thread.new(plFile) do |file|
   while not file.eof?
     puts "Reading..."
-    payload=file.read
+    payload=file.readline
     puts "Read"
     if payload.empty?
       exit
@@ -82,7 +75,7 @@ Thread.new(plFile) do |file|
     b = Bundling::Bundle.new(payload)
     b.destEid = EID.new(dest)
     log.debug("sending bundle")
-    EventDispatcher.instance().dispatch(:bundleParsed, b)
+    c.sendBundle(b)
   end
   exit
 end

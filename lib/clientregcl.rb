@@ -18,8 +18,6 @@
 # $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 
-RDTNAPPIFPORT=7777
-
 require "stringio"
 require "socket"
 require "rdtnlog"
@@ -29,157 +27,30 @@ require "rdtnevent"
 require "rdtnerror"
 require "bundle"
 require "cl"
+require "internaluri"
 
 
 module AppIF
 
-
-  class State
-
-    def initialize(appProxy)
-      @@log=RdtnLogger.instance()
-      @@log.debug("new state: " + self.class.name)
-      @appProxy = appProxy
-    end
-
-    def getObj(data, type)
-      obj=Marshal.load(data)
-      begin
-        if obj.class!=type
-          raise ProtocolError, "invalid paramter"
-        end
-      end
-      bytesRead=data.pos()
-      @@log.debug("AppIF::getObj -- read #{bytesRead} bytes of class #{obj.class}")
-      if obj.class == Bundling::Bundle
-	#@@log.debug("AppIF::getObj -- eid #{obj}")
-      end
-	
-      return obj
-    end
-
-
-  end
-
-  class ConnectedState < State
-
-    def initialize(appProxy)
-      super(appProxy)
-    end
-
-    def readData(data)
-      begin
-        if data.length<1
-	  raise InputTooShort, (1) - data.length          
-        end
-        typeCode = data.getc
-        nextState = case typeCode
-                    when REG: RegState.new(@appProxy)
-                    when UNREG: UnregState.new(@appProxy)
-                    when SEND: SendState.new(@appProxy)
-                    else raise ProtocolError, "invalid message code"
-                    end
-        return nextState, false
-      end
-    end
-  end
-  
-  
-  class DisconnectedState < State
-    
-    def initialize(appProxy)
-      super(appProxy)
-    end
-    
-    def readData(data)
-      @tcp_link.queue.read(data.length)
-      return self, true
-    end
-    
-  end
-  
-  
-  class RegState < State
-    
-    def initialize(appProxy)
-      super(appProxy)
-    end
-    
-    
-    def readData(data)
-      obj=getObj(data,RegInfo)
-      
-      # call register...
-      @appProxy.remoteEid = EID.new(obj.to_s)
-      EventDispatcher.instance().dispatch(:linkCreated, @appProxy)
-      EventDispatcher.instance().dispatch(:contactEstablished, @appProxy)
-      return ConnectedState.new(@appProxy), false
-    end
-  end
-
-  class UnregState < State
-    
-    def initialize(appProxy)
-      super(appProxy)
-    end
-
-    def readData(data)
-      obj=getObj(data,RegInfo)
-      
-      # call unregister...
-      return ConnectedState.new(@appProxy), false
-    end
-  end
-
-
-  class SendState < State
-
-    def initialize(appProxy)
-      super(appProxy)
-    end
-
-
-    def readData(data)
-      RdtnLogger.instance.debug("SendState: Received #{data.length} bytes")
-      oldPos = data.pos
-      begin
-	obj=getObj(data,Bundling::Bundle)
-      rescue ArgumentError => err
-	data.pos = oldPos
-	return self, true
-      end
-      
-      # call send...
-      RdtnLogger.instance.debug("Sending bundle from ClientCL to #{obj.destEid}")
-      EventDispatcher.instance().dispatch(:bundleParsed, obj)
-      return ConnectedState.new(@appProxy), false
-    end
-  end
-
-
-
-
-  
   class AppProxy < Link
-    
+
     @s
     @@log=RdtnLogger.instance()
-    attr_accessor :remoteEid
-    
+    attr_accessor :remoteEid, :registration
+
     def initialize(socket=0)
       super()
       @s=socket
       @remoteEid = ""
       @queue = RdtnStringIO.new
       @bytesToRead = 1048576
-      @state = DisconnectedState.new(self)
       if(socketOK?())
-        watch()
-        @@log.debug("AppProxy::initialize: watching new socket")
+	watch()
+	@@log.debug("AppProxy::initialize: watching new socket")
       end
     end
 
-    
+
     def close
       @@log.debug("AppProxy::close -- closing socket #{@s}")
       if socketOK?
@@ -191,9 +62,8 @@ module AppIF
 
     def watch
       receiverThread { whenReadReady }
-      @state = ConnectedState.new(self)
     end
-    
+
     def whenReadReady
       while true
 	readData=true
@@ -223,19 +93,43 @@ module AppIF
 
 
 	while not @queue.eof?
-	  # FIXME: cancel connection on protocol error
-	  @state, wait = @state.readData(@queue)
+	  wait = processData(@queue)
 	  if wait
 	    break
 	  end
 	end
       end
     end
-    
+
+    def processData(data)
+      oldPos = data.pos
+      typeCode = data.getc
+      begin
+	args=Marshal.load(data)
+      rescue ArgumentError => err
+	data.pos = oldPos
+	return true
+      end
+
+      begin
+	uri = args[:uri]
+	RdtnLogger.instance.debug("AppProxy #{@name} process: #{uri}")
+	ri = RequestInfo.new(typeCode, self)
+	store = Storage.instance
+	responseCode, response = PatternReg.resolve(uri, ri, store, args)
+	sendPDU(responseCode, response)
+      rescue ProtocolError => err
+	RdtnLogger.instance.warn("AppProxy #{@name} error: #{err}")
+	sendPDU(STATUS, {:uri => uri, :status => 400, :message => err.to_s })
+      end
+
+      return false
+    end
+
     def socketOK?
       (@s.class.to_s=="TCPSocket") && !@s.closed?()
     end
-    
+
     def send(buf)
       senderThread(buf) do |buffer|
 	if(socketOK?())
@@ -252,21 +146,22 @@ module AppIF
 
     def sendBundle(bundle)
       @@log.debug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
-      sendPDU(DELIVER,bundle)
+      sendPDU(POST, {:uri => "rdtn:bundles/#{bundle.bundleId}/",
+      		     :bundle => bundle})
     end
 
 
   end
-  
-  
-  
-  
+
+
+
+
   class AppInterface <Interface
-    
+
     @s
     @@log=RdtnLogger.instance()
-    
-#    def initialize(host = "localhost", port = RDTNAPPIFPORT)
+
+    #    def initialize(host = "localhost", port = RDTNAPPIFPORT)
     def initialize(name, options = {})
       host = "localhost"
       port = RDTNAPPIFPORT
@@ -285,7 +180,7 @@ module AppIF
       # register this socket
       listenerThread { whenAccept }
     end
-    
+
     def close
       if socketOK?
 	@s.close
@@ -295,7 +190,7 @@ module AppIF
     def socketOK?
       (@s.class.to_s=="TCPSocket") && !@s.closed?()
     end
-    
+
     private
     def whenAccept()
       while true
@@ -305,13 +200,12 @@ module AppIF
 	@@log.debug("created new AppProxy #{@link.object_id}")
       end
     end
-    
-    
+
+
   end
 
 
 end # module AppIF
-
 
 
 regCL(:client, AppIF::AppInterface, AppIF::AppProxy)
