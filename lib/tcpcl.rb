@@ -119,7 +119,8 @@ module TCPCL
 	raise
       end
       
-      EventDispatcher.instance().dispatch(:contactEstablished, @tcpLink)
+      EventDispatcher.instance().dispatch(:routeAvailable, @tcpLink, 
+					  @tcpLink.remoteEid)
       return ContactEstablishedState.new(@tcpLink)
     end
   end
