@@ -19,6 +19,7 @@
 
 require 'singleton'
 require "rerun_thread"
+require "thread"
 
 # Convergence Layer Base Class
 
@@ -59,11 +60,19 @@ class Link
   attr_reader :bytesToRead
   attr_accessor :name
 
+  @@linkCount = 0
+
   def initialize
-    EventDispatcher.instance().dispatch(:linkCreated, self)
+    @@linkCount += 1
+    @name = "Link#{@@linkCount}"
     @bytesToRead = MIN_READ_BUFFER
-    @senderThreads = []
-    @receiverThreads = []
+    @senderThreads = Queue.new
+    @receiverThreads = Queue.new
+    EventDispatcher.instance().dispatch(:linkCreated, self)
+  end
+
+  def to_s
+    return @name
   end
 
   # When reading data we rather err to the side of greater numbers, as reading
@@ -77,19 +86,23 @@ class Link
 
   def senderThread(*args, &block)
     ret = spawnThread(*args, &block)
-    @senderThreads << ret
+    @senderThreads.push(ret)
     return ret
   end
 
   def receiverThread(*args, &block)
     ret = spawnThread(*args, &block)
-    @receiverThreads << ret
+    @receiverThreads.push(ret)
     return ret
   end
 
   def close
-    @senderThreads.each   {|thr| thr.kill }
-    @receiverThreads.each {|thr| thr.kill }
+    until @senderThreads.empty?
+      @senderThreads.pop.kill
+    end
+    until @receiverThreads.empty?
+      @receiverThreads.pop.kill
+    end
     EventDispatcher.instance().dispatch(:linkClosed, self)
   end
 
