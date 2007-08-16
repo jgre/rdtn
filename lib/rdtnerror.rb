@@ -33,3 +33,15 @@ class ProtocolError < RuntimeError
   end
 end
 
+class MissingParameter < ProtocolError
+  def initialize(param)
+    super("Missing Parameter #{param}")
+  end
+end
+
+class NotImplemented < RuntimeError
+  def initialize
+    super("Not implemented.")
+  end
+end
+

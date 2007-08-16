@@ -30,6 +30,7 @@ require "rdtnevent"
 require "eidscheme"
 require "stringio"
 require "genparser"
+require "queuedio"
 
 MAX_UDP_PACKET = 65535
 UDPCLPORT = 4557
@@ -38,10 +39,11 @@ module UDPCL
 
   class UDPLink < Link
     attr_accessor :remoteEid, :maxBundleSize
+    include QueuedSender
 
-    def initialize(socket = 0)
+    def initialize(sock = nil)
       super()
-      @s = socket
+      queuedSenderInit(sock)
     end
 
     def open(name, options)
@@ -59,37 +61,36 @@ module UDPCL
 	@maxBundleSize = options[:maxBundleSize]
       end
 
-      if(socketOK?())
+      if socketOK?
 	close
       end
-      @s = UDPSocket.new
+      @sendSocket = UDPSocket.new
       # For UDP this operation does not block, so we do it without thread
-      @s.connect(host, port)
+      @sendSocket.connect(host, port)
     end
 
-    def close
+    def close(wait = nil)
       super
       RdtnLogger.instance.debug("UDPLink::close")
       if socketOK?
-	@s.close
+	@sendSocket.close
       end
     end
 
     def socketOK?
-      (@s.class.to_s=="UDPSocket") && !@s.closed?()
+      return (@sendSocket and not @sendSocket.closed?)
     end
       
     def sendBundle(bundle)
-      senderThread(bundle) do |bndl|
-	if(socketOK?())
-	  res=@s.send(bndl.to_s, 0)
-	end
-      end
+      sendQueueAppend(bundle.to_s)
+      senderThread { doSend }
     end
 
   end
 
   class UDPInterface < Interface
+
+    include QueuedReceiver
 
     def initialize(name, options)
       self.name = name
@@ -104,34 +105,31 @@ module UDPCL
       end
 
       RdtnLogger.instance.debug("Building UDP interface with port=#{port} and hostname=#{host}")
-      @s = UDPSocket.new
-      @s.bind(host, port)
-      listenerThread { whenAccept }
+      sock = UDPSocket.new
+      sock.bind(host, port)
+      queuedReceiverInit(sock)
+      @readQueueChunkSize = MAX_UDP_PACKET
+      listenerThread { read }
     end
     
     def close
       super
-      if not @s.closed?
-        @s.close
+      if not @receiveSocket.closed?
+        @receiveSocket.close
       end
     end
     
     private
-    def whenAccept
-      while true
-	RdtnLogger.instance.debug("UDPInterface::whenAccept")
-
-	begin
-	  data = @s.recvfrom(MAX_UDP_PACKET)
-	rescue SystemCallError
-	  @@log.error("UDPLink::whenReadReady::recvfrom" + $!)
+    def read
+      begin
+	doRead do |input|
+	  EventDispatcher.instance().dispatch(:bundleData, input, true, self)
 	end
-	if defined? data && (data[0].length()>0)
-	  sio = StringIO.new(data[0])
-	  EventDispatcher.instance().dispatch(:bundleData, sio, true, self)
-	end
+      rescue SystemCallError
+	@@log.error("UDPLink::whenReadReady::recvfrom" + $!)
       end
-
+      # If we are here, doRead hit an error or the link was closed.
+      self.close()              
     end
     
   end

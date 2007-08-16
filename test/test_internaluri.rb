@@ -58,7 +58,7 @@ class TestIURI < Test::Unit::TestCase
 
     typeCode, hash = PatternReg.resolve(uri, ri, nil, {:bundle => bundle})
     assert_equal(STATUS, typeCode)
-    assert_equal({:uri => uri, :status => "200", :message => "OK"}, hash)
+    assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(event)
   end
 
@@ -77,7 +77,7 @@ class TestIURI < Test::Unit::TestCase
     typeCode, hash = PatternReg.resolve(uri, ri, nil, {:target => dest})
     						       
     assert_equal(STATUS, typeCode)
-    assert_equal({:uri => uri, :status => "200", :message => "OK"}, hash)
+    assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(event)
   end
 
@@ -96,8 +96,12 @@ class TestIURI < Test::Unit::TestCase
     typeCode, hash = PatternReg.resolve(uri, ri, nil, {:target => dest,
     						       :link   => self})
     assert_equal(STATUS, typeCode)
-    assert_equal({:uri => uri, :status => "200", :message => "OK"}, hash)
+    assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(event)
+  end
+
+  def teardown
+    EventDispatcher.instance.clear
   end
 
 end

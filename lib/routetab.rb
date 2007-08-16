@@ -38,7 +38,7 @@ class RoutingTable
       links = self.match(bundle.destEid.to_s)
       # TODO policy to decide, if we forward over multiple links or just over
       # one.
-      self.forward(bundle, links)
+      forward(bundle, links)
     end
   end
 
@@ -71,6 +71,8 @@ class RoutingTable
     }
     return res
   end
+
+  private
 
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
  

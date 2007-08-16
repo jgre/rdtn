@@ -21,13 +21,6 @@ require 'singleton'
 require "rerun_thread"
 require "thread"
 
-# Convergence Layer Base Class
-
-class Connection
-
-end
-
-
 # Interface class for incoming connections
 # Interface objects can generate new Links
 class Interface
@@ -84,6 +77,31 @@ class Link
     end
   end
 
+  # Returns true, if this link is actively performing a taks.
+  # The default implementation checks, if there are any sender threads running.
+  def busy?
+    return @senderThread.any? {|thr| thr.alive?}
+  end
+
+  # Close the link. If +wait+ is not +nil+, the method waits for the given
+  # number of seconds before killing busy threads.
+  def close(wait = nil)
+    until @senderThreads.empty?
+      thr = @senderThreads.pop
+      res = thr.join(wait) if wait
+      if not res
+	thr.kill
+	wait = nil
+      end
+    end
+    until @receiverThreads.empty?
+      @receiverThreads.pop.kill
+    end
+    EventDispatcher.instance().dispatch(:linkClosed, self)
+  end
+
+  protected
+
   def senderThread(*args, &block)
     ret = spawnThread(*args, &block)
     @senderThreads.push(ret)
@@ -96,15 +114,6 @@ class Link
     return ret
   end
 
-  def close
-    until @senderThreads.empty?
-      @senderThreads.pop.kill
-    end
-    until @receiverThreads.empty?
-      @receiverThreads.pop.kill
-    end
-    EventDispatcher.instance().dispatch(:linkClosed, self)
-  end
 
 end
 
@@ -112,18 +121,16 @@ end
 class CLReg
   attr_accessor :cl
 
-
   def initialize
     @cl={}
   end
 
   include Singleton
 
-
-
   def reg(name, interface, link)
     @cl[name] = [interface, link]    
   end
+
 end
 
 def regCL(name, interface, link)

@@ -23,33 +23,25 @@ require "rdtnlog"
 require "bundle"
 require "queue"
 require "rerun_thread"
+require "queuedio"
 
 class RdtnClient
   include RerunThread
-  @s
+  include QueuedSender
+  include QueuedReceiver
   attr_reader :bundleHandler
 
-  def initialize(host="localhost", port=RDTNAPPIFPORT)
+  def initialize(host="localhost", port=RDTNAPPIFPORT, blocking=true)
     @@log=RdtnLogger.instance()    
-    @sendBuf = RdtnStringIO.new
     @bundleHandler = lambda {}
     @threads = Queue.new
     @pendingRequests = Hash.new()
-    self.open(host, port)
-  end
 
-  def open(host, port)
-    @@log.debug("RdtnClient::open -- opening socket #{@s}")
-    if(socketOK?())
-      close
-    end
-    connect(host, port)
-  end
-
-  def connect(host, port, blocking=true)
     connectBlock = lambda do |h, p| 
-      @s = TCPSocket.new(h, p) 
-      watch()
+      sock = TCPSocket.new(h, p) 
+      queuedReceiverInit(sock)
+      queuedSenderInit(sock)
+      @threads.push(spawnThread { read })
     end
     if blocking
       connectBlock.call(host, port)
@@ -58,46 +50,57 @@ class RdtnClient
     end
   end
 
-  def close
+  def close(wait = nil)
     until @threads.empty?
-      @threads.pop.kill
+      thr = @threads.pop
+      res = thr.join(wait) if wait
+      if not res
+	thr.kill
+	wait = nil
+      end
     end
     @@log.debug("RdtnClient::close -- closing socket #{@s}")
-    if socketOK?
-      @s.close
-    end
+    @sendSocket.close if not @sendSocket.closed?
+    @receiveSocket.close if not @receiveSocket.closed?
     EventDispatcher.instance().dispatch(:linkClosed, self)
   end
 
-  def watch
-    @threads.push(spawnThread { self.whenReadReady } )
+  def register(pattern, &handler)
+    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern})
+    @bundleHandler = handler
   end
 
-  def whenReadReady
-    while true
-      readData=true
-      data=""
-      begin
-	data = @s.recv(1024)
-      rescue SystemCallError    # lost TCP connection 
-	@@log.error("RDTNClient::whenReadReady::recvfrom" + $!)
-	readData=false
-      end
-      @@log.debug("TCPLink::whenReadReady: read #{data.length} bytes")
+  def unregister(pattern)
+    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern})
+  end
 
-      readData=readData && (data.length()>0)
+  def sendBundle(bundle)
+    sendRequest(POST, {:uri => "rdtn:bundles/", :bundle => bundle})
+  end
 
-      if readData
-	input=RdtnStringIO.new(data)
-	processData(input)
-      else
-	@@log.debug("TCPLink::whenReadReady: no data read")
-	# unregister socket and generate linkClosed event so that this
-	# link can be removed
+  def addRoute(pattern, link)
+    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern, 
+	    				     :link => link})
+  end
 
-	self.close()              
-      end
+  def delRoute(pattern, linkName)
+    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern, 
+	    				       :link => link})
+  end
+
+  def busy?
+    return (not @pendingRequests.empty?)
+  end
+
+  private
+  def read
+    begin
+      doRead {|input| processData(input) }
+    rescue SystemCallError    # lost TCP connection 
+      @@log.error("RDTNClient::read" + $!)
     end
+    # If we are here, doRead hit an error or the link was closed.
+    self.close()              
   end
 
   def processData(data)
@@ -137,57 +140,15 @@ class RdtnClient
     sendPDU(typeCode, args)
   end
 
-  def socketOK?
-    (@s.class.to_s=="TCPSocket") && !@s.closed?()
-  end
-
   def send(data)
-    @sendBuf.enqueue(data)
-    @threads << spawnThread do
-      while socketOK? and not @sendBuf.eof?
-	@@log.debug("RdtnClient::send -- sending #{data.length()} bytes")
-	if not @sendBuf.eof?
-	  buf = @sendBuf.read(32768)
-	  res=@s.send(buf,0)
-	  if res < buf.length
-	    @sendBuf.pos -= (buf.length - res)
-	  end
-	end
-      end
-    end
+    sendQueueAppend(data)
+    @threads << spawnThread { doSend }
     Thread.pass
   end
 
   def sendPDU(type, pdu)
     buf="" + type.chr() + Marshal.dump(pdu)
     send(buf)
-  end
-
-  def register(pattern, &handler)
-    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern})
-    @bundleHandler = handler
-  end
-
-  def unregister(pattern)
-    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern})
-  end
-
-  def sendBundle(bundle)
-    sendRequest(POST, {:uri => "rdtn:bundles/", :bundle => bundle})
-  end
-
-  def addRoute(pattern, link)
-    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern, 
-	    				     :link => link})
-  end
-
-  def delRoute(pattern, linkName)
-    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern, 
-	    				       :link => link})
-  end
-
-  def busy?
-    return (not @pendingRequests.empty?)
   end
 
 end

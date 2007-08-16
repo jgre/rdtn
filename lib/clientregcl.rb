@@ -28,77 +28,57 @@ require "rdtnerror"
 require "bundle"
 require "cl"
 require "internaluri"
-
+require "queuedio"
 
 module AppIF
 
   class AppProxy < Link
 
-    @s
+    include QueuedSender
+    include QueuedReceiver
+
     @@log=RdtnLogger.instance()
     attr_accessor :remoteEid, :registration
 
-    def initialize(socket=0)
+    def initialize(sock = nil)
       super()
-      @s=socket
+      queuedReceiverInit(sock)
+      queuedSenderInit(sock)
       @remoteEid = ""
-      @queue = RdtnStringIO.new
-      @bytesToRead = 1048576
-      if(socketOK?())
-	watch()
+      if sock
+	receiverThread { read }
 	@@log.debug("AppProxy::initialize: watching new socket")
       end
     end
-
-
-    def close
+    
+    def close(wait = nil)
       @@log.debug("AppProxy::close -- closing socket #{@s}")
-      if socketOK?
-	@s.close
-      end
+      @sendSocket.close if not @sendSocket.closed?
+      @receiveSocket.close if not @receiveSocket.closed?
       super
     end
 
-
-    def watch
-      receiverThread { whenReadReady }
+    def sendBundle(bundle)
+      @@log.debug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
+      sendPDU(POST, {:uri => "rdtn:bundles/#{bundle.bundleId}/",
+      		     :bundle => bundle})
     end
 
-    def whenReadReady
-      while true
-	readData=true
-	begin
-	  data = @s.recv(@bytesToRead)
-	rescue SystemCallError    # lost TCP connection 
-	  @@log.error("AppProxy::whenReadReady::recvfrom" + $!)
 
-	  readData=false
-	end
-
-	readData=readData && (data.length()>0)
-
-
-
-	if readData
-	  @queue.enqueue(data)
-
-	else
-	  @@log.info("AppProxy::whenReadReady: no data read")
-	  # unregister socket and generate linkClosed event so that this
-	  # link can be removed
-
-	  self.close()              
-	  return
-	end
-
-
-	while not @queue.eof?
-	  wait = processData(@queue)
-	  if wait
-	    break
+    private
+    def read
+      begin
+	doRead do |input|
+	  while not input.eof?
+	    wait = processData(input)
+	    break if wait
 	  end
 	end
+      rescue SystemCallError    # lost TCP connection 
+      @@log.error("AppProxy::read" + $!)
       end
+      # If we are here, doRead hit an error or the link was closed.
+      self.close()              
     end
 
     def processData(data)
@@ -126,16 +106,9 @@ module AppIF
       return false
     end
 
-    def socketOK?
-      (@s.class.to_s=="TCPSocket") && !@s.closed?()
-    end
-
     def send(buf)
-      senderThread(buf) do |buffer|
-	if(socketOK?())
-	  res=@s.send(buffer, 0)
-	end
-      end
+      sendQueueAppend(buf)
+      senderThread { doSend }
     end
 
     def sendPDU(type, pdu)
@@ -143,25 +116,12 @@ module AppIF
       send(buf)
     end
 
-
-    def sendBundle(bundle)
-      @@log.debug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
-      sendPDU(POST, {:uri => "rdtn:bundles/#{bundle.bundleId}/",
-      		     :bundle => bundle})
-    end
-
-
   end
-
-
-
 
   class AppInterface <Interface
 
-    @s
     @@log=RdtnLogger.instance()
 
-    #    def initialize(host = "localhost", port = RDTNAPPIFPORT)
     def initialize(name, options = {})
       host = "localhost"
       port = RDTNAPPIFPORT
@@ -175,7 +135,6 @@ module AppIF
 
       @@log.debug("Building client interface with port=#{port} and hostname=#{host}")
 
-
       @s = TCPServer.new(host,port)
       # register this socket
       listenerThread { whenAccept }
@@ -187,11 +146,11 @@ module AppIF
       end
     end
 
+    private
     def socketOK?
       (@s.class.to_s=="TCPSocket") && !@s.closed?()
     end
 
-    private
     def whenAccept()
       while true
 	@@log.debug("AppInterface::whenAccept")
@@ -200,7 +159,6 @@ module AppIF
 	@@log.debug("created new AppProxy #{@link.object_id}")
       end
     end
-
 
   end
 

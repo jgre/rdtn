@@ -46,7 +46,7 @@ class PatternReg
     case request.requestType
     when QUERY
       if not matchData[1]
-	raise ProtocolError, "Missing Bundle Id in bundle query." 
+	raise MissingParameter, "Bundle Id" 
       end
       bundle = store.getBundle(matchData[1])
       if not bundle
@@ -73,16 +73,16 @@ class PatternReg
       EventDispatcher.instance.dispatch(:bundleParsed, bundle)
       return STATUS, {:uri => uri, :status => 200, :message => "OK"}
     else
-      raise ProtocolError, "Not implemented"
+      raise NotImplemented
     end
   end
 
   def PatternReg.resolveRouteTab(uri, request, store, matchData, args)
     target = args[:target]
     if not target
-      raise ProtocolError, "Missing destiniation EID for adding route."
+      raise MissingParameter, "Destiniation EID"
     elsif target =~ /([[:alnum:]]+):([[:print:]]+)/
-      target = EID.new(eidSubStr)
+      target = EID.new(target)
     else
       # If the target is only a partial eid, prepend the eid of the router.
       target = RdtnConfig::Settings.instance.localEid.join(target)
@@ -103,7 +103,7 @@ class PatternReg
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
     else
-      raise ProtocolError, "Not implemented"
+      raise NotImplemented
     end
   end
 

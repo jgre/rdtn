@@ -28,6 +28,30 @@ require "genparser"
 
 module Bundling
 
+  class NoFragment < ProtocolError
+    def initialize
+      super("Bundles that are not fragments cannot be reassembled")
+    end
+  end
+
+  class FragmentGap < ProtocolError
+    def initialize
+      super("Cannot reassemble the fragments. There are missing bytes between them")
+    end
+  end
+
+  class FragmentTargetSizeTooSmall < ProtocolError
+    def initialize(targetSize, headerSize)
+      super("Cannot fragment to target size #{targetSize} bytes, as the header requires #{headerSize} bytes.")
+    end
+  end
+
+  class UnknownBlockType < ProtocolError
+    def initialize(blockType)
+      super("Unknown block type #{blockType}")
+    end
+  end
+
   # The BundleLayer must be initialzed before bundles are received.
 
   class BundleLayer
@@ -477,13 +501,13 @@ module Bundling
 
     def Bundle.reassemble(fragment1, fragment2)
       if not fragment1.fragment? or not fragment2.fragment?
-	raise ProtocolError, "Bundles that are not fragments cannot be reassembled"
+	raise NoFragment
       end
       if fragment1.fragmentOffset > fragment2.fragmentOffset
 	fragment1, fragment2 = fragment2, fragment1
       end
       if fragment1.fragmentOffset + fragment1.payload.length < fragment2.fragmentOffset
-	raise ProtocolError, "Cannot reassemble the fragments. There are missing bytes between them"
+	raise FragmentGap
       end
 
       #FIXME see if we need to take some blocks from the second fragment as well
@@ -553,7 +577,7 @@ module Bundling
     def doFragment(targetSize)
       offset = targetSize-headerSize
       if offset <= 0
-	raise ProtocolError, "Cannot fragment to target size #{targetSize} bytes, as the header requires #{headerSize} bytes."
+	raise FragmentTargetSizeTooSmall(targetSize, headerSize)
       end
 
       fragment1 = self.clone
@@ -780,7 +804,7 @@ module Bundling
       when 1
 	return BundlePayloadBlock.new(@bundle)
       else
-	raise ProtocolError, "Unknown block type #{blockType}"
+	raise UnknownBlockType, blockType
       end
     end
   end

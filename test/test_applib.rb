@@ -48,24 +48,18 @@ class TestAppLib < Test::Unit::TestCase
 
     bundleOrig="dtn://bla.fasel"
 
-    c=RdtnClient.new
-    c.open("localhost",7777)
-    r=RegInfo.new(bundleOrig)
-    c.register(r)
-    b=Bundling::Bundle.new(bundleContent, "dtn://my.dest")
-    c.sendBundle(b)
-    c.unregister(r)
-
     eventSent = false
-    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle| 
+    c=RdtnClient.new
+    c.register(bundleOrig) do |bundle|
       eventSent = true
       assert_equal(bundleContent.length, bundle.payload.length)
     end
+    b=Bundling::Bundle.new(bundleContent, bundleOrig)
+    c.sendBundle(b)
+    c.unregister(bundleOrig)
 
     sleep(1)
     c.close
-
-    assert(eventSent, "Bundle event was not received")
 
   end
 

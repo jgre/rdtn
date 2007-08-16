@@ -80,7 +80,4 @@ if loopInterval
   sleep(duration) # If no duration is specified the thread goes on forever.
 end
 
-# FIXME: no polling
-while client.busy?
-  sleep(1)
-end
+client.close(2)

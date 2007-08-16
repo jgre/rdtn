@@ -72,7 +72,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:contactEstablished) do |link|
+    EventDispatcher.instance.subscribe(:routeAvailable) do |link, dest|
       mon.synchronize do
 	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
@@ -117,7 +117,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:contactEstablished) do |link|
+    EventDispatcher.instance.subscribe(:routeAvailable) do |link, dest|
       mon.synchronize do
 	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
@@ -139,38 +139,8 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   end
 
-  #def test_too_short
-  #  contact_hdr = "dtn!\003\000\000x\017dtn://bla.fasel"
-#
-#    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-#    log=RdtnLogger.instance()
-    
-#    log.debug("starting contact exchange")
-    
-#    @interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
-#    s = TCPSocket.new("localhost", 3456)
-
-#    i = 1
-#    contact_hdr.each_byte do |byte|
-#      i.seconds.from_now { s.send(byte.chr, 0) }
-#      i += 1
-#    end
-
-#    (contact_hdr.length+1).seconds.from_now { EventLoop.quit()}
-
-#    contactEid = ""
-#    EventDispatcher.instance().subscribe(:contactEstablished) do |link|
-#      contactEid = link.remoteEid
-#    end
-    
-#    EventLoop.run()
-    
-#    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, contactEid.to_s)
-
-#  end
-
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
+    RdtnLogger.instance.level = Logger::WARN
   end
 
   def teardown

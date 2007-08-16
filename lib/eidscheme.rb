@@ -19,6 +19,12 @@
 
 require "rdtnerror"
 
+class InvalidEid < ProtocolError
+  def initialize(str)
+    super("Invalid EID: #{str}")
+  end
+end
+
 class EID
   attr_accessor :scheme, :ssp
 
@@ -29,7 +35,7 @@ class EID
 	@scheme = $1
 	@ssp = $2
       else
-	raise ProtocolError, "Invalid EID: #{str}"
+	raise InvalidEid, str
       end
     else
       @scheme = "dtn"

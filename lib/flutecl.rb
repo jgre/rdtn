@@ -144,7 +144,7 @@ module FluteCL
       RdtnLogger.instance.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
 
       listenerThread(@pollInterval) do |interval|
-	self.poll
+	poll
 	sleep(interval)
       end
 
@@ -160,6 +160,13 @@ module FluteCL
       end
     end
 
+    def close(wait = nil)
+      Process.kill("HUP", @pid) if @pid
+      super
+    end
+
+    private
+
     def poll()
       Dir.foreach(@ppgDir) do |fn|
 	completeFn = @ppgDir + "/" + fn
@@ -172,11 +179,6 @@ module FluteCL
 	end
 	File.delete(completeFn)
       end
-    end
-
-    def close()
-      Process.kill("HUP", @pid) if @pid
-      super
     end
 
   end

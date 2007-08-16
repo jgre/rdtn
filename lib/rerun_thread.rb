@@ -20,7 +20,6 @@
 module RerunThread
 
   def spawnThread(*args, &block)
-    RdtnLogger.instance.debug("Starting thread")
     return Thread.new(*args) do |*args|
       lastErrorTime = 0
       
