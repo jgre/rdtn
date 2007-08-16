@@ -14,10 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id: rdtnconfig.rb 84 2007-04-02 18:55:20Z jgre $
 
-require 'singleton'
 require "rdtnevent"
 require "cl"
 require "eidscheme"
@@ -26,8 +23,9 @@ require "contactmgr"
 
 class RoutingTable
 
-  def initialize
+  def initialize(contactManager)
     @routes={}
+    @contactManager = contactManager
 
     EventDispatcher.instance().subscribe(:routeAvailable) do |dest, link|
       #sself.contactEstablished(*args)
@@ -41,8 +39,6 @@ class RoutingTable
       forward(bundle, links)
     end
   end
-
-  include Singleton
 
   def addEntry(dest, link)
     RdtnLogger.instance.info("Added route to #{dest} over #{link}.")
@@ -79,7 +75,7 @@ class RoutingTable
   def forward(bundle, links)
     links.each do |link|
       if not link.kind_of?(Link)
-	link = ContactManager.instance.findLink do |lnk| 
+	link = @contactManager.findLink do |lnk| 
 	  lnk.name and lnk.name == link
 	end
 	if not link.kind_of?(Link)

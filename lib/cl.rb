@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 require 'singleton'
 require "rerun_thread"
@@ -52,12 +50,19 @@ class Link
 
   attr_reader :bytesToRead
   attr_accessor :name
+  # The policy determines when a link is opened and when it gets closed by the
+  # contact manager. There are three possible values:
+  # :alwaysOn (default)
+  # :opporotinistic (the link is opened because of an external event)
+  # :onDemand (link link is only open, when it sends data)
+  attr_accessor :policy
 
   @@linkCount = 0
 
   def initialize
     @@linkCount += 1
     @name = "Link#{@@linkCount}"
+    @policy = :alwaysOn
     @bytesToRead = MIN_READ_BUFFER
     @senderThreads = Queue.new
     @receiverThreads = Queue.new

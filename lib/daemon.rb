@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 $:.unshift File.join(File.dirname(__FILE__))
 # DTN daemon
@@ -59,8 +57,8 @@ module RdtnDaemon
       optParser.parse!(ARGV)
       
       # Initialize Contact manager and routing table
-      cmgr = ContactManager.instance
-      router = RoutingTable.instance
+      cmgr = ContactManager.new
+      router = RoutingTable.new(cmgr)
       store = Storage.instance
       conf = RdtnConfig::Reader.load(configFileName)
 

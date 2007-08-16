@@ -14,52 +14,70 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id$
 
 require "rdtnevent"
 require "cl"
 require "eidscheme"
-require "singleton"
+require "monitor"
 
-class ContactManager
-  def initialize
-    # This hash contains the established contacts indexed by their EID
-    @contacts = {}
+class ContactManager < Monitor
+  # The housekeeping timer determines the interval between checks for idle
+  # links.
+  def initialize(housekeepingTimer = 300)
+    super()
     # This list contains all links that are open. We need this list to be able
     # to close them on shutdown. Here we also have those links that are not in
     # contacts because the peer's EID could not (yet) be determined.
     @links = []
 
     EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
-      self.linkCreated(*args)
+      linkCreated(*args)
     end
     EventDispatcher.instance().subscribe(:linkClosed) do |*args|
-      self.contactClosed(*args)
+      contactClosed(*args)
+    end
+
+    housekeeping(housekeepingTimer)
+  end
+
+  def findLinkByName(name)
+    findLink { |lnk| lnk.name and lnk.name == link }
+  end
+
+  def findLink(&block)
+    synchronize do
+      return @links.find(&block)
     end
   end
 
-  include Singleton
-
+  private
+ 
   def linkCreated(link)
     RdtnLogger.instance.debug("Link created #{link.name}")
-    @links << link
+    synchronize do
+      @links << link
+    end
   end
 
   def contactClosed(link)
     RdtnLogger.instance.debug("Removing link #{link.object_id} from ContactManager")
-    @links.delete(link)
-    if defined?(link.remoteEid) and link.remoteEid 
-      @contacts.delete(link.remoteEid.indexingPart)
+    synchronize do
+      @links.delete(link)
     end
   end
 
-  def findLinkByEid(eid)
-    eid = EID.new(eid) if eid.class != EID
-    return @contacts[eid.indexingPart]
+  # Housekeeping starts a thread that wakes up every +timer+ seconds and deletes
+  # all opportunistic links from +@links+ that are not busy.
+  
+  def housekeeping(timer)
+    Thread.new(timer) do |ti|
+      while true
+	sleep(timer)
+	synchronize do
+	  @links.delete_if {|lnk| lnk.policy != :alwaysOn and not lnk.busy?}
+	end
+      end
+    end
   end
 
-  def findLink(&block)
-    return @links.find(&block)
-  end
 end

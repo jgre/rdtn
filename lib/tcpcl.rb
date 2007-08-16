@@ -609,11 +609,12 @@ module TCPCL
       listenerThread { whenAccept }
     end
     
-    def whenAccept()
+    def whenAccept
       while true
 	#FIXME deal with errors
-	@links << TCPLink.new(@s.accept())
-	@@log.debug("created new link #{@link.object_id}")
+	link = TCPLink.new(@s.accept)
+	link.policy = :opportunistic
+	@links << link
       end
     end
     

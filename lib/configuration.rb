@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 require 'rdtnlog'
 require 'cl'
@@ -162,7 +160,7 @@ module RdtnConfig
     def addRoute(dest, link)
       log(:debug, "adding route to #{dest} over link #{link}")
 
-      RoutingTable.instance().addEntry(dest,link)
+      EventDispatcher.instance.dispatch(:routeAvailable, target, link)
 
     end
 
