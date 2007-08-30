@@ -32,7 +32,6 @@ end
 class TestBundle < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
     @inBundle = "\004\020\000\000J\000\000\000\004\000\000\000\026\000\000\000\026\000\000\000(\r\213\274\f\000\000\000\001\000\000\016\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\010\003bla"
   end
 

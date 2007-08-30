@@ -18,7 +18,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-require "rdtnlog"
 require "rdtnevent"
 require "tcpcl"
 
@@ -28,7 +27,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   def test_contact_exchange
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log=RdtnLogger.instance()
+    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
     log.debug("starting contact exchange")
     
@@ -46,7 +45,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log=RdtnLogger.instance()
+    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
     log.debug("starting contact exchange")
     
@@ -56,7 +55,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 	f.read
       end
     rescue
-      RdtnLogger.instance.warn("Could not open large testfile")
+      log.warn("Could not open large testfile")
     end
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
@@ -70,9 +69,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:routeAvailable) do |link, dest|
+    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
       mon.synchronize do
-	link.sendBundle(inBundle) unless bundleSent
+	rentry.link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
       end
     end
@@ -93,7 +92,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   # Test negotiation of ack flags: true/false -> dont use acks
  
   def test_bundle_sending2
-    log=RdtnLogger.instance()
+    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
     
@@ -115,9 +114,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:routeAvailable) do |link, dest|
+    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
       mon.synchronize do
-	link.sendBundle(inBundle) unless bundleSent
+	rentry.link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
       end
     end
@@ -138,12 +137,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   end
 
   def setup
-    RdtnLogger.instance.level = Logger::WARN
   end
 
   def teardown
     EventDispatcher.instance.clear
-    ObjectSpace.each_object(Link) {|link| link.close}
-    ObjectSpace.each_object(Interface) {|iface| iface.close}
   end
 end

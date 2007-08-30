@@ -19,38 +19,35 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "storage"
-require "rdtnlog"
 require "bundle"
 
 
 class TestStorage < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
     EventDispatcher.instance.clear
-    RdtnConfig::Settings.instance.storageDir = "store"
-    Storage.instance.clear
+    @store = Storage.new("store")
+  end
+
+  def teardown
     begin
-      File.delete(RdtnConfig::Settings.instance.storageDir)
+      File.delete("store")
     rescue
     end
   end
 
   def test_storage1
-    log=RdtnLogger.instance()
-    
-    store = Storage.instance
     
     0.upto(99) do |i|
       b=Bundling::Bundle.new(i.to_s)
-      store.storeBundle(b)
+      @store.storeBundle(b)
     end
 
-    store.save
+    @store.save
 
-    store.clear
+    @store.clear
 
-    newstore=Storage.instance
+    newstore=Storage.new("store")
     newstore.load
 
 
@@ -65,28 +62,20 @@ class TestStorage < Test::Unit::TestCase
 
 
   def test_storage2
-    log=RdtnLogger.instance()
-    
-    store = Storage.instance
-
-    log.debug("creating bundles")
     
     0.upto(99) do |i|
       b=Bundling::Bundle.new(i.to_s)
       b.destEid=EID.new("dtn://test/" + i.to_s)
-      store.storeBundle(b)
+      @store.storeBundle(b)
     end
 
-    store.save
-    store.clear
+    @store.save
+    @store.clear
 
-    log.debug("loading store")
-    newstore=Storage.instance
+    newstore=Storage.new("store")
     newstore.load
 
-    log.debug("trying to match 1 bundle")
     blist=newstore.getBundlesMatching() do |bundleInfo|
-#      log.debug("trying to match"  + bundleInfo.dest_eid)
       bundleInfo.destEid.to_s =~ /dtn:\/\/test\/.*/
       bundleInfo.destEid.to_s =~ /.*test\/99/
     end
@@ -94,16 +83,13 @@ class TestStorage < Test::Unit::TestCase
     assert_equal(blist.length(),1)
 
 
-    log.debug("trying to match all bundles")
     blist=newstore.getBundlesMatching() do |bundleInfo|
-#      log.debug("trying to match"  + bundleInfo.dest_eid)
       bundleInfo.destEid.to_s =~ /dtn:\/\/test\/.*/
     end
 
     assert_equal(blist.length(),100)
 
 
-    log.debug("trying to match 1 bundle")
     blist=newstore.getBundlesMatchingDest("dtn://test/0") 
     assert_equal(blist.length(),1)
 

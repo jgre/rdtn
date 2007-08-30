@@ -18,7 +18,6 @@
 
 require "stringio"
 require "socket"
-require "rdtnlog"
 require "clientapi"
 require "queue"
 require "rdtnevent"
@@ -35,29 +34,29 @@ module AppIF
     include QueuedSender
     include QueuedReceiver
 
-    @@log=RdtnLogger.instance()
     attr_accessor :remoteEid, :registration
 
     def initialize(sock = nil)
       super()
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
       @remoteEid = ""
       if sock
 	receiverThread { read }
-	@@log.debug("AppProxy::initialize: watching new socket")
+	@log.debug("AppProxy::initialize: watching new socket")
       end
     end
     
     def close(wait = nil)
-      @@log.debug("AppProxy::close -- closing socket #{@s}")
+      @log.debug("AppProxy::close -- closing socket #{@s}")
       @sendSocket.close if not @sendSocket.closed?
       @receiveSocket.close if not @receiveSocket.closed?
       super
     end
 
     def sendBundle(bundle)
-      @@log.debug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
+      @log.debug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
       sendPDU(POST, {:uri => "rdtn:bundles/#{bundle.bundleId}/",
       		     :bundle => bundle})
     end
@@ -76,7 +75,7 @@ module AppIF
 	  end
 	end
       rescue SystemCallError    # lost TCP connection 
-      @@log.error("AppProxy::read" + $!)
+      @log.error("AppProxy::read" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              
@@ -94,13 +93,13 @@ module AppIF
 
       begin
 	uri = args[:uri]
-	RdtnLogger.instance.debug("AppProxy #{@name} process: #{uri}")
+	@log.debug("AppProxy #{@name} process: #{uri}")
 	ri = RequestInfo.new(typeCode, self)
-	store = Storage.instance
+	store = RdtnConfig::Settings.instance.store
 	responseCode, response = PatternReg.resolve(uri, ri, store, args)
 	sendPDU(responseCode, response)
       rescue ProtocolError => err
-	RdtnLogger.instance.warn("AppProxy #{@name} error: #{err}")
+	@log.warn("AppProxy #{@name} error: #{err}")
 	sendPDU(STATUS, {:uri => uri, :status => 400, :message => err.to_s })
       end
 
@@ -121,9 +120,8 @@ module AppIF
 
   class AppInterface <Interface
 
-    @@log=RdtnLogger.instance()
-
     def initialize(name, options = {})
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       host = "localhost"
       port = RDTNAPPIFPORT
 
@@ -134,7 +132,7 @@ module AppIF
 	port = options[:port]
       end
 
-      @@log.debug("Building client interface with port=#{port} and hostname=#{host}")
+      @log.debug("Building client interface with port=#{port} and hostname=#{host}")
 
       @s = TCPServer.new(host,port)
       # register this socket
@@ -142,22 +140,20 @@ module AppIF
     end
 
     def close
-      if socketOK?
-	@s.close
-      end
+      super
+      @s.close if socketOK?
     end
 
     private
     def socketOK?
-      (@s.class.to_s=="TCPSocket") && !@s.closed?()
+      return (not @s.closed?)
     end
 
     def whenAccept()
       while true
-	@@log.debug("AppInterface::whenAccept")
 	#FIXME deal with errors
 	@link= AppProxy.new(@s.accept())
-	@@log.debug("created new AppProxy #{@link.object_id}")
+	@log.debug("created new AppProxy #{@link.object_id}")
       end
     end
 

@@ -19,13 +19,11 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "../..", "lib")
 
-require 'rdtnlog'
 require 'optparse'
 require "clientlib"
 
 
-log=RdtnLogger.instance()
-#log.level = Logger::ERROR
+log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 eid = "/dtnrcv"
 
 log.debug("Starting dtnrcv")

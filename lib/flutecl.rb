@@ -17,7 +17,6 @@
 
 # FLUTE convergence layer
 
-require "rdtnlog"
 require "rdtnerror"
 require "configuration"
 require "cl"
@@ -36,6 +35,7 @@ module FluteCL
   class FluteLink < Link
 
     def initialize(papagenoDir="papageno_outgoing")
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.open("flute#{self.object_id}", :directory => papagenoDir)
       super()
     end
@@ -63,7 +63,7 @@ module FluteCL
 	@fluteOpts = options[:fluteOpts]
       end
 
-      RdtnLogger.instance.debug("Flute link writes data for Papageno to #{@ppgDir}")
+      @log.debug("Flute link writes data for Papageno to #{@ppgDir}")
 
       if defined? @ppgProg
 	# Spawn a papageno process
@@ -117,6 +117,7 @@ module FluteCL
   class FluteInterface < Interface
 
     def initialize(name, options)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.name = name
       @ppgDir = File.expand_path("papageno_incoming") # default directory
       @pollInterval = 10 # seconds
@@ -139,7 +140,7 @@ module FluteCL
 	@fluteOpts = options[:fluteOpts]
       end
 
-      RdtnLogger.instance.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
+      @log.debug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
 
       listenerThread(@pollInterval) do |interval|
 	poll
@@ -151,7 +152,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  Dir.chdir(@ppgDir)
-	  RdtnLogger.instance.info("Starting papageno in #{Dir.pwd}")
+	  @log.info("Starting papageno in #{Dir.pwd}")
 	  # TODO let the parameters be given in options
 	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} #{@ppgDir}")
 	end
@@ -160,12 +161,13 @@ module FluteCL
 
     def close(wait = nil)
       Process.kill("HUP", @pid) if @pid
-      super
+      super()
     end
 
     private
 
     def poll()
+      return unless File.directory?(@ppgDir)
       Dir.foreach(@ppgDir) do |fn|
 	completeFn = @ppgDir + "/" + fn
 	if File.directory?(completeFn)

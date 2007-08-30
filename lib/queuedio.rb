@@ -17,7 +17,6 @@
 
 require "socket"
 require "monitor"
-require "rdtnlog"
 require "rdtnerror"
 require "queue"
 

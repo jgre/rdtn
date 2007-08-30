@@ -19,7 +19,6 @@
 
 require "socket"
 require "monitor"
-require "rdtnlog"
 require "rdtnerror"
 require "configuration"
 require "cl"
@@ -30,17 +29,6 @@ require "eidscheme"
 require "stringio"
 require "genparser"
 require "queuedio"
-
-MAGIC = "dtn!"
-TCPCL_VERSION = 3
-
-DATA_SEGMENT = 0x1
-ACK_SEGMENT = 0x2
-REFUSE_BUNDLE = 0x3
-KEEPALIVE = 0x4
-SHUTDOWN = 0x5
-
-TCPCLPORT=4557 # FIXME
 
 
 module TCPCL
@@ -62,7 +50,6 @@ module TCPCL
   class State
     
     def initialize(tcpLink)
-      @@log=RdtnLogger.instance()
       @tcpLink = tcpLink
     end
     
@@ -78,9 +65,9 @@ module TCPCL
       super(tcpLink)
       
       defField(:magic, :length => 4, 
-	       :condition => lambda {|data| data == MAGIC})
+	       :condition => lambda {|data| data == TCPLink::MAGIC})
       defField(:version, :length => 1, :decode => GenParser::NumDecoder,
-	       :condition => lambda {|data| data == TCPCL_VERSION})
+	       :condition => lambda {|data| data == TCPLink::TCPCL_VERSION})
       defField(:flags, :length => 1, :decode => GenParser::NumDecoder,
 	       :handler => :flags=)
       defField(:keepaliveInterval, :length => 2,:handler => :keepaliveInterval=,
@@ -130,8 +117,8 @@ module TCPCL
 	raise
       end
       
-      EventDispatcher.instance.dispatch(:routeAvailable,RouteEntry.new(@tcpLink,
-							@tcpLink.remoteEid))
+      EventDispatcher.instance.dispatch(:routeAvailable, RoutingEntry.new(
+					   @tcpLink.remoteEid, @tcpLink))
       return ContactEstablishedState.new(@tcpLink)
     end
   end
@@ -159,11 +146,11 @@ module TCPCL
       end
       typeCode = (io.getc & 0xf0) >> 4 # First 4 bits
       nextState = case typeCode
-                  when DATA_SEGMENT: ReceivingState.new(@tcpLink)
-                  when ACK_SEGMENT: AckState.new(@tcpLink)
-                  when REFUSE_BUNDLE: RefuseState.new(@tcpLink)
-                  when KEEPALIVE: KeepaliveState.new(@tcpLink)
-                  when SHUTDOWN: ShutdownState.new(@tcpLink)
+                  when TCPLink::DATA_SEGMENT: ReceivingState.new(@tcpLink)
+                  when TCPLink::ACK_SEGMENT: AckState.new(@tcpLink)
+                  when TCPLink::REFUSE_BUNDLE: RefuseState.new(@tcpLink)
+                  when TCPLink::KEEPALIVE: KeepaliveState.new(@tcpLink)
+                  when TCPLink::SHUTDOWN: ShutdownState.new(@tcpLink)
                   else raise InvalidTCPCLTypeCode, typeCode
                   end
       io.pos = io.pos - 1 # We still need this byte
@@ -226,7 +213,7 @@ module TCPCL
       super(tcpLink)
       
       defField(:flags, :length => 1,
-               :condition => lambda {|data| data[0] == (ACK_SEGMENT << 4)})
+               :condition => lambda {|data| data[0] == (TCPLink::ACK_SEGMENT << 4)})
       
       defField(:recievedLength, :decode => GenParser::SdnvDecoder,
                :handler => :recievedLength)
@@ -329,10 +316,18 @@ module TCPCL
 
   class TCPLink < Link
     
+    MAGIC = "dtn!"
+    TCPCL_VERSION = 3
+
+    DATA_SEGMENT = 0x1
+    ACK_SEGMENT = 0x2
+    REFUSE_BUNDLE = 0x3
+    KEEPALIVE = 0x4
+    SHUTDOWN = 0x5
+
     include QueuedSender
     include QueuedReceiver
     include MonitorMixin
-    @@log=RdtnLogger.instance()
     attr_accessor :remoteEid
     attr_accessor :connection # holds variables for negotiated options    
     attr_accessor :options
@@ -342,9 +337,10 @@ module TCPCL
     # send and the socket is watched for incoming data.
     
     def initialize(sock = nil)
-      super()
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
+      super()
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       
       @segmentLength = 32768
       @options = {}
@@ -363,7 +359,7 @@ module TCPCL
       if sock
 	watch()
 	sendContactHeader()
-	@@log.debug("TCPLink::initialize: watching new socket")
+	@log.debug("TCPLink::initialize: watching new socket")
       end
       
     end
@@ -400,7 +396,7 @@ module TCPCL
       sdThread = senderThread { sendShutdown }
       #sdThread.join(1) #FIXME: Make this limit configurable
       #sdThread.kill
-      @@log.debug("TCPLINK::close -- closing socket #{@s}")
+      @log.debug("TCPLINK::close -- closing socket #{@s}")
       # Now close the thread
       super
       @sendSocket.close if @sendSocket and not @sendSocket.closed?
@@ -429,7 +425,7 @@ module TCPCL
 
 	return unless data 
 
-	buf << ((DATA_SEGMENT << 4) | flags)
+	buf << ((TCPLink::DATA_SEGMENT << 4) | flags)
 	buf << Sdnv.encode(data.length)
 	buf << data
 	sendQueueAppend(buf)
@@ -453,7 +449,7 @@ module TCPCL
 					               endSegment, 
 						       self)
       if endSegment
-        @@log.debug("TCPLink::handle_bundle_data Bundle is complete")
+        @log.debug("TCPLink::handle_bundle_data Bundle is complete")
         # We take a new object for the next bundle. The bundle parser must take
         # care of closing the old one.
         @currentBundle = RdtnStringIO.new
@@ -478,7 +474,11 @@ module TCPCL
 
     def connect(host, port)
       receiverThread(host, port) do |h, p| 
-	@sendSocket = @receiveSocket = TCPSocket.new(h, p) 
+	begin
+	  @sendSocket = @receiveSocket = TCPSocket.new(h, p) 
+	rescue
+	  Thread.current.exit
+	end
 	watch()
 	sendContactHeader()
       end
@@ -510,14 +510,14 @@ module TCPCL
 	    end
 
 	  rescue InputTooShort => detail
-	    @@log.info("Input too short need to read 
+	    @log.info("Input too short need to read 
 		       #{detail.bytesMissing} (#{input.length} given)")
 	    self.bytesToRead = detail.bytesMissing
 	  end
 	end
 
       rescue SystemCallError, IOError    # lost TCP connection 
-	@@log.warn("TCPLink::whenReadReady::recvfrom " + $!)
+	@log.warn("TCPLink::whenReadReady::recvfrom " + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       close
@@ -532,8 +532,8 @@ module TCPCL
     # Create the contact header and spawn a thread that sends it.
     def sendContactHeader
       hdr = ""
-      hdr << MAGIC
-      hdr << TCPCL_VERSION
+      hdr << TCPLink::MAGIC
+      hdr << TCPLink::TCPCL_VERSION
       
       # FIXME
       # 00000001: Request acknowledgement of bundle segments.
@@ -548,8 +548,8 @@ module TCPCL
       keepaliveInterval = 120
       # use array#pack to get a short in network byte order
       hdr << [keepaliveInterval].pack('n')
-      hdr << Sdnv.encode(RdtnConfig::Settings.instance.localEid.length)
-      hdr << RdtnConfig::Settings.instance.localEid
+      hdr << Sdnv.encode(RdtnConfig::Settings.instance.localEid.to_s.length)
+      hdr << RdtnConfig::Settings.instance.localEid.to_s
       
       send(hdr)
     end
@@ -558,7 +558,7 @@ module TCPCL
  
     def sendAck(length)
       buf = ""
-      buf << (ACK_SEGMENT << 4)
+      buf << (TCPLink::ACK_SEGMENT << 4)
       buf << Sdnv.encode(length)
       senderThread(buf) { |buffer| send(buffer) }
     end
@@ -579,13 +579,14 @@ module TCPCL
   # one interface can generate many links (through accepting new connections)
   
   class TCPInterface < Interface
+
+    TCPCLPORT=4557 # FIXME
     
     attr_reader :links
     @s
    
-    @@log=RdtnLogger.instance()
-
     def initialize(name, options)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       
       self.name = name
       host = "localhost"
@@ -600,7 +601,7 @@ module TCPCL
 	port = options[:port]
       end
 
-      @@log.debug("Building TCP interface with port=#{port} and hostname=#{host}")
+      @log.debug("Building TCP interface with port=#{port} and hostname=#{host}")
       
       @s = TCPServer.new(host,port)
       # register this socket

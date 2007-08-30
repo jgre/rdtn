@@ -24,7 +24,6 @@ require 'bundle'
 require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
-require 'rdtnlog'
 require 'contactmgr'
 require 'storage'
 require 'clientregcl'
@@ -32,8 +31,7 @@ require 'configuration'
 require "stats"
 require "daemon"
 
-log=RdtnLogger.instance()
-log.level=Logger::DEBUG
+log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 
 loopInterval = 10
 duration = 1

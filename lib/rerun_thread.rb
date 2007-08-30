@@ -28,13 +28,13 @@ module RerunThread
 	  block.call(*args)
 	rescue => ex
 	  lastErrorTime = Time.now.to_i
-	  RdtnLogger.instance.error(ex)
-	  RdtnLogger.instance.info("Restarting thread operation in #{self.class.to_s}")
+	  @log.error(ex)
+	  @log.info("Restarting thread operation in #{self.class.to_s}")
 	else
 	  Thread.current.exit
 	end
       end
-      RdtnLogger.instance.error("Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
+      @log.error("Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
       Thread.current.exit
     end
   end

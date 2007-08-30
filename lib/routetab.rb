@@ -20,6 +20,7 @@ require "cl"
 require "eidscheme"
 require "storage"
 require "contactmgr"
+require "monitor"
 
 class RoutingEntry
   attr_reader :destination,
@@ -44,9 +45,11 @@ class RoutingEntry
 
 end
 
-class RoutingTable
+class RoutingTable < Monitor
 
   def initialize(contactManager)
+    super()
+    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @routes=[]
     @contactManager = contactManager
 
@@ -68,35 +71,47 @@ class RoutingTable
   end
 
   def addEntry(routingEntry)
-    RdtnLogger.instance.info(
-      "Added route to #{routingEntry.destination} over #{routingEntry.link}.")
-    @routes.push(routingEntry)
+    @log.info(
+      "Added route to #{routingEntry.destination.source} over #{routingEntry.link}.")
+    synchronize { @routes.push(routingEntry) }
 
     # See if we can send stored bundles over this link.
-    bundles = Storage.instance.getBundlesMatchingDest(routingEntry.destination)
-    bundles.each {|bundle| doForward(bundle, [routingEntry.link])}
+    store = RdtnConfig::Settings.instance.store
+    if store
+      bundles = store.getBundlesMatchingDest(routingEntry.destination)
+      bundles.each {|bundle| doForward(bundle, [routingEntry.link])}
+    end
   end
 
   def deleteEntry(link, dest = nil)
-    @routes.delete_if do |entry|
-      if entry.link(@contactManager) == link and (not dest or dest == entry.destination.source)
-	true
-      else
-	false
+    synchronize do
+      @routes.delete_if do |entry|
+	if entry.link(@contactManager).to_s == link.to_s and (not dest or dest.to_s == entry.destination.source)
+	  true
+	else
+	  false
+	end
       end
     end
   end
 
   def match(dest)
-    @routes.find_all {|entry| entry.destination === dest}
+    synchronize {@routes.find_all {|entry| entry.destination === dest} }
   end
 
   def forward(bundle)
-    RdtnLogger.instance.debug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
+    @log.debug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
     matches = self.match(bundle.destEid.to_s)
 
     # Avoid returning the bundle directly to its sender.
-    matches.delete_if {|entry| entry.link(@contactManager)==bundle.incomingLink}
+    matches.delete_if do |entry| 
+      l = entry.link(@contactManager)
+      if l
+	l == bundle.incomingLink
+      else
+	true
+      end
+    end
     
     exclusiveLink = matches.find {|entry| entry.exclusive}
     matches = [exclusiveLink] if exclusiveLink
@@ -119,12 +134,12 @@ class RoutingTable
 	end
 	fragments.each do |frag| 
 	  link.sendBundle(frag) 
-	  RdtnLogger.instance.info(
+	  @log.info(
                "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
       rescue ProtocolError => err
-	RdtnLogger.instance.error("Routetab::doForward #{err}")
+	@log.error("Routetab::doForward #{err}")
       end
     end
     return nil

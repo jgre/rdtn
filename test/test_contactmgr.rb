@@ -27,7 +27,6 @@ require "eidscheme"
 class TestContactManager < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
   end
 
   def teardown
@@ -35,7 +34,7 @@ class TestContactManager < Test::Unit::TestCase
   end
 
   def test_insertion
-    cm = ContactManager.instance
+    cm = ContactManager.new
     link = TCPCL::TCPLink.new
     eid = EID.new("dtn://test/fasel")
     link.remoteEid = eid

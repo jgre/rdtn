@@ -22,14 +22,13 @@ require "clientapi"
 require "clientlib"
 require 'optparse'
 require 'bundle'
-require 'rdtnlog'
 require 'configuration'
 require "stats"
 require "daemon"
 require "subscriptionhandler"
 
-log=RdtnLogger.instance()
 
+log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 dest = "dtn://hamlet.dtn/test"
 eid = "send-recv"
 subscribeUri = nil

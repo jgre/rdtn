@@ -25,6 +25,7 @@ class ContactManager < Monitor
   # links.
   def initialize(housekeepingTimer = 300)
     super()
+    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     # This list contains all links that are open. We need this list to be able
     # to close them on shutdown. Here we also have those links that are not in
     # contacts because the peer's EID could not (yet) be determined.
@@ -41,7 +42,8 @@ class ContactManager < Monitor
   end
 
   def findLinkByName(name)
-    findLink { |lnk| lnk.name and lnk.name == link }
+    @links.each {|lnk| puts lnk}
+    findLink { |lnk| lnk.name and lnk.name == name }
   end
 
   def findLink(&block)
@@ -53,7 +55,7 @@ class ContactManager < Monitor
   private
  
   def linkCreated(link)
-    RdtnLogger.instance.debug("Link created #{link.name}")
+    @log.debug("Link created #{link.name}")
     synchronize do
       @links << link
     end
@@ -61,7 +63,7 @@ class ContactManager < Monitor
 
   def contactClosed(link)
     EventDispatcher.instance.dispatch(:routeLost, link)
-    RdtnLogger.instance.debug(
+    @log.debug(
 	"Removing link #{link.object_id} from ContactManager")
     synchronize do
       @links.delete(link)

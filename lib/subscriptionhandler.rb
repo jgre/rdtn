@@ -119,6 +119,15 @@ class SubscriptionHandler
     @subscriptions.map {|sub| sub.uri.to_s}
   end
 
+  def generateSubscriptionBundle
+    io = RdtnStringIO.new
+    @subscriptions.each {|sub| sub.serialize(io)}
+    io.rewind
+    bundle = Bundling::Bundle.new(io.read, "dtn:subscribe/")
+    @subscribeBundleId = bundle.bundleId
+    return bundle
+  end
+
   private
 
   def processBundle(bundle)
@@ -139,22 +148,15 @@ class SubscriptionHandler
       @subscriptions.push(subscription)
       @client.addRoute(subscription.uri, subscription.link) if subscription.link
       sendSubscribe(nil)
-    else
-      RdtnLogger.instance.info(
-		"Subscription for #{subscription.uri} is old news.")
     end
   end
 
   def sendSubscribe(link)
     return nil if link.kind_of?(AppIF::AppProxy)
     @client.deleteBundle(@subscribeBundleId) if @subscribeBundleId
-    @client.addRoute(EidPattern, link)       if link
+    @client.addRoute(EidPattern, link.name)  if link
 
-    io = RdtnStringIO.new
-    @subscriptions.each {|sub| sub.serialize(io)}
-    io.rewind
-    bundle = Bundling::Bundle.new(io.read, "dtn:subscribe/")
-    @subscribeBundleId = bundle.bundleId
+    bundle = generateSubscriptionBundle
 
     @client.sendBundle(bundle)
   end

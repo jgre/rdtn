@@ -23,10 +23,9 @@ require 'optparse'
 require "clientlib"
 
 require 'bundle'
-require 'rdtnlog'
 
 
-log=RdtnLogger.instance()
+log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 dest = ""
 eid = "/dtncat"
 duration = 0

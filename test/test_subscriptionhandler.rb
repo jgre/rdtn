@@ -68,6 +68,17 @@ class MockClient
   end
 end
 
+class MockContactManager
+
+  def initialize(link)
+    @link = link
+  end
+
+  def findLinkByName(name)
+    return @link
+  end
+end
+
 class TestSubscriptionHandler < Test::Unit::TestCase
 
   Uris = ["dtn://test1/", "dtn://test2", "http://tzi.org"]
@@ -75,11 +86,17 @@ class TestSubscriptionHandler < Test::Unit::TestCase
   def setup
     @client = MockClient.new
     @link = MockLink.new
+    RdtnConfig::Settings.instance.store = Storage.new("store")
     @shandler = SubscriptionHandler.new(@client, 2)
     Uris.each {|uri| @shandler.subscribe(uri, MockClient.new)}
   end
 
   def teardown
+    RdtnConfig::Settings.instance.store.clear
+    begin
+      File.delete("store")
+    rescue
+    end
     EventDispatcher.instance.clear
   end
 
@@ -93,9 +110,11 @@ class TestSubscriptionHandler < Test::Unit::TestCase
     EventDispatcher.instance.dispatch(:linkCreated, @link)
     client2 = MockClient.new
     shandler2 = SubscriptionHandler.new(client2)
+
+    sleep(1)
     # Feed the subscription bundle of the first handler to the client of the
     # second one.
-    client2.sendBundle(@link.bundle)
+    client2.sendBundle(@shandler.generateSubscriptionBundle)
     assert_equal(Uris, shandler2.subscribedUris)
     assert_equal(Uris, client2.subscriptions)
   end

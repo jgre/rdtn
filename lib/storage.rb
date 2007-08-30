@@ -61,86 +61,100 @@ class BundleInfo
 end#BundleInfo
 
 
-class Storage
+class Storage < Monitor
 
   @bundleIds                    # list of ids (strings)
   @bundles                      # Hash id => bundle
   @bundleInfos                  # Hash of id => BundleInfo
 
-  def initialize
+  def initialize(dir = nil)
+    super()
+    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @bundleIds = []
     @bundles = {}
     @bundleInfos = {}
+    @storageDir = dir
     EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
       self.storeBundle(bundle)
       self.save
     end
   end
 
-  include Singleton
-  
   def listBundles
     # return list of ids
-    @bundleIds
+    synchronize { return Array.new(@bundleIds) }
   end
 
   def getBundleInfo(bundleId)
     # return BundleInfo
-    @bundleInfos[bundleId]
+    synchronize { @bundleInfos[bundleId] }
   end
 
   def getBundle(bundleId)
     # return bundle
-    @bundles[bundleId]
+    synchronize { @bundles[bundleId] }
   end
 
   def deleteBundle(bundleId)
-    @bundleIds.delete(bundleId)
-    @bundles.delete(bundleId)
-    @bundleInfos.delete(bundleId)
+    synchronize do 
+      @bundleIds.delete(bundleId)
+      @bundles.delete(bundleId)
+      @bundleInfos.delete(bundleId)
+    end
   end
 
   def storeBundle(bundle)
     bi=BundleInfo.new(bundle)
     id=bi.to_s
     if(@bundleInfos.has_key?(id))
-      RdtnLogger.instance.warn("id collision")
+      @log.warn("id collision")
     end
-    @bundleIds.push(id)
-    @bundleInfos[id]=bi
-    @bundles[id]=bundle
+    synchronize do 
+      @bundleIds.push(id)
+      @bundleInfos[id]=bi
+      @bundles[id]=bundle
+    end
   end
 
   def clear
-    @bundleIds.clear
-    @bundleInfos.clear
-    @bundles.clear
+    synchronize do 
+      @bundleIds.clear
+      @bundleInfos.clear
+      @bundles.clear
+    end
   end
 
   def save
-    store=PStore.new(RdtnConfig::Settings.instance.storageDir)
-    store.transaction do
-       store["bundleIds"] = @bundleIds
-       store["bundleInfos"] = @bundleInfos
-       store["bundles"] = @bundles
+    if @storageDir
+      store=PStore.new(@storageDir)
+      store.transaction do
+	store["bundleIds"] = @bundleIds
+	store["bundleInfos"] = @bundleInfos
+	store["bundles"] = @bundles
+      end
     end
   end
   
   def load
-    store=PStore.new(RdtnConfig::Settings.instance.storageDir)
-    store.transaction do
-      @bundleIds = store["bundleIds"]
-      @bundleInfos = store["bundleInfos"]
-      @bundles = store["bundles"]
+    if @storageDir
+      store=PStore.new(@storageDir)
+      store.transaction do
+	@bundleIds = store["bundleIds"]
+	@bundleInfos = store["bundleInfos"]
+	@bundles = store["bundles"]
+      end
     end
   end
 
   def getBundlesMatching()
     res=[]
-    0.upto(@bundleIds.length()-1) do |i|
-      bi=@bundleInfos[@bundleIds[i]]
-      if bi and yield(bi)
-        res << @bundles[@bundleIds[i]]
+    synchronize do
+      # FIXME do this more elegantly and "ruby-like"
+      0.upto(@bundleIds.length()-1) do |i|
+	bi=@bundleInfos[@bundleIds[i]]
+	if bi and yield(bi)
+	  res << @bundles[@bundleIds[i]]
+	end
       end
     end
     return res
@@ -167,6 +181,7 @@ class Storage_perBundle
   Metainfo_Filename = "Metainfo.pstore"
 
   def initialize(mfname=Metainfo_Filename)
+    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     mfbasename = File.basename(mfname)
     @pathname = RdtnConfig::Settings.instance.storageDir
     FileUtils.mkdir_p(@pathname)
@@ -190,7 +205,7 @@ class Storage_perBundle
     metaInfo = BundleInfo.new(bundle)
     @bundleInfos.transaction do
       if @bundleInfos.root?(metaInfo)
-	RdtnLogger.instance.warn("Bundle: #{bundle.bundleId} has already been stored as file: #{fn}.")
+	@log.warn("Bundle: #{bundle.bundleId} has already been stored as file: #{fn}.")
       else
 	@bundleInfos[metaInfo] = fn
       end
@@ -227,7 +242,7 @@ class Storage_perBundle
       if @bundleInfos.root?(bundleInfo)
 	filename = @bundleInfos[bundleInfo]
       else
-	RdtnLogger.instance.error("No bundleinfo: #{bundleInfo} has been stored.")
+	@log.error("No bundleinfo: #{bundleInfo} has been stored.")
 	@bundleInfos.abort
       end
     end

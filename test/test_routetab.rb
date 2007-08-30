@@ -61,21 +61,20 @@ end
 class TestRoutetab < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
     @link1 = MockLink.new
     @link1.remoteEid = "dtn:oink"
     @link2 = MockLink.new
     @link2.remoteEid = "dtn:grunt"
     @link3 = MockLink.new
     @link3.remoteEid = "dtn:grunt3"
-    RdtnConfig::Settings.instance.storageDir = "store"
+    RdtnConfig::Settings.instance.store = Storage.new("store")
     @contactManager = MockContactManager.new(@link1)
   end
 
   def teardown
-    Storage.instance.clear
+    RdtnConfig::Settings.instance.store.clear
     begin
-      File.delete(RdtnConfig::Settings.instance.storageDir)
+      File.delete("store")
     rescue
     end
     EventDispatcher.instance.clear
@@ -92,7 +91,7 @@ class TestRoutetab < Test::Unit::TestCase
 
   def test_delayed_forward
 
-    store = Storage.instance
+    store = RdtnConfig::Settings.instance.store
     # Initialize routing table
     @routeTab = RoutingTable.new(@contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")

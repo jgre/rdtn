@@ -15,10 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-require 'rdtnlog'
 require 'cl'
+require "logger"
 require 'routetab'
 require 'singleton'
+#require 'tcpcl'
+require 'udpcl'
+require 'flutecl'
+require 'clientregcl'
 
 module RdtnConfig
 
@@ -40,6 +44,10 @@ module RdtnConfig
     :alwayson
 
 
+    def initialize
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
+    end
+
     def self.load(filename)
       conf = new
       conf.instance_eval(File.read(filename), filename)
@@ -47,29 +55,28 @@ module RdtnConfig
       conf
     end
 
-    def loglevel(level)
-      @lg=RdtnLogger.instance()    
+    def loglevel(level, pattern = nil)
 
-      lv={
-	:debug => Logger::DEBUG,
-	:info  => Logger::INFO,
-	:error => Logger::ERROR,
-	:warn  => Logger::WARN,
-	:fatal => Logger::FATAL
-      }
-
-      @lg.level=lv[level] || Logger::UNKOWN
-
+      @log.level = curLevel = case level
+			      when :debug: Logger::DEBUG
+			      when :info : Logger::INFO
+			      when :error: Logger::ERROR
+			      when :warn : Logger::WARN
+			      when :fatal: Logger::FATAL
+			      else Logger:ERROR
+			      end
+      
+      RdtnConfig::Settings.instance.setLogLevel(pattern, curLevel)
     end
 
     def log(level, msg)
       case level
-      when :debug: @lg.debug(msg)
-      when :info: @lg.info(msg)
-      when :warn: @lg.warn(msg)
-      when :error: @lg.error(msg)
-      when :fatal: @lg.fatal(msg)
-      else @lg.info(msg)
+      when :debug: @log.debug(msg)
+      when :info: @log.info(msg)
+      when :warn: @log.warn(msg)
+      when :error: @log.error(msg)
+      when :fatal: @log.fatal(msg)
+      else @log.info(msg)
       end
     end
 
@@ -98,7 +105,7 @@ module RdtnConfig
       end
     end
 
-    def link(action, cl, name, options)
+    def link(action, cl, name, options = {})
       case action
       when :add: addLink(cl, name, options)
       when :remove: rmLink(cl, name, options)
@@ -107,7 +114,7 @@ module RdtnConfig
     end
 
     def storageDir(dir)
-      Settings.instance.storageDir = dir
+      Settings.instance.store = Storage.new(dir)
     end
 
     def localEid(eid)
@@ -173,12 +180,48 @@ module RdtnConfig
   class Settings
     include Singleton
 
-    attr_accessor :localEid, :storageDir
+    attr_accessor :localEid, :store
 
     def initialize
       @localEid = ""
-      @storageDir = "store"
+      @store = nil
+      @logLevels = []
+      @defaultLogLevel = Logger::ERROR
     end
+
+    # Set the log level for for a given classname pattern.
+    # If a logmessage is written from a class, the log level associated with the
+    # longest pattern as passed to this function is used. E.g.:
+    # setLogLevel(/TCP/, INFO)
+    # setLogLevel(/TCPLink/, DEBUG)
+    #
+    # Log messages from class TCPLink will be written with level DEBUG; messages
+    # from TCPInterface will use INFO. 
+    # The default level is ERROR
+    def setLogLevel(pattern, level)
+      if pattern
+	@logLevels.push([pattern, level])
+      else
+	@defaultLogLevel = level
+      end
+    end
+
+    def getLogger(classname)
+      matchedLevel = nil
+      matchedLen   = 0
+      @logLevels.each do |pattern, level|
+	if pattern =~ classname
+	  if not matchedLevel or matchedLen < $&.length
+	    matchedLevel = level
+	    machtLen = $&.length
+	  end
+	end
+      end
+      logger = Logger.new(STDOUT)
+      logger.level = matchedLevel ? matchedLevel:@defaultLogLevel
+      return logger
+    end
+
   end
 
 end #module RdtnConfig

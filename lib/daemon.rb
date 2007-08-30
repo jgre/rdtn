@@ -23,7 +23,6 @@ require 'bundle'
 require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
-require 'rdtnlog'
 require 'contactmgr'
 require 'storage'
 require 'clientregcl'
@@ -36,7 +35,7 @@ module RdtnDaemon
 
     def initialize(optParser = OptionParser.new)
 
-      @log=RdtnLogger.instance()
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       bl = Bundling::BundleLayer.new
 
       configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
@@ -59,7 +58,7 @@ module RdtnDaemon
       # Initialize Contact manager and routing table
       cmgr = ContactManager.new
       router = RoutingTable.new(cmgr)
-      store = Storage.instance
+      store = RdtnConfig::Settings.instance.store
       conf = RdtnConfig::Reader.load(configFileName)
 
     end

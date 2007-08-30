@@ -17,7 +17,6 @@
 
 require "socket"
 require "clientapi"
-require "rdtnlog"
 require "bundle"
 require "queue"
 require "rerun_thread"
@@ -30,7 +29,7 @@ class RdtnClient
   attr_reader :bundleHandler, :host, :port
 
   def initialize(host="localhost", port=RDTNAPPIFPORT, blocking=true)
-    @@log=RdtnLogger.instance()    
+    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @host = host
     @port = port
     @bundleHandler = lambda {}
@@ -60,7 +59,7 @@ class RdtnClient
 	wait = nil
       end
     end
-    @@log.debug("RdtnClient::close -- closing socket #{@s}")
+    @log.debug("RdtnClient::close -- closing socket #{@s}")
     @sendSocket.close if not @sendSocket.closed?
     @receiveSocket.close if not @receiveSocket.closed?
     EventDispatcher.instance().dispatch(:linkClosed, self)
@@ -73,11 +72,12 @@ class RdtnClient
       bundle = args[:bundle]
       @bundleHandler.call(bundle)
     end
-    @subscriptions.push([/rdtn:bundles\/(\d+)\//, callBundleHandler])
+    @subscriptions.push([/rdtn:bundles\/([\w-]+)\//, callBundleHandler])
   end
 
   def unregister(pattern)
     sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern})
+    @bundleHandler = lambda {}
   end
 
   def sendBundle(bundle)
@@ -89,7 +89,7 @@ class RdtnClient
 	    				     :link => link})
   end
 
-  def delRoute(pattern, linkName)
+  def delRoute(pattern, link)
     sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern, 
 	    				       :link => link})
   end
@@ -105,7 +105,7 @@ class RdtnClient
       argList = args[:args]
       handler.call(*argList)
     end
-    @subscriptions.push([Regexp.new(uri), callBundleHandler])
+    @subscriptions.push([Regexp.new(uri), callEventHandler])
   end
 
   def getBundlesMatchingDest(dest, &handler)
@@ -123,7 +123,7 @@ class RdtnClient
     begin
       doRead {|input| processData(input) }
     rescue SystemCallError    # lost TCP connection 
-      @@log.error("RDTNClient::read" + $!)
+      @log.error("RDTNClient::read" + $!)
     end
     # If we are here, doRead hit an error or the link was closed.
     self.close()              
@@ -148,7 +148,7 @@ class RdtnClient
 
   def checkError(typeCode, args)
     if typeCode == STATUS and args[:status] >= 400
-      RdtnLogger.instance.error(
+      @log.error(
 	"An error occured for #{args[:uri]}: #{args[:message]}")
       return true
     end

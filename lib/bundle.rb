@@ -15,7 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-require "rdtnlog"
 require "rdtnerror"
 require "configuration"
 require "sdnv"
@@ -63,15 +62,17 @@ module Bundling
 
     def initialize
 
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
+
       EventDispatcher.instance.subscribe(:bundleData) do |queue, finished, cl|
 	if not @@incomingBundles.has_key?(queue.object_id)
 	  @@incomingBundles[queue.object_id] = Bundle.new
 	  @@incomingBundles[queue.object_id].incomingLink = cl # FIXME
-	  RdtnLogger.instance.debug("Adding new entry to @incomingBundles #{queue.object_id}")
+	  @log.debug("Adding new entry to @incomingBundles #{queue.object_id}")
 	end
 
 	if queue.closed?
-	  RdtnLogger.instance.warn("':bundleData' event received, but the queue is closed.")
+	  @log.warn("':bundleData' event received, but the queue is closed.")
 	  @@incomingBundles.delete(queue.object_id)
 	  next
 	end
@@ -80,20 +81,20 @@ module Bundling
 	begin
 	  bundle.parse(queue)
 	rescue InputTooShort => detail
-	  RdtnLogger.instance.info("Input too short need to read #{detail.bytesMissing} (#{queue.length} given)")
+	  @log.info("Input too short need to read #{detail.bytesMissing} (#{queue.length} given)")
 	  if finished
-	    RdtnLogger.instance.error("Bundle parser error: The convergence layer thinks the bundle is ready, the parser, however, feels otherwise.")
+	    @log.error("Bundle parser error: The convergence layer thinks the bundle is ready, the parser, however, feels otherwise.")
 	    queue.close
 	    @@incomingBundles.delete(queue.object_id)
 	  else
 	    cl.bytesToRead = detail.bytesMissing 
 	  end
 	rescue ProtocolError => msg
-	  RdtnLogger.instance.error("Bundle parser error: #{msg}")
+	  @log.error("Bundle parser error: #{msg}")
 	  queue.close
 	  @@incomingBundles.delete(queue.object_id)
 	rescue IOError => msg
-	  RdtnLogger.instance.error("Bundle parser IO error: #{msg}")
+	  @log.error("Bundle parser IO error: #{msg}")
 	  @@incomingBundles.delete(queue.object_id)
 	else
 	  if finished
@@ -110,12 +111,14 @@ module Bundling
 
   end
 
-  SUPPORTED_VERSIONS = [4, 5]
 
   # Representation of a Bundle including the parser and serialization. Refer to
   # the bundles protocol specification for the semantics of the attributes.
 
   class Bundle
+
+    SUPPORTED_VERSIONS = [4, 5]
+
     attr_accessor :version, :procFlags, :cosFlags, :srrFlags, :blockLength,
       :destSchemeOff, :destSspOff, :srcSchemeOff, :srcSspOff,
       :repToSchemeOff, :repToSspOff, :custSchemeOff, :custSspOff,
@@ -127,6 +130,9 @@ module Bundling
       :incomingLink
 
     attr_reader :state
+
+    @@lastTimestamp = 0
+    @@lastSeqNo = 0
     
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
@@ -136,7 +142,12 @@ module Bundling
       @cosFlags = 0
       @srrFlags = 0
       @creationTimestamp = (Time.now - Time.gm(2000)).to_i
-      @creationTimestampSeq = 0
+      if @creationTimestamp == @@lastTimestamp
+	@@lastSeqNo = @creationTimestampSeq = @@lastSeqNo + 1
+      else
+	@@lastSeqNo = @creationTimestampSeq = 0
+      end
+      @@lastTimestamp = @creationTimestamp
       @lifetime = 3600
       @destEid = EID.new(destEid)
       if not srcEid
@@ -538,8 +549,8 @@ module Bundling
       rbDict = {}
       strDict = ""
       eids.each do |eid, schemeOff, sspOff|
-	scheme = self.send(eid).scheme
-	ssp = self.send(eid).ssp
+	scheme = EID.new(self.send(eid).to_s).scheme
+	ssp = EID.new(self.send(eid).to_s).ssp
 	if not rbDict.include?(scheme)
 	  strDict << scheme + "\0"
 	  rbDict[scheme] = offset
@@ -615,7 +626,7 @@ module Bundling
       super(bundle)
 
       defField(:version, :length => 1, :decode => GenParser::NumDecoder,
-	       :condition => lambda {|version| SUPPORTED_VERSIONS.include?(version)},
+	       :condition => lambda {|version| Bundle::SUPPORTED_VERSIONS.include?(version)},
 	       :handler => :defineFields)
 
     end

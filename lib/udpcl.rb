@@ -18,7 +18,6 @@
 # UDP convergence layer
 
 require "socket"
-require "rdtnlog"
 require "rdtnerror"
 require "configuration"
 require "cl"
@@ -30,23 +29,24 @@ require "stringio"
 require "genparser"
 require "queuedio"
 
-MAX_UDP_PACKET = 65535
-UDPCLPORT = 4557
 
 module UDPCL
 
   class UDPLink < Link
+
+
     attr_accessor :remoteEid, :maxBundleSize
     include QueuedSender
 
     def initialize(sock = nil)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       super()
       queuedSenderInit(sock)
     end
 
     def open(name, options)
       self.name = name
-      port = UDPCLPORT 
+      port = UDPInterface::UDPCLPORT 
       host = nil 
 
       if options.has_key?(:host)
@@ -69,7 +69,7 @@ module UDPCL
 
     def close(wait = nil)
       super
-      RdtnLogger.instance.debug("UDPLink::close")
+      @log.debug("UDPLink::close")
       if socketOK?
 	@sendSocket.close
       end
@@ -88,9 +88,13 @@ module UDPCL
 
   class UDPInterface < Interface
 
+    UDPCLPORT = 4557
+    MAX_UDP_PACKET = 65535
+
     include QueuedReceiver
 
     def initialize(name, options)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.name = name
       host = nil
       port = UDPCLPORT
@@ -102,7 +106,7 @@ module UDPCL
 	port = options[:port]
       end
 
-      RdtnLogger.instance.debug("Building UDP interface with port=#{port} and hostname=#{host}")
+      @log.debug("Building UDP interface with port=#{port} and hostname=#{host}")
       sock = UDPSocket.new
       sock.bind(host, port)
       queuedReceiverInit(sock)

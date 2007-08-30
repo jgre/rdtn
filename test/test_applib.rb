@@ -21,45 +21,163 @@ require "test/unit"
 require "clientregcl"
 require "clientlib"
 
+class MockLink < Link
+  attr_accessor :remoteEid, :bundle
+
+  def initialize
+    super
+    @bundles = []
+  end
+
+  def sendBundle(bundle)
+    @bundle = bundle
+    @bundles.push(bundle)
+  end
+
+  def close
+  end
+
+  def received?(bundle)
+    @bundles.any? {|b| b.to_s == bundle.to_s}
+  end
+
+end
+
+class MockContactManager
+
+  def initialize(link)
+    @link = link
+  end
+
+  def findLinkByName(name)
+    return @link
+  end
+end
 
 class TestAppLib < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
-    @appIf = AppIF::AppInterface.new("client0")
+    @appIf = AppIF::AppInterface.new("client0", :port => 12345)
+    @client = RdtnClient.new("localhost", 12345)
+    @bundleContent="test!"
+    begin
+      @bundleContent = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
+	f.read
+      end
+    rescue
+    end
   end
 
   def teardown
     EventDispatcher.instance.clear
+    if RdtnConfig::Settings.instance.store
+      RdtnConfig::Settings.instance.store.clear 
+    end
+    @client.close
     @appIf.close
   end
 
-  def test_applib1
-    bundleContent="test!"
-    begin
-      bundleContent = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
-	f.read
-      end
-    rescue
-      RdtnLogger.instance.warn("Could not open large testfile")
-    end
+  def test_send_bundle
 
     bundleOrig="dtn://bla.fasel"
 
     eventSent = false
-    c=RdtnClient.new
-    c.register(bundleOrig) do |bundle|
+    b=Bundling::Bundle.new(@bundleContent, bundleOrig)
+
+    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+      assert_equal(b.to_s, bundle.to_s)
       eventSent = true
-      assert_equal(bundleContent.length, bundle.payload.length)
     end
-    b=Bundling::Bundle.new(bundleContent, bundleOrig)
-    c.sendBundle(b)
-    c.unregister(bundleOrig)
+    @client.sendBundle(b)
 
     sleep(1)
-    c.close
-
+    assert(eventSent)
   end
 
+  def test_receive_bundle
+    router = RoutingTable.new(nil)
+    eid = "dtn://test/receiver"
+    eventSent = false
+    b=Bundling::Bundle.new(@bundleContent, eid)
+    @client.register(eid) do |bundle|
+      eventSent = true
+      assert_equal(bundle.payload.length, bundle.payload.length)
+    end
+    client2 = RdtnClient.new(@client.host, @client.port)
+    client2.sendBundle(b)
+    sleep(1)
+    assert(eventSent)
+  end
+
+  def test_unregister
+    router = RoutingTable.new(nil)
+    eid = "dtn://test/receiver"
+    b=Bundling::Bundle.new(@bundleContent, eid)
+    @client.register(eid) do |bundle|
+      flunk
+    end
+    @client.unregister(eid)
+    client2 = RdtnClient.new(@client.host, @client.port)
+    client2.sendBundle(b)
+    sleep(1)
+  end
+
+  def test_add_route
+    eid = "dtn://test/receiver"
+    link = MockLink.new
+    router = RoutingTable.new(MockContactManager.new(link))
+    b=Bundling::Bundle.new(@bundleContent, eid)
+
+    @client.addRoute(eid, link.name)
+
+    sleep(1)
+    @client.sendBundle(b)
+
+    sleep(1)
+    assert(link.received?(b))
+  end
+
+  def test_del_route
+    eid = "dtn://test/receiver"
+    link = MockLink.new
+    router = RoutingTable.new(MockContactManager.new(link))
+    b=Bundling::Bundle.new(@bundleContent, eid)
+
+    @client.addRoute(eid, link.name)
+    @client.delRoute(eid, link.name)
+
+    sleep(1)
+    @client.sendBundle(b)
+
+    sleep(1)
+    assert((not link.received?(b)))
+  end
+
+  def test_subscribe_event
+    a = 1
+    b = 2
+    c = 3
+    eventSent = false
+    @client.subscribeEvent(:bogusEvent) do |aa, bb, cc|
+      assert_equal(a, aa)
+      assert_equal(b, bb)
+      assert_equal(c, cc)
+      eventSent = true
+    end
+    sleep(1)
+    EventDispatcher.instance.dispatch(:bogusEvent, a, b, c)
+    sleep(1)
+    assert(eventSent)
+  end
+
+  def test_delete_bundle
+    eid = "dtn://test/receiver"
+    b=Bundling::Bundle.new(@bundleContent, eid)
+    store = Storage.new
+    RdtnConfig::Settings.instance.store = store
+    store.storeBundle(b)
+    @client.deleteBundle(b.bundleId)
+    assert_nil(store.getBundle(b.bundleId))
+  end
 
 end

@@ -18,7 +18,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-require "rdtnlog"
 require "rdtnevent"
 require "udpcl"
 require "configuration"
@@ -27,7 +26,6 @@ require "configuration"
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
   end
 
   def teardown
@@ -36,7 +34,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log=RdtnLogger.instance()
+    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
     log.debug("starting contact exchange")
     
@@ -46,7 +44,6 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
 	f.read(65000)
       end
     rescue
-      RdtnLogger.instance.warn("Could not open large testfile")
     end
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|

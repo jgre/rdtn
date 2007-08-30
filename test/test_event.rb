@@ -18,12 +18,10 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require "test/unit"
 require "rdtnevent"
-require "rdtnlog"
 
 class TestEvent < Test::Unit::TestCase
   
   def setup
-    RdtnLogger.instance.level = Logger::ERROR
   end
 
   def teardown
