@@ -22,30 +22,58 @@ require "bundle"
 require "queue"
 require "routetab"
 
-class DummyLink < Link
+class MockLink < Link
   attr_accessor :remoteEid, :bundle
+
+  def initialize
+    super
+    @bundles = []
+  end
 
   def sendBundle(bundle)
     @bundle = bundle
+    @bundles.push(bundle)
   end
 
   def close
   end
 
+  def received?(bundle)
+    @bundles.any? {|b| b.to_s == bundle.to_s}
+  end
+
+end
+
+class MockStore
+end
+
+class MockContactManager
+
+  def initialize(link)
+    @link = link
+  end
+
+  def findLinkByName(name)
+    return @link
+  end
 end
 
 class TestRoutetab < Test::Unit::TestCase
 
   def setup
     RdtnLogger.instance.level = Logger::ERROR
-    @link1 = DummyLink.new
+    @link1 = MockLink.new
     @link1.remoteEid = "dtn:oink"
-    @link2 = DummyLink.new
+    @link2 = MockLink.new
     @link2.remoteEid = "dtn:grunt"
+    @link3 = MockLink.new
+    @link3.remoteEid = "dtn:grunt3"
     RdtnConfig::Settings.instance.storageDir = "store"
+    @contactManager = MockContactManager.new(@link1)
   end
 
   def teardown
+    Storage.instance.clear
     begin
       File.delete(RdtnConfig::Settings.instance.storageDir)
     rescue
@@ -54,24 +82,69 @@ class TestRoutetab < Test::Unit::TestCase
   end
 
   def test_forward
+    @routeTab = RoutingTable.new(@contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
-    RoutingTable.instance.addEntry(".*receiver", @link1)
-    EventDispatcher.instance.dispatch(:bundleParsed, bndl)
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
+    @routeTab.forward(bndl)
 
-    assert(@link1.bundle.payload == "test")
+    assert(@link1.bundle.to_s == bndl.to_s)
   end
 
   def test_delayed_forward
 
-    # Initialize routing table
     store = Storage.instance
-    router = RoutingTable.instance
+    # Initialize routing table
+    @routeTab = RoutingTable.new(@contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
+    # Dispatch event so that the bundle is written to the store
     EventDispatcher.instance.dispatch(:bundleParsed, bndl)
-
-    RoutingTable.instance.addEntry(".*receiver", @link1)
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
 
     assert(@link1.bundle.payload == "test")
+  end
+
+  def test_multiple_destinations
+    @routeTab = RoutingTable.new(@contactManager)
+    bndl = Bundling::Bundle.new("test", "dtn:receiver")
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link2))
+    @routeTab.forward(bndl)
+
+    assert(@link1.bundle.to_s == bndl.to_s)
+    assert(@link2.bundle.to_s == bndl.to_s)
+  end
+
+  def test_exclusive
+    assert_nil(@link1.bundle)
+    @routeTab = RoutingTable.new(@contactManager)
+    bndl = Bundling::Bundle.new("test", "dtn:receiver")
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link2, true))
+    @routeTab.forward(bndl)
+
+    assert_nil(@link1.bundle)
+    assert(@link2.bundle.to_s == bndl.to_s)
+  end
+
+  def test_delete
+    @routeTab = RoutingTable.new(@contactManager)
+    bndl = Bundling::Bundle.new("test", "dtn:receiver")
+    bndl2 = Bundling::Bundle.new("test2", "dtn:rcv")
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link2))
+    @routeTab.addEntry(RoutingEntry.new(".*rcv", @link2))
+    @routeTab.addEntry(RoutingEntry.new(".*receiver", @link3))
+    @routeTab.deleteEntry(@link1)
+    @routeTab.deleteEntry(@link2, ".*receiver")
+    @routeTab.forward(bndl)
+    @routeTab.forward(bndl2)
+
+    assert(@link1.received?(bndl) == false)
+    assert(@link1.received?(bndl2) == false)
+    assert(@link2.received?(bndl) == false)
+    assert(@link2.received?(bndl2))
+    assert(@link3.received?(bndl))
+    assert(@link3.received?(bndl2) == false)
   end
 
 end

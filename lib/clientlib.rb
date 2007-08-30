@@ -27,13 +27,16 @@ class RdtnClient
   include RerunThread
   include QueuedSender
   include QueuedReceiver
-  attr_reader :bundleHandler
+  attr_reader :bundleHandler, :host, :port
 
   def initialize(host="localhost", port=RDTNAPPIFPORT, blocking=true)
     @@log=RdtnLogger.instance()    
+    @host = host
+    @port = port
     @bundleHandler = lambda {}
     @threads = Queue.new
     @pendingRequests = Hash.new()
+    @subscriptions = []
 
     connectBlock = lambda do |h, p| 
       sock = TCPSocket.new(h, p) 
@@ -66,6 +69,11 @@ class RdtnClient
   def register(pattern, &handler)
     sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern})
     @bundleHandler = handler
+    callBundleHandler = lambda do |args|
+      bundle = args[:bundle]
+      @bundleHandler.call(bundle)
+    end
+    @subscriptions.push([/rdtn:bundles\/(\d+)\//, callBundleHandler])
   end
 
   def unregister(pattern)
@@ -90,6 +98,26 @@ class RdtnClient
     return (not @pendingRequests.empty?)
   end
 
+  def subscribeEvent(eventId, &handler)
+    uri = "rdtn:events/#{eventId.to_s}/"
+    sendRequest(POST, {:uri => uri})
+    callEventHandler = lambda do |args|
+      argList = args[:args]
+      handler.call(*argList)
+    end
+    @subscriptions.push([Regexp.new(uri), callBundleHandler])
+  end
+
+  def getBundlesMatchingDest(dest, &handler)
+    sendRequest(QUERY, {:uri => "rdtn:bundles/", :destEid => dest}) do |args|
+      handler.call(args[:bundle])
+    end
+  end
+
+  def deleteBundle(bundleId)
+    sendRequest(DELETE, {:uri => "rdtn:bundles/#{bundleId}/"})
+  end
+
   private
   def read
     begin
@@ -112,14 +140,16 @@ class RdtnClient
     end
 
     handlePendingRequests(typeCode, args)
-    if typeCode == POST and /rdtn:bundles\/(\d+)\// =~ args[:uri] 
-      @bundleHandler.call(args[:bundle])
+    if typeCode == POST 
+      handlers = @subscriptions.find_all {|pattern, h|pattern === args[:uri]}
+      handlers.each {|p, handler| handler.call(args)}
     end
   end
 
   def checkError(typeCode, args)
     if typeCode == STATUS and args[:status] >= 400
-      RdtnLogger.instance.error("An error occured for #{args[:uri]}: #{args[:message]}")
+      RdtnLogger.instance.error(
+	"An error occured for #{args[:uri]}: #{args[:message]}")
       return true
     end
     return false

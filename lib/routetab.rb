@@ -21,67 +21,96 @@ require "eidscheme"
 require "storage"
 require "contactmgr"
 
+class RoutingEntry
+  attr_reader :destination,
+    	      :exclusive
+
+  def initialize(dest, link, exclusive = false)
+    @destination = Regexp.new(dest.to_s)
+    @link = link
+    @exclusive = exclusive
+  end
+
+  # If +@link+ is not the Link object itself  but only its name lookup the name
+  # in the +ContactManager+ and assign the Link object to +@link+.
+  # Returns +@link+
+
+  def link(contactManager = nil)
+    if contactManager and not @link.kind_of?(Link)
+      @link = contactManager.findLinkByName(link)
+    end
+    return @link
+  end
+
+end
+
 class RoutingTable
 
   def initialize(contactManager)
-    @routes={}
+    @routes=[]
     @contactManager = contactManager
 
-    EventDispatcher.instance().subscribe(:routeAvailable) do |dest, link|
-      #sself.contactEstablished(*args)
-      self.addEntry(dest, link)
+    EventDispatcher.instance().subscribe(:routeAvailable) do |*args|
+      self.addEntry(*args)
     end
-    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-      RdtnLogger.instance.debug("Bundle Parsed: #{bundle.destEid}, #{bundle.srcEid}")
-      links = self.match(bundle.destEid.to_s)
-      # TODO policy to decide, if we forward over multiple links or just over
-      # one.
-      forward(bundle, links)
+    EventDispatcher.instance.subscribe(:routeLost) do |*args|
+      deleteEntry(*args)
+    end
+    EventDispatcher.instance.subscribe(:bundleParsed) do |*args|
+      forward(*args)
     end
   end
 
-  def addEntry(dest, link)
-    RdtnLogger.instance.info("Added route to #{dest} over #{link}.")
-    @routes[Regexp.new(dest.to_s)]=link
+  def print
+    @routes.each do |entry|
+      puts "#{entry.destination}\t#{entry.link}\t#{entry.exclusive}"
+    end
+  end
+
+  def addEntry(routingEntry)
+    RdtnLogger.instance.info(
+      "Added route to #{routingEntry.destination} over #{routingEntry.link}.")
+    @routes.push(routingEntry)
+
     # See if we can send stored bundles over this link.
-    bundles = Storage.instance.getBundlesMatchingDest(dest)
-    bundles.each {|bundle| self.forward(bundle, [link])}
+    bundles = Storage.instance.getBundlesMatchingDest(routingEntry.destination)
+    bundles.each {|bundle| doForward(bundle, [routingEntry.link])}
   end
 
-  def contactEstablished(link)
-    if not defined?(link.remoteEid) or not link.remoteEid 
-      raise RuntimeError, "Could not determine the EID of the new contact on link #{link.object_id}"
+  def deleteEntry(link, dest = nil)
+    @routes.delete_if do |entry|
+      if entry.link(@contactManager) == link and (not dest or dest == entry.destination.source)
+	true
+      else
+	false
+      end
     end
-    RdtnLogger.instance.info("Established contact on #{link.object_id} to #{link.remoteEid}")
-    eid = link.remoteEid
-    self.addEntry(eid.indexingPart, link)
   end
-
 
   def match(dest)
-    res=[]
-    @routes.each_pair{|d,l|
-      if(d.match(dest))
-        res << l
-      end
-    }
-    return res
+    @routes.find_all {|entry| entry.destination === dest}
+  end
+
+  def forward(bundle)
+    RdtnLogger.instance.debug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
+    matches = self.match(bundle.destEid.to_s)
+
+    # Avoid returning the bundle directly to its sender.
+    matches.delete_if {|entry| entry.link(@contactManager)==bundle.incomingLink}
+    
+    exclusiveLink = matches.find {|entry| entry.exclusive}
+    matches = [exclusiveLink] if exclusiveLink
+    links = matches.map {|entry| entry.link(@contactManager)}
+    doForward(bundle, links)
+    return nil
   end
 
   private
 
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
  
-  def forward(bundle, links)
+  def doForward(bundle, links)
     links.each do |link|
-      if not link.kind_of?(Link)
-	link = @contactManager.findLink do |lnk| 
-	  lnk.name and lnk.name == link
-	end
-	if not link.kind_of?(Link)
-	  next
-	end
-      end
       begin
 	if defined?(link.maxBundleSize) and link.maxBundleSize
 	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
@@ -90,14 +119,13 @@ class RoutingTable
 	end
 	fragments.each do |frag| 
 	  link.sendBundle(frag) 
-	  RdtnLogger.instance.info("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	  RdtnLogger.instance.info(
+               "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
-	return nil
       rescue ProtocolError => err
-	RdtnLogger.instance.error("Routetab::forward #{err}")
+	RdtnLogger.instance.error("Routetab::doForward #{err}")
       end
-      #link.sendBundle(bundle)
     end
     return nil
   end

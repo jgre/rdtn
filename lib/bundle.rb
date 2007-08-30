@@ -126,15 +126,10 @@ module Bundling
       :bytesToRead, :queue,
       :incomingLink
 
-    attr_reader :state, :bundleId
+    attr_reader :state
     
-
-
-    @@bundleCount=0
-
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
-      @bundleId=@@bundleCount+=1
       @payload = payload
       @version = 5
       @procFlags = 0
@@ -166,6 +161,10 @@ module Bundling
       while not @queue.eof?
 	@state = @state.readData(@queue)
       end
+    end
+
+    def bundleId
+      "#{@srcEid}-#{@creationTimestamp}-#{@creationTimestampSeq}-#{@fragmentOffset}".hash
     end
 
     def fragment=(set)
@@ -466,7 +465,6 @@ module Bundling
     end
 
     def marshal_load(bundleStr)     
-      @bundleId=@@bundleCount+=1
       @state = PrimaryBundleBlock.new(self)
       io=StringIO.new(bundleStr)
       self.parse(io)

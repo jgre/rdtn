@@ -94,6 +94,12 @@ class Storage
     @bundles[bundleId]
   end
 
+  def deleteBundle(bundleId)
+    @bundleIds.delete(bundleId)
+    @bundles.delete(bundleId)
+    @bundleInfos.delete(bundleId)
+  end
+
   def storeBundle(bundle)
     bi=BundleInfo.new(bundle)
     id=bi.to_s
@@ -130,9 +136,6 @@ class Storage
   end
 
   def getBundlesMatching()
-    # get all Bundles with a destination EID matching eidPrefix
-    # returns matching bundles as a list of ids
-
     res=[]
     0.upto(@bundleIds.length()-1) do |i|
       bi=@bundleInfos[@bundleIds[i]]
@@ -142,6 +145,9 @@ class Storage
     end
     return res
   end
+
+  # Get all Bundles with a destination EID matching destEid
+  # returns matching bundles as a list of ids
 
   def getBundlesMatchingDest(destEid)
     blist=getBundlesMatching() do |bundleInfo|

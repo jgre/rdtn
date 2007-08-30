@@ -16,6 +16,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require "clientapi"
+require "routetab"
 
 class RequestInfo
   attr_accessor :requestType,
@@ -28,13 +29,14 @@ end
 
 class PatternReg
 
-  @@patterns = [
-    [/^rdtn:bundles\/(\d*)\/?(\w+)?\/?$/, :resolveBundleMethod],
-    [/^rdtn:routetab\/$/, :resolveRouteTab]
+  Patterns = [
+    [/^rdtn:bundles\/?([\w-]+)?\/(\w+)?\/?$/, :resolveBundleMethod],
+    [/^rdtn:routetab\/$/, :resolveRouteTab],
+    [/^rdtn:events\/(\w+)\/$/, :resolveEvent]
   ]
 
   def PatternReg.resolve(uri, request, store, args={})
-    @@patterns.each do |pattern, meth|
+    Patterns.each do |pattern, meth|
       md = pattern.match(uri)
       return self.send(meth, uri, request, store, md, args) if md
     end
@@ -45,18 +47,22 @@ class PatternReg
   def PatternReg.resolveBundleMethod(uri, request, store, matchData, args)
     case request.requestType
     when QUERY
+      bundle = nil
       if not matchData[1]
-	raise MissingParameter, "Bundle Id" 
+	raise MissingParameter, "Bundle Id" if not args.has_key?(:destEid)
+	# FIXME return multiple bundles
+	bundle = store.getBundlesMatchingDest(args[:destEid])[0] 
+      else
+	bundle = store.getBundle(matchData[1].to_i)
       end
-      bundle = store.getBundle(matchData[1])
       if not bundle
 	return STATUS, {:uri => uri, :status => 404, :message => "Not Found"}
-      end
-      if matchData[2]
+      elsif matchData[2]
 	return RESOLVE, {:uri => uri, :bundleMeth => bundle.send(matchData[2])}
       else
 	return RESOLVE, {:uri => uri, :bundle => bundle}
       end
+
     when POST
       # For now we only support to POST new bundles
       bundle = args[:bundle]
@@ -72,6 +78,14 @@ class PatternReg
       bundle.incomingLink = request.sender
       EventDispatcher.instance.dispatch(:bundleParsed, bundle)
       return STATUS, {:uri => uri, :status => 200, :message => "OK"}
+
+    when DELETE
+      if not matchData[1]
+	raise MissingParameter, "Bundle Id"
+      end
+      store.deleteBundle(matchData[1].to_i)
+      return STATUS, {:uri => uri, :status => 200, :message => "OK"}
+
     else
       raise NotImplemented
     end
@@ -95,13 +109,27 @@ class PatternReg
       if defined? link.registration and link == request.sender
 	link.registration = target 
       end
-      EventDispatcher.instance.dispatch(:routeAvailable, target, link)
+      EventDispatcher.instance.dispatch(:routeAvailable, 
+					RoutingEntry.new(target, link))
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
     when DELETE
-      EventDispatcher.instance.dispatch(:routeLost, target, link)
+      EventDispatcher.instance.dispatch(:routeLost, link, target)
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
+    else
+      raise NotImplemented
+    end
+  end
+
+  def PatternReg.resolveEvent(uri, request, store, matchData, args)
+    eventId = matchData[1]
+    case request.requestType
+    when POST
+      EventDispatcher.instance.subscribe(eventId.to_sym) do |*args|
+	request.sender.sendEvent(uri, *args)
+      end
+      return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
     else
       raise NotImplemented
     end

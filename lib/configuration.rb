@@ -160,7 +160,8 @@ module RdtnConfig
     def addRoute(dest, link)
       log(:debug, "adding route to #{dest} over link #{link}")
 
-      EventDispatcher.instance.dispatch(:routeAvailable, target, link)
+      EventDispatcher.instance.dispatch(:routeAvailable, 
+					RoutingEntry.new(dest, link))
 
     end
 

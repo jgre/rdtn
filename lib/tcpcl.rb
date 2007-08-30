@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# $Id: fileup.py 8 2006-12-22 20:00:21Z jgre $
 
 # TCP convergence layer
 
@@ -132,8 +130,8 @@ module TCPCL
 	raise
       end
       
-      EventDispatcher.instance().dispatch(:routeAvailable, @tcpLink, 
-					  @tcpLink.remoteEid)
+      EventDispatcher.instance.dispatch(:routeAvailable,RouteEntry.new(@tcpLink,
+							@tcpLink.remoteEid))
       return ContactEstablishedState.new(@tcpLink)
     end
   end

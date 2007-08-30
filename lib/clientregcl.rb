@@ -62,6 +62,9 @@ module AppIF
       		     :bundle => bundle})
     end
 
+    def sendEvent(uri, *args)
+      sendPDU(POST, {:uri => uri, :args => args})
+    end
 
     private
     def read

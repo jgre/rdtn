@@ -60,7 +60,9 @@ class ContactManager < Monitor
   end
 
   def contactClosed(link)
-    RdtnLogger.instance.debug("Removing link #{link.object_id} from ContactManager")
+    EventDispatcher.instance.dispatch(:routeLost, link)
+    RdtnLogger.instance.debug(
+	"Removing link #{link.object_id} from ContactManager")
     synchronize do
       @links.delete(link)
     end

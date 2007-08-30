@@ -22,21 +22,19 @@ require "clientapi"
 require "clientlib"
 require 'optparse'
 require 'bundle'
-require 'tcpcl'
-require 'udpcl'
-require 'flutecl'
 require 'rdtnlog'
-require 'contactmgr'
-require 'storage'
-require 'clientregcl'
 require 'configuration'
 require "stats"
 require "daemon"
+require "subscriptionhandler"
 
 log=RdtnLogger.instance()
 
 dest = "dtn://hamlet.dtn/test"
 eid = "send-recv"
+subscribeUri = nil
+port=RDTNAPPIFPORT
+host="localhost"
 
 opts = OptionParser.new do |opts|
   opts.on("-d", "--dest EID", "destination EID") do |d|
@@ -44,6 +42,15 @@ opts = OptionParser.new do |opts|
   end
   opts.on("-l", "--local EID", "local EID") do |l|
     eid = l
+  end
+  opts.on("-S", "--subscribe URI", "subscribe to URI") do |s|
+    subscribeUri = s
+  end
+  opts.on("-p", "--port PORT", "Connect to client interface on PORT") do |p|
+    port = p
+  end
+  opts.on("-h", "--host HOST", "Connect to client interface on HOST") do |h|
+    host = h
   end
 end
 
@@ -56,10 +63,18 @@ else
 end
 
 puts RdtnConfig::Settings.instance.localEid
-c=RdtnClient.new
+c=RdtnClient.new(host, port)
 c.register(eid) do |bundle|
   puts "Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
   puts "Payload:", bundle.payload
+end
+
+subscribeHandler = SubscriptionHandler.new
+if subscribeUri
+  subscribeHandler.subscribe(subscribeUri) do |bundle|
+    puts "Subscribed Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
+    puts "Payload:", bundle.payload
+  end
 end
 
 Thread.new(plFile) do |file|
@@ -68,14 +83,14 @@ Thread.new(plFile) do |file|
     payload=file.readline
     puts "Read"
     if payload.empty?
-      exit
+      Thread.current.exit
     end
     b = Bundling::Bundle.new(payload)
     b.destEid = EID.new(dest)
     log.debug("sending bundle")
     c.sendBundle(b)
   end
-  exit
+  Thread.current.exit
 end
 
 log.debug("Starting DTN daemon main loop")
