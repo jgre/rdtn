@@ -74,10 +74,6 @@ class Storage < Monitor
     @bundles = {}
     @bundleInfos = {}
     @storageDir = dir
-    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-      self.storeBundle(bundle)
-      self.save
-    end
   end
 
   def listBundles
@@ -105,7 +101,7 @@ class Storage < Monitor
 
   def storeBundle(bundle)
     bi=BundleInfo.new(bundle)
-    id=bi.to_s
+    id = bundle.bundleId
     if(@bundleInfos.has_key?(id))
       @log.warn("id collision")
     end
@@ -186,9 +182,6 @@ class Storage_perBundle
     @pathname = RdtnConfig::Settings.instance.storageDir
     FileUtils.mkdir_p(@pathname)
     @bundleInfos = PStore.new(File.join(@pathname, mfbasename)) #{metaInfo, filename}
-    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-      self.save(bundle)
-    end
   end
 
   def self.create_filename(bundle)

@@ -31,6 +31,7 @@ module GenParser
   end
 
   def parse(buf)
+    @finishedIndex = 0
     if buf.class == String
       sio = StringIO.new(buf)
     elsif buf.kind_of? StringIO
@@ -38,8 +39,10 @@ module GenParser
     else
       raise TypeError, "Parser needs input as String or StringIO."
     end
-    @genParserFields.each do |field|
+
+    @genParserFields.each_with_index do |field, i|
       if field[1].has_key?(:ignore) and field[1][:ignore]
+	@finishedIndex = i
 	next
       end
       if field[1].has_key?(:length): length = field[1][:length]
@@ -75,6 +78,15 @@ module GenParser
 	end
 	obj.send(field[1][:handler], data) 
       end
+      @finishedIndex = i
+    end
+  end
+
+  def parserFinished?
+    if @finishedIndex
+      return @finishedIndex == (@genParserFields.length - 1)
+    else
+      false
     end
   end
 

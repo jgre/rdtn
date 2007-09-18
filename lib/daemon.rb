@@ -36,7 +36,7 @@ module RdtnDaemon
     def initialize(optParser = OptionParser.new)
 
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-      bl = Bundling::BundleLayer.new
+      Bundling::ParserManager.registerEvents
 
       configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
 

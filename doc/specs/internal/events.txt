@@ -6,6 +6,7 @@ Symbol			Parameters
 :routeLost		Str, Link
 :linkClosed		Link
 :bundleParsed		Bundle
+:bundleToForward	Bundle
 :bundleForwarded	Bundle, Link
 :storeMe		Object
 

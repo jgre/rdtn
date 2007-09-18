@@ -58,7 +58,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
       log.warn("Could not open large testfile")
     end
     outBundle = ""
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
+    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       oldLen = outBundle.length
       outBundle += queue.read
       log.debug("Received bundle1: #{outBundle.length-oldLen}")
@@ -100,7 +100,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     inBundle = "I'm a DTN bundle!"
     outBundle = "" 
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
+    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read 
       log.debug("Received bundle2: #{outBundle}")
     end

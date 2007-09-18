@@ -175,7 +175,7 @@ module FluteCL
 	end
 	File.open(completeFn) do |file|
 	  bundle = StringIO.new(file.read)
-	  EventDispatcher.instance().dispatch(:bundleData, bundle, true, nil)
+	  EventDispatcher.instance().dispatch(:bundleData, bundle, self)
 	end
 	File.delete(completeFn)
       end

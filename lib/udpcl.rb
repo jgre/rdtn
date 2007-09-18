@@ -125,7 +125,7 @@ module UDPCL
     def read
       begin
 	doRead do |input|
-	  EventDispatcher.instance().dispatch(:bundleData, input, true, self)
+	  EventDispatcher.instance().dispatch(:bundleData, input, self)
 	end
       rescue SystemCallError
 	@@log.error("UDPLink::whenReadReady::recvfrom" + $!)

@@ -46,7 +46,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     rescue
     end
     outBundle = ""
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
+    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read
       log.debug("Received bundle1: #{outBundle}")
     end

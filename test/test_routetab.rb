@@ -21,6 +21,7 @@ require "test/unit"
 require "bundle"
 require "queue"
 require "routetab"
+require "bundleworkflow"
 
 class MockLink < Link
   attr_accessor :remoteEid, :bundle
@@ -94,6 +95,7 @@ class TestRoutetab < Test::Unit::TestCase
     store = RdtnConfig::Settings.instance.store
     # Initialize routing table
     @routeTab = RoutingTable.new(@contactManager)
+    Bundling::BundleWorkflow.registerEvents
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     # Dispatch event so that the bundle is written to the store
     EventDispatcher.instance.dispatch(:bundleParsed, bndl)

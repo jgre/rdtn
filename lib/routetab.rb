@@ -59,7 +59,7 @@ class RoutingTable < Monitor
     EventDispatcher.instance.subscribe(:routeLost) do |*args|
       deleteEntry(*args)
     end
-    EventDispatcher.instance.subscribe(:bundleParsed) do |*args|
+    EventDispatcher.instance.subscribe(:bundleToForward) do |*args|
       forward(*args)
     end
   end

@@ -20,6 +20,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require "test/unit"
 require "clientregcl"
 require "clientlib"
+require "bundleworkflow"
 
 class MockLink < Link
   attr_accessor :remoteEid, :bundle
@@ -96,6 +97,7 @@ class TestAppLib < Test::Unit::TestCase
 
   def test_receive_bundle
     router = RoutingTable.new(nil)
+    Bundling::BundleWorkflow.registerEvents
     eid = "dtn://test/receiver"
     eventSent = false
     b=Bundling::Bundle.new(@bundleContent, eid)
@@ -127,6 +129,7 @@ class TestAppLib < Test::Unit::TestCase
     link = MockLink.new
     router = RoutingTable.new(MockContactManager.new(link))
     b=Bundling::Bundle.new(@bundleContent, eid)
+    Bundling::BundleWorkflow.registerEvents
 
     @client.addRoute(eid, link.name)
 
@@ -177,6 +180,7 @@ class TestAppLib < Test::Unit::TestCase
     RdtnConfig::Settings.instance.store = store
     store.storeBundle(b)
     @client.deleteBundle(b.bundleId)
+    sleep(1)
     assert_nil(store.getBundle(b.bundleId))
   end
 

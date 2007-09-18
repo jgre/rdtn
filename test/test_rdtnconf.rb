@@ -32,10 +32,6 @@ class TestConfig < Test::Unit::TestCase
     options = RdtnConfig::Reader::hash_to_optString({:host => "localhost"})
     assert_equal("-h localhost", options)
 
-    options = RdtnConfig::Reader::hash_to_optString({:port => 8888,
-					   :host => "localhost"})
-    assert_equal("-p 8888 -h localhost", options)
-
     assert_raise(ArgumentError){
       options = RdtnConfig::Reader::hash_to_optString({:unknown => 8888})
     }

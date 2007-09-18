@@ -64,7 +64,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
 					  :interval => 1)
 
     counter = 0
-    EventDispatcher.instance().subscribe(:bundleData) do |queue, fin, cl|
+    EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle = queue.read
       @log.debug("Received bundle: #{outBundle}")
       assert((outBundle == @@file1 or outBundle == @@file2), "Bundle must equal one of the test files")

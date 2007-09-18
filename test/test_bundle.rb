@@ -43,7 +43,7 @@ class TestBundle < Test::Unit::TestCase
     bundle = Bundling::Bundle.new
     bundle.parse(StringIO.new(@inBundle))
 
-    assert_instance_of(Bundling::AnyBlock, bundle.state)
+    assert(bundle.parserFinished?)
     assert_equal(4, bundle.version)
     assert_equal(-1, bundle.bytesToRead)
     #TODO check flags
@@ -62,15 +62,15 @@ class TestBundle < Test::Unit::TestCase
   end
 
   def test_bundle_events
-    bl = Bundling::BundleLayer.new
+    Bundling::ParserManager.registerEvents
     eventSent = false
     EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
-    EventDispatcher.instance.dispatch(:bundleData, StringIO.new(@inBundle), true, nil)
+    EventDispatcher.instance.dispatch(:bundleData, StringIO.new(@inBundle), nil)
     assert(eventSent)
   end
 
   def test_short_bundles
-    bl = Bundling::BundleLayer.new
+    Bundling::ParserManager.registerEvents
     link = BDummyLink.new
     eventSent = false
     EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
@@ -79,7 +79,7 @@ class TestBundle < Test::Unit::TestCase
     @inBundle.length.times do |i|
       sio.enqueue(@inBundle[i].chr)
       fin = (sio.length == @inBundle.length)
-      EventDispatcher.instance.dispatch(:bundleData, sio, fin, link)
+      EventDispatcher.instance.dispatch(:bundleData, sio, link)
     end
 
     assert(eventSent, "The ':bundleParsed' event was not received.")
@@ -100,6 +100,155 @@ class TestBundle < Test::Unit::TestCase
     end
     assembled = Bundling::Bundle.reassembleArray(fragments.reverse)
     assert_equal(bundle.to_s, assembled.to_s, "Reassembled bundle must equal the original")
+  end
+
+  def test_set_flags
+    data = open(__FILE__) { |f| f.read }
+    sender = "dtn:test"
+    dest = "dtn:bubbler"
+    bundle = Bundling::Bundle.new(data, dest, sender)
+    bundle.fragment = true
+    assert_equal(0b000000000000000000001, bundle.procFlags)
+    assert(bundle.fragment?)
+    bundle.administrative = true
+    assert_equal(0b000000000000000000011, bundle.procFlags)
+    assert(bundle.administrative?)
+    bundle.dontFragment = true
+    assert_equal(0b000000000000000000111, bundle.procFlags)
+    assert(bundle.dontFragment?)
+    bundle.requestCustody = true
+    assert_equal(0b000000000000000001111, bundle.procFlags)
+    assert(bundle.requestCustody?)
+    bundle.destinationIsSingleton = true
+    assert_equal(0b000000000000000011111, bundle.procFlags)
+    assert(bundle.destinationIsSingleton?)
+    bundle.requestApplicationAcknowledgement = true
+    assert_equal(0b000000000000000111111, bundle.procFlags)
+    assert(bundle.requestApplicationAcknowledgement?)
+
+    bundle.priority = :bulk
+    assert_equal(0b000000000000000111111, bundle.procFlags)
+    assert_equal(:bulk, bundle.priority)
+    bundle.priority = :normal
+    assert_equal(0b000000000000010111111, bundle.procFlags)
+    assert_equal(:normal, bundle.priority)
+    bundle.priority = :expedited
+    assert_equal(0b000000000000100111111, bundle.procFlags)
+    assert_equal(:expedited, bundle.priority)
+
+    bundle.receptionSrr = true
+    assert_equal(0b000000100000100111111, bundle.procFlags)
+    assert(bundle.receptionSrr?)
+    bundle.custodyAcceptanceSrr = true
+    assert_equal(0b000001100000100111111, bundle.procFlags)
+    assert(bundle.custodyAcceptanceSrr?)
+    bundle.forwardingSrr = true
+    assert_equal(0b000011100000100111111, bundle.procFlags)
+    assert(bundle.forwardingSrr?)
+    bundle.deliverySrr = true
+    assert_equal(0b000111100000100111111, bundle.procFlags)
+    assert(bundle.deliverySrr?)
+    bundle.deletionSrr = true
+    assert_equal(0b001111100000100111111, bundle.procFlags)
+    assert(bundle.deletionSrr?)
+
+    bundle.deletionSrr = false
+    assert_equal(0b000111100000100111111, bundle.procFlags)
+    assert((not bundle.deletionSrr?))
+    bundle.deliverySrr = false
+    assert_equal(0b000011100000100111111, bundle.procFlags)
+    assert((not bundle.deliverySrr?))
+    bundle.forwardingSrr = false
+    assert_equal(0b000001100000100111111, bundle.procFlags)
+    assert((not bundle.forwardingSrr?))
+    bundle.custodyAcceptanceSrr = false
+    assert_equal(0b000000100000100111111, bundle.procFlags)
+    assert((not bundle.custodyAcceptanceSrr?))
+    bundle.receptionSrr = false
+    assert_equal(0b000000000000100111111, bundle.procFlags)
+    assert((not bundle.receptionSrr?))
+
+    bundle.priority = :normal
+    assert_equal(0b000000000000010111111, bundle.procFlags)
+    assert_equal(:normal, bundle.priority)
+    bundle.priority = :expedited
+    assert_equal(0b000000000000100111111, bundle.procFlags)
+    assert_equal(:expedited, bundle.priority)
+    bundle.priority = :bulk
+    assert_equal(0b000000000000000111111, bundle.procFlags)
+    assert_equal(:bulk, bundle.priority)
+
+    bundle.requestApplicationAcknowledgement = false
+    assert_equal(0b000000000000000011111, bundle.procFlags)
+    assert((not bundle.requestApplicationAcknowledgement?))
+    bundle.destinationIsSingleton = false
+    assert_equal(0b000000000000000001111, bundle.procFlags)
+    assert((not bundle.destinationIsSingleton?))
+    bundle.requestCustody = false
+    assert_equal(0b000000000000000000111, bundle.procFlags)
+    assert((not bundle.requestCustody?))
+    bundle.dontFragment = false
+    assert_equal(0b000000000000000000011, bundle.procFlags)
+    assert((not bundle.dontFragment?))
+    bundle.administrative = false
+    assert_equal(0b000000000000000000001, bundle.procFlags)
+    assert((not bundle.administrative?))
+    bundle.fragment = false
+    assert_equal(0b000000000000000000000, bundle.procFlags)
+    assert((not bundle.fragment?))
+  end
+
+  def test_block_flags
+    data = open(__FILE__) { |f| f.read }
+    sender = "dtn:test"
+    dest = "dtn:bubbler"
+    bundle = Bundling::Bundle.new(data, dest, sender)
+    block = Bundling::PayloadBlock.new(bundle)
+
+    block.replicateBlockForEveryFragment = true
+    assert_equal(0b0000001, block.flags)
+    assert(block.replicateBlockForEveryFragment?)
+    block.transmitStatusIfBlockNotProcessed = true
+    assert_equal(0b0000011, block.flags)
+    assert(block.transmitStatusIfBlockNotProcessed?)
+    block.deleteBundleIfBlockNotProcessed = true
+    assert_equal(0b0000111, block.flags)
+    assert(block.deleteBundleIfBlockNotProcessed?)
+    block.lastBlock = true
+    assert_equal(0b0001111, block.flags)
+    assert(block.lastBlock?)
+    block.discardBlockIfNotProcessed = true
+    assert_equal(0b0011111, block.flags)
+    assert(block.discardBlockIfNotProcessed?)
+    block.forwardedBlockWithoutProcessing = true
+    assert_equal(0b0111111, block.flags)
+    assert(block.forwardedBlockWithoutProcessing?)
+    block.containsEidReference = true
+    assert_equal(0b1111111, block.flags)
+    assert(block.containsEidReference?)
+
+    block.containsEidReference = false
+    assert_equal(0b0111111, block.flags)
+    assert((not block.containsEidReference?))
+    block.forwardedBlockWithoutProcessing = false
+    assert_equal(0b0011111, block.flags)
+    assert((not block.forwardedBlockWithoutProcessing?))
+    block.discardBlockIfNotProcessed = false
+    assert_equal(0b0001111, block.flags)
+    assert((not block.discardBlockIfNotProcessed?))
+    block.lastBlock = false
+    assert_equal(0b0000111, block.flags)
+    assert((not block.lastBlock?))
+    block.deleteBundleIfBlockNotProcessed = false
+    assert_equal(0b0000011, block.flags)
+    assert((not block.deleteBundleIfBlockNotProcessed?))
+    block.transmitStatusIfBlockNotProcessed = false
+    assert_equal(0b0000001, block.flags)
+    assert((not block.transmitStatusIfBlockNotProcessed?))
+    block.replicateBlockForEveryFragment = false
+    assert_equal(0b0000000, block.flags)
+    assert((not block.replicateBlockForEveryFragment?))
+
   end
 
 end

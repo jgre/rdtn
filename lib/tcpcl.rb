@@ -445,9 +445,8 @@ module TCPCL
 	raise InputTooShort, 1
       end
       @currentBundle.enqueue(data)
-      EventDispatcher.instance().dispatch(:bundleData, @currentBundle, 
-					               endSegment, 
-						       self)
+      EventDispatcher.instance().dispatch(:bundleData, @currentBundle, self)
+
       if endSegment
         @log.debug("TCPLink::handle_bundle_data Bundle is complete")
         # We take a new object for the next bundle. The bundle parser must take

@@ -1,61 +1,59 @@
-Cleanup tasks:
-  * Improve documentation comments (jgre)
-  * More UnitTests
-  * Systematic log messages (jgre)
+=========
+RDTN TODO
+=========
 
-* Error handling
+Cleanup tasks
+=============
 
-Client lib: (Hannes)
-  * State machine on the application side
-  * Event subscriptions
-  * without Event-Loop
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+jgre    initial      Improve documentation comments
+?       initial      More UnitTests
+======  ============ ========================================================
 
-Link:
-  * try to establish links after failure
+DTN Basics
+==========
 
-TCP CL:
-  * ACKs (Hannes)
-  * Keepalive (Hannes)
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+jgre    done	     Separate classes for bundle blocks
+jgre    done	     Bundle workflow
+jgre    in progress  ContactManager that starts and stops links and interfaces 
+		     on demand
+?	initial      Neighbor Discovery (Bonjour/Avahi, DDA?)
+?       initial      Fragmentation
+?       initial      Reactive Fragmentation
+?       initial      Custoy
+?       initial	     Administrative Records
+?       initial      Loop detection
+======  ============ ========================================================
 
-Bundle parser:
-  * Fragmentation (v0.2)
-  * Flags (jgre)
-  * Custody handling (jgre)
-  * Administrative records
-  * Extension bundle blocks
-    => Factory for state objects
-  * FilePayload for Bundles (receive into files) (v0.2)
+TCP CL
+======
 
-Storage: (xi)
-  * Controller that listens for events
-  * separate meta information (primary bundle block) from payload 
-    => do not hold payload in memory all the time
-  * Meta-Infos for bundles
-  * change: write each bundle in separate PStores
-  * need unique file names for bundle-PStores: hash(Sender-EID, Receiver-EID, TS, fragment offset)
-  * plus separate index (Meta-Info -> file name)
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+hannes  initial      Retransmission for segments that were not ACKed
+hannes  initial      Keepalive
+======  ============ ========================================================
 
-Routing:
-  * Implement routing interface (jgre)
-  * Simple Flood router (jgre) (v0.2)
-  * PROPHET router
+Routing
+=======
 
-
-Config file (xi)
-  * change syntax (Ruby hash for CL arguments instead of optstring)
-
-* Start Daemon from apps when it is not running
-* Consider replacing event loop with threads
-* Implement Bundle Security
-* Block-passing in generic parser (jgre)
-
-
-Service-Location (0.1)
-  * Bonjour?
-  * Avahi?
-  * DDA?
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+jgre    initial      Simple Flood router
+?       initial      PROPHET router
+======  ============ ========================================================
 
 
-File Directory CL (0.2++)
-  * receive from and write to directories (similar to Uni-DTN)
-
+Bundle Security
+===============
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+======  ============ ========================================================
