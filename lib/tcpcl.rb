@@ -366,9 +366,6 @@ module TCPCL
     
     # Open the link, i.e. establish a TCP connection. Name is a string by which
     # the link is identifier (e.g. 'tcp0'). Options are passed as string:
-    # [--type, -t] ONDEMAND (link is created when data is to be sent (FIXME))
-    #              ALWAYSON (link is immediately created and kept opnen
-    # [--nexthop, -n] 
     
     def open(name, options)
       self.name = name

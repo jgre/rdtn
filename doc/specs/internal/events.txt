@@ -1,6 +1,7 @@
 Symbol			Parameters
 ------			----------
 
+:opportunityAvailable   type, options, eid
 :linkCreated		Link
 :routeAvailable		Str, Link
 :routeLost		Str, Link

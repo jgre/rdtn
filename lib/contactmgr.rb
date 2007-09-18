@@ -16,19 +16,20 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require "rdtnevent"
+require "bundle"
+require "configuration"
 require "cl"
 require "eidscheme"
 require "monitor"
 
 class ContactManager < Monitor
+ 
   # The housekeeping timer determines the interval between checks for idle
   # links.
   def initialize(housekeepingTimer = 300)
+    @oppCount = 0 # Counter for the name of opportunistic links.
     super()
     @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-    # This list contains all links that are open. We need this list to be able
-    # to close them on shutdown. Here we also have those links that are not in
-    # contacts because the peer's EID could not (yet) be determined.
     @links = []
 
     EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
@@ -36,6 +37,9 @@ class ContactManager < Monitor
     end
     EventDispatcher.instance().subscribe(:linkClosed) do |*args|
       contactClosed(*args)
+    end
+    EventDispatcher.instance().subscribe(:opportunityAvailable) do |*args|
+      opportunity(*args)
     end
 
     housekeeping(housekeepingTimer)
@@ -67,6 +71,27 @@ class ContactManager < Monitor
 	"Removing link #{link.object_id} from ContactManager")
     synchronize do
       @links.delete(link)
+    end
+  end
+
+  def opportunity(type, options, eid = nil)
+    clClasses = CLReg.instance.cl[type]
+    if clClasses
+      begin
+	@log.debug("Opportunity for #{type} link to #{eid}.")
+	link = clClasses[1].new
+	link.policy = :opportunistic
+	link.open("opportunistic#{@oppCount}", options)
+	@oppCount += 1
+
+	EventDispatcher.instance.dispatch(:routeAvailable, 
+					  RoutingEntry.new(eid, link)) if eid
+      rescue RuntimeError => err
+	@log.error("Failed to open opportunistic link #{err}")
+      end
+    else
+      @log.warn("Opportunity signaled with unknown type #{type}")
+      return nil
     end
   end
 

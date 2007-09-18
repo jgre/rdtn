@@ -18,11 +18,35 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-
 require "contactmgr"
 require "rdtnevent"
-require "tcpcl"
 require "eidscheme"
+
+class CMockLink < Link
+  attr_accessor :remoteEid, :bundle
+
+  def initialize
+    super
+    @bundles = []
+  end
+
+  def open(n, options)
+    puts "Open #{n}, #{name}"
+    self.name = n
+  end
+
+  def sendBundle(bundle)
+    @bundle = bundle
+    @bundles.push(bundle)
+  end
+
+  def received?(bundle)
+    @bundles.any? {|b| b.to_s == bundle.to_s}
+  end
+
+end
+
+regCL(:cmock, nil, CMockLink)
 
 class TestContactManager < Test::Unit::TestCase
 
@@ -35,7 +59,7 @@ class TestContactManager < Test::Unit::TestCase
 
   def test_insertion
     cm = ContactManager.new
-    link = TCPCL::TCPLink.new
+    link = CMockLink.new
     eid = EID.new("dtn://test/fasel")
     link.remoteEid = eid
 
@@ -48,4 +72,25 @@ class TestContactManager < Test::Unit::TestCase
     assert_nil(result)
 
   end
+
+  def test_opportunity
+    #RdtnConfig::Settings.instance.setLogLevel(/ContactManager/, Logger::DEBUG)
+    linkFound = false
+    eventRec  = false
+    eid       = "dtn://test"
+    cm = ContactManager.new
+    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+      eventRec = true
+      assert_equal(eid, rentry.destination.source)
+    end
+    EventDispatcher.instance.subscribe(:linkCreated) do |cmlink|
+      linkFound = true
+    end
+
+    EventDispatcher.instance.dispatch(:opportunityAvailable, :cmock, {}, eid)
+
+    assert(eventRec)
+    assert(linkFound)
+  end
+    
 end

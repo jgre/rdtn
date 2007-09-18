@@ -9,7 +9,7 @@ Cleanup tasks
 Who     Status       What
 ======  ============ ========================================================
 jgre    initial      Improve documentation comments
-?       initial      More UnitTests
+jgre    done         Tests for ContactManager
 ======  ============ ========================================================
 
 DTN Basics
