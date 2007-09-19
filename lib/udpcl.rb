@@ -96,19 +96,19 @@ module UDPCL
     def initialize(name, options)
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.name = name
-      host = nil
-      port = UDPCLPORT
+      @host = nil
+      @port = UDPCLPORT
 
       if options.has_key?(:host)
-	host = options[:host]
+	@host = options[:host]
       end
       if options.has_key?(:port)
-	port = options[:port]
+	@port = options[:port]
       end
 
-      @log.debug("Building UDP interface with port=#{port} and hostname=#{host}")
+      @log.debug("Building UDP interface with port=#{@port} and hostname=#{@host}")
       sock = UDPSocket.new
-      sock.bind(host, port)
+      sock.bind(@host, @port)
       queuedReceiverInit(sock)
       @readQueueChunkSize = MAX_UDP_PACKET
       listenerThread { read }
@@ -128,7 +128,7 @@ module UDPCL
 	  EventDispatcher.instance().dispatch(:bundleData, input, self)
 	end
       rescue SystemCallError
-	@@log.error("UDPLink::whenReadReady::recvfrom" + $!)
+	@log.error("UDPLink::whenReadReady::recvfrom" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              

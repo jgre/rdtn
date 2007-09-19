@@ -578,28 +578,28 @@ module TCPCL
 
     TCPCLPORT=4557 # FIXME
     
-    attr_reader :links
+    attr_reader :links, :host, :port
     @s
    
     def initialize(name, options)
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       
       self.name = name
-      host = "localhost"
-      port = TCPCLPORT          # default port
+      @host = "localhost"
+      @port = TCPCLPORT          # default port
      
       @links = []      
 
       if options.has_key?(:host)
-	host = options[:host]
+	@host = options[:host]
       end
       if options.has_key?(:port)
-	port = options[:port]
+	@port = options[:port]
       end
 
-      @log.debug("Building TCP interface with port=#{port} and hostname=#{host}")
+      @log.debug("Building TCP interface with port=#{@port} and hostname=#{@host}")
       
-      @s = TCPServer.new(host,port)
+      @s = TCPServer.new(@host,@port)
       # register this socket
       listenerThread { whenAccept }
     end

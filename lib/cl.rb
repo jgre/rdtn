@@ -136,6 +136,10 @@ class CLReg
     @cl[name] = [interface, link]    
   end
 
+  def getName(klass)
+    @cl.each {|name, lst| return name if klass == lst[0] or klass == lst[1] }
+  end
+
 end
 
 def regCL(name, interface, link)

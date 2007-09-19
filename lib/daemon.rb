@@ -20,6 +20,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 
 require 'optparse'
 require 'bundle'
+require 'bundleworkflow'
 require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
@@ -36,7 +37,12 @@ module RdtnDaemon
     def initialize(optParser = OptionParser.new)
 
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
+      # Initialize Contact manager and routing table
+      cmgr = ContactManager.new
+      router = RoutingTable.new(cmgr)
+      store = RdtnConfig::Settings.instance.store
       Bundling::ParserManager.registerEvents
+      Bundling::BundleWorkflow.registerEvents
 
       configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
 
@@ -55,10 +61,6 @@ module RdtnDaemon
 
       optParser.parse!(ARGV)
       
-      # Initialize Contact manager and routing table
-      cmgr = ContactManager.new
-      router = RoutingTable.new(cmgr)
-      store = RdtnConfig::Settings.instance.store
       conf = RdtnConfig::Reader.load(configFileName)
 
     end

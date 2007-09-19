@@ -84,8 +84,7 @@ Thread.new(plFile) do |file|
     if payload.empty?
       Thread.current.exit
     end
-    b = Bundling::Bundle.new(payload)
-    b.destEid = EID.new(dest)
+    b = Bundling::Bundle.new(payload, EID.new(dest))
     log.debug("sending bundle")
     c.sendBundle(b)
   end

@@ -31,7 +31,6 @@ class CMockLink < Link
   end
 
   def open(n, options)
-    puts "Open #{n}, #{name}"
     self.name = n
   end
 

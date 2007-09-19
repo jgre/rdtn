@@ -113,6 +113,7 @@ module Bundling
 	@active = false
       else
 	if @bundle.parserFinished?
+	  @@log.debug("Parsing Bundle finished")
 	  EventDispatcher.instance.dispatch(:bundleParsed, @bundle)
 	  queue.close
 	  @active = false
@@ -139,6 +140,7 @@ module Bundling
 
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @blocks = []
       if payload or destEid or srcEid
 	@blocks.push(PrimaryBundleBlock.new(self, destEid, srcEid, 
@@ -334,6 +336,7 @@ module Bundling
     
     def initialize(bundle, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @bundle = bundle
       @version = 5
       @procFlags = 0
@@ -732,6 +735,7 @@ module Bundling
     protected :bundle
 
     def initialize(bundle)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @flags   = 0
       @bundle  = bundle
 
@@ -809,15 +813,15 @@ module Bundling
     attr_accessor :payload
 
     def initialize(bundle, payload = nil)
+      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       super(bundle)
       @payload = payload
-      flags   = 8 # last block
+      self.flags   = 8 # last block
 
       defField(:plblockLength, :decode => GenParser::SdnvDecoder,
 	       :object => @bundle,
 	       :block => lambda {|len| defField(:payload, :length => len)})
       defField(:payload, :handler => :payload=, :object => @bundle)
-
     end
 
     def to_s

@@ -204,6 +204,7 @@ class TestBundle < Test::Unit::TestCase
     dest = "dtn:bubbler"
     bundle = Bundling::Bundle.new(data, dest, sender)
     block = Bundling::PayloadBlock.new(bundle)
+    block.flags = 0
 
     block.replicateBlockForEveryFragment = true
     assert_equal(0b0000001, block.flags)

@@ -19,7 +19,7 @@ require 'cl'
 require "logger"
 require 'routetab'
 require 'singleton'
-#require 'tcpcl'
+require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
 require 'clientregcl'
@@ -109,6 +109,15 @@ module RdtnConfig
       case action
       when :add: addLink(cl, name, options)
       when :remove: rmLink(cl, name, options)
+      else raise "syntax error: link #{action}"
+      end
+    end
+
+    def discovery(action, address, port, announceIfs = [])
+      case action
+      when :add
+	ipd = IPDiscovery.new(address, port, announceIfs)
+	ipd.start
       else raise "syntax error: link #{action}"
       end
     end
