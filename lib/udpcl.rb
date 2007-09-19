@@ -91,12 +91,14 @@ module UDPCL
     UDPCLPORT = 4557
     MAX_UDP_PACKET = 65535
 
+    attr_reader :host, :port
+
     include QueuedReceiver
 
     def initialize(name, options)
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.name = name
-      @host = nil
+      @host = "127.0.0.1"
       @port = UDPCLPORT
 
       if options.has_key?(:host)

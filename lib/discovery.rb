@@ -16,9 +16,11 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require 'cl'
+require 'bundle'
 require 'configuration'
 require 'rerun_thread'
 require 'genparser'
+require 'ipaddr'
 
 class Announcement
 
@@ -26,16 +28,16 @@ class Announcement
 
   attr_accessor :clType, :interval, :inetAddr, :inetPort, :senderEid
 
-  def Announcement.typeIdToSym(typeId)
-    case typeId
+  def Announcement.typeSymToId(typeSym)
+    case typeSym
     when :tcp: 1
     when :udp: 2
     else 0
     end
   end
 
-  def Announcement.typeSymToId(typeSym)
-    case typeSym
+  def Announcement.typeIdToSym(typeId)
+    case typeId
     when 1: :tcp
     when 2: :udp
     else :undefined
@@ -56,7 +58,7 @@ class Announcement
 	     :handler => :interval=)
     defField(:packetLen, :length => 2, :decode => GenParser::NumDecoder)
     defField(:addr, :length => 4, :decode => InetAddrDecoder, 
-	     :handler => :interAdddr=)
+	     :handler => :inetAddr=)
     defField(:port, :length => 2, :decode => GenParser::NumDecoder,
 	     :handler => :inetPort=)
     defField(:eidLength, :length => 2, :decode => GenParser::NumDecoder,
@@ -72,12 +74,12 @@ class Announcement
     data = ""
     data << @clType
     data << @interval
-    data << [12 + @senderEid.length].pack('n') # 12 is the total size of the 
-    					       # fixed length fields
-    data << IPAddr.new(@inetAddr).hton
+    data << [12 + @senderEid.to_s.length].pack('n') # 12 is the total size of  
+    						    # the fixed length fields
+    data << IPAddr.new(IPSocket.getaddress(@inetAddr)).hton
     data << [@inetPort].pack('n')
-    data << [@senderEid.length].pack('n')
-    data << @senderEid
+    data << [@senderEid.to_s.length].pack('n')
+    data << @senderEid.to_s
     return data
   end
 
@@ -105,17 +107,21 @@ class IPDiscovery
     @log         = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @addr        = address
     @port        = port
-    @interval    = 10
+    @interval    = interval
     @announceIfs = announceIfs
   end
 
-  def start
+  def start(sendOnly = false)
     @sock = UDPSocket.new
-    ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
-    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
-    @sock.bind(Socket::INADDR_ANY, @port)
-    queuedReceiverInit(@sock)
-    @listenerThread = spawnThread { read }
+    unless sendOnly
+      ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
+      @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
+      #@sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 0)
+      @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+      @sock.bind(Socket::INADDR_ANY, @port)
+      queuedReceiverInit(@sock)
+      @listenerThread = spawnThread { read }
+    end
     @senderThread   = spawnThread { announce }
   end
 
@@ -135,12 +141,14 @@ class IPDiscovery
   def read
     begin
       doRead do |input|
-	ann = Announcement.new
-	ann.parse(input)
-	if ann.typeSym == :tcp or ann.typeSym == :upd
-	  opts = {:host => ann.inetAddr, :port => ann.inetPort }
-	  EventDispatcher.instance.dispatch(:opportunityAvailable, 
-					    ann.typeSym, opts, ann.senderEid)
+	until input.eof?
+	  ann = Announcement.new
+	  ann.parse(input)
+	  if ann.typeSym == :tcp or ann.typeSym == :udp
+	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
+	    EventDispatcher.instance.dispatch(:opportunityAvailable, 
+					      ann.typeSym, opts, ann.senderEid)
+	  end
 	end
       end
     rescue SystemCallError
@@ -153,14 +161,16 @@ class IPDiscovery
   end
 
   def announce
-    announcements = announceIfs.map do |aif| 
-      Announcement.new(CLReg.instance.getName(aif.class, @interval, aif.host,
+    announcements = @announceIfs.map do |aif| 
+      Announcement.new(CLReg.instance.getName(aif.class), @interval, aif.host,
 					      aif.port)
     end
     return nil if announcements.empty?
     while true
-      announcements.each {|ann| @sock.send(ann.to_s, 0, @addr, @port) }
-      sleep(interval)
+      encodedAnns = announcements.map {|ann| ann.to_s}
+      data = encodedAnns.join
+      ret = @sock.send(data, 0, @addr, @port)
+      sleep(@interval)
     end
   end
 

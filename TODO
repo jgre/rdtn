@@ -10,7 +10,7 @@ Who     Status       What
 ======  ============ ========================================================
 jgre    initial      Improve documentation comments
 jgre    done         Tests for ContactManager
-jgre    in progress  Tests for Discovery
+jgre    done         Tests for Discovery
 ======  ============ ========================================================
 
 DTN Basics
@@ -23,7 +23,8 @@ jgre    done	     Separate classes for bundle blocks
 jgre    done	     Bundle workflow
 jgre    done         ContactManager that starts and stops links and interfaces 
 		     on demand
-jgre	in progress  Neighbor Discovery (Bonjour/Avahi, DDA?)
+jgre	in progress  Neighbor Discovery (Simple Multicast)
+jgre	initial      Neighbor Discovery (Bonjour/Avahi, DDA?)
 ?       initial      Fragmentation
 ?       initial      Reactive Fragmentation
 ?       initial      Custoy

@@ -585,7 +585,7 @@ module TCPCL
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       
       self.name = name
-      @host = "localhost"
+      @host = "127.0.0.1"
       @port = TCPCLPORT          # default port
      
       @links = []      

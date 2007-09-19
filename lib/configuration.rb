@@ -23,6 +23,7 @@ require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
 require 'clientregcl'
+require 'discovery'
 
 module RdtnConfig
 
@@ -46,6 +47,7 @@ module RdtnConfig
 
     def initialize
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
+      @interfaces = {}
     end
 
     def self.load(filename)
@@ -113,11 +115,12 @@ module RdtnConfig
       end
     end
 
-    def discovery(action, address, port, announceIfs = [])
+    def discovery(action, address, port, interval, announceIfs = [], sendOnly = false)
       case action
       when :add
-	ipd = IPDiscovery.new(address, port, announceIfs)
-	ipd.start
+	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
+	ipd = IPDiscovery.new(address, port, interval, ifs)
+	ipd.start(sendOnly)
       else raise "syntax error: link #{action}"
       end
     end
@@ -149,6 +152,7 @@ module RdtnConfig
 
       if (ifClass)
 	interface = ifClass[0].new(name, options)
+	@interfaces[name] = interface
       else
 	log(:error, "no such convergence layer: #{cl}")
       end
@@ -195,7 +199,7 @@ module RdtnConfig
       @localEid = ""
       @store = nil
       @logLevels = []
-      @defaultLogLevel = Logger::ERROR
+      @defaultLogLevel = Logger::DEBUG
     end
 
     # Set the log level for for a given classname pattern.
