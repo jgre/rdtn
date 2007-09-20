@@ -11,6 +11,7 @@ Who     Status       What
 jgre    initial      Improve documentation comments
 jgre    done         Tests for ContactManager
 jgre    done         Tests for Discovery
+jgre    initial      Fix handling of log messages (global function rlog)
 ======  ============ ========================================================
 
 DTN Basics
@@ -23,7 +24,7 @@ jgre    done	     Separate classes for bundle blocks
 jgre    done	     Bundle workflow
 jgre    done         ContactManager that starts and stops links and interfaces 
 		     on demand
-jgre	in progress  Neighbor Discovery (Simple Multicast)
+jgre	done         Neighbor Discovery (Simple Multicast)
 jgre	initial      Neighbor Discovery (Bonjour/Avahi, DDA?)
 ?       initial      Fragmentation
 ?       initial      Reactive Fragmentation

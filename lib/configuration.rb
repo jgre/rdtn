@@ -115,12 +115,12 @@ module RdtnConfig
       end
     end
 
-    def discovery(action, address, port, interval, announceIfs = [], sendOnly = false)
+    def discovery(action, address, port, interval, announceIfs = [])
       case action
       when :add
 	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
 	ipd = IPDiscovery.new(address, port, interval, ifs)
-	ipd.start(sendOnly)
+	ipd.start
       else raise "syntax error: link #{action}"
       end
     end
@@ -199,7 +199,7 @@ module RdtnConfig
       @localEid = ""
       @store = nil
       @logLevels = []
-      @defaultLogLevel = Logger::DEBUG
+      @defaultLogLevel = Logger::ERROR
     end
 
     # Set the log level for for a given classname pattern.

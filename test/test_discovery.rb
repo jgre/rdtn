@@ -54,11 +54,11 @@ class TestDiscovery < Test::Unit::TestCase
     end
 
     discRecv.start
-    discSender.start(true)
+    discSender.start
     sleep(2)
 
-    assert_operator(tcpEventCount, :>=, 2)
-    assert_operator(udpEventCount, :>=, 2)
+    assert_equal(1, tcpEventCount)
+    assert_equal(1, udpEventCount)
 
   end
 

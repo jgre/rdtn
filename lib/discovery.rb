@@ -44,13 +44,13 @@ class Announcement
     end
   end
 
-  def initialize(clType = nil, interval = 1, addr = "localhost", port = 12345, 
+  def initialize(clType = nil, interval = 1, addr = "127.0.0.1", port = 12345, 
 		 eid = RdtnConfig::Settings.instance.localEid)
     @clType    = Announcement.typeSymToId(clType)
     @interval  = interval
     @inetAddr  = addr
     @inetPort  = port
-    @senderEid = eid
+    @senderEid = eid.to_s
 
     defField(:type, :length => 1, :decode => GenParser::NumDecoder,
 	     :handler => :clType=)
@@ -64,6 +64,11 @@ class Announcement
     defField(:eidLength, :length => 2, :decode => GenParser::NumDecoder,
 	     :block => lambda {|len| defField(:senderEid, :length => len)})
     defField(:senderEid, :handler => :senderEid=)
+  end
+
+  def ==(ann)
+    return (@clType == ann.clType and @inetAddr == ann.inetAddr and 
+	    @inetPort == ann.inetPort and @senderEid == ann.senderEid)
   end
 
   def typeSym
@@ -109,19 +114,22 @@ class IPDiscovery
     @port        = port
     @interval    = interval
     @announceIfs = announceIfs
+    @recvdAnns   = []
+    @myAnns      = @announceIfs.map do |aif| 
+      Announcement.new(CLReg.instance.getName(aif.class), @interval, aif.host,
+		       aif.port)
+    end
   end
 
-  def start(sendOnly = false)
+  def start
     @sock = UDPSocket.new
-    unless sendOnly
-      ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
-      @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
-      #@sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 0)
-      @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
-      @sock.bind(Socket::INADDR_ANY, @port)
-      queuedReceiverInit(@sock)
-      @listenerThread = spawnThread { read }
-    end
+    ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
+    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
+    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 1)
+    @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+    @sock.bind(Socket::INADDR_ANY, @port)
+    queuedReceiverInit(@sock)
+    @listenerThread = spawnThread { read }
     @senderThread   = spawnThread { announce }
   end
 
@@ -144,6 +152,10 @@ class IPDiscovery
 	until input.eof?
 	  ann = Announcement.new
 	  ann.parse(input)
+	  
+	  next if @myAnns.include?(ann) or @recvdAnns.include?(ann)
+
+	  @recvdAnns.push(ann)
 	  if ann.typeSym == :tcp or ann.typeSym == :udp
 	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
 	    EventDispatcher.instance.dispatch(:opportunityAvailable, 
@@ -161,13 +173,9 @@ class IPDiscovery
   end
 
   def announce
-    announcements = @announceIfs.map do |aif| 
-      Announcement.new(CLReg.instance.getName(aif.class), @interval, aif.host,
-					      aif.port)
-    end
-    return nil if announcements.empty?
+    return nil if @myAnns.empty?
+    encodedAnns = @myAnns.map {|ann| ann.to_s}
     while true
-      encodedAnns = announcements.map {|ann| ann.to_s}
       data = encodedAnns.join
       ret = @sock.send(data, 0, @addr, @port)
       sleep(@interval)
