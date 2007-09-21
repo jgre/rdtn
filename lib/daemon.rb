@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 #  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
 #  Dirk Kutscher <dku@tzi.org>
 #
