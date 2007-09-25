@@ -48,7 +48,7 @@ class Announcement
 		 eid = RdtnConfig::Settings.instance.localEid)
     @clType    = Announcement.typeSymToId(clType)
     @interval  = interval
-    @inetAddr  = addr
+    @inetAddr  = IPSocket.getaddress(addr)
     @inetPort  = port
     @senderEid = eid.to_s
 
@@ -81,7 +81,7 @@ class Announcement
     data << @interval
     data << [12 + @senderEid.to_s.length].pack('n') # 12 is the total size of  
     						    # the fixed length fields
-    data << IPAddr.new(IPSocket.getaddress(@inetAddr)).hton
+    data << IPAddr.new(@inetAddr).hton
     data << [@inetPort].pack('n')
     data << [@senderEid.to_s.length].pack('n')
     data << @senderEid.to_s
