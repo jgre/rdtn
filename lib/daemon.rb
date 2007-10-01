@@ -54,10 +54,10 @@ module RdtnDaemon
 	dir = File.expand_path(s)
 	begin
 	  Dir.mkdir(dir)
+	  stats = Stats::StatGrabber.new(File.join(dir, "out.stat"),  
+					 File.join(dir, "in.stat"))
 	rescue
 	end
-	stats = Stats::StatGrabber.new(File.join(dir, "out.stat"),  
-				       File.join(dir, "in.stat"))
       end
 
       optParser.parse!(ARGV)
