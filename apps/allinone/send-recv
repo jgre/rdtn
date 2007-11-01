@@ -68,7 +68,7 @@ c.register(eid) do |bundle|
   puts "Payload:", bundle.payload
 end
 
-subscribeHandler = SubscriptionHandler.new
+subscribeHandler = SubscriptionHandler.new(nil, RdtnClient.new(host, port))
 if subscribeUri
   subscribeHandler.subscribe(subscribeUri) do |bundle|
     puts "Subscribed Bundle received from #{bundle.srcEid} to #{bundle.destEid}"

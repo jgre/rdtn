@@ -22,43 +22,134 @@ require "queue"
 require "eidscheme"
 require "rdtnevent"
 require "bundle"
+require "monitor"
 
 module Stats
 
-  class StatEntry
+  class BundleStatEntry
 
     attr_reader :time, :dest, :src, :bundleId, :payloadSize, :fragment, :link
 
     def initialize(bundle, link=nil)
-      @time = Time.now
-      @dest = bundle.destEid
-      @src = bundle.srcEid
-      @bundleId = bundle.srcEid.to_s + bundle.creationTimestamp.to_s + bundle.creationTimestampSeq.to_s
-      @payloadSize = bundle.payload.size
-      @fragment = bundle.fragment?
-      @link = link
+      @time        = Time.now
+      @dest        = bundle.destEid
+      @src         = bundle.srcEid
+      @bundleId    = bundle.bundleId
+      @payloadSize = bundle.payloadLength
+      @fragment    = bundle.fragment?
+      @link        = link
     end
 
     def to_s
-      "#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
+      if @link and @link.remoteEid
+	"#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}, #{@link.remoteEid}"
+      else
+	"#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
+      end
     end
 
   end
 
-  class StatGrabber
+  class ContactStatEntry
 
-    def initialize(outStatFile, inStatFile)
-      @inStats = []
-      @outStats = []
-      EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-	entry = StatEntry.new(bundle)
-	@inStats << entry
-	open(inStatFile, "a") { |inF| inF.puts(entry) }
+    attr_reader :time, :state, :clType, :linkName, :host, :port, :eid
+
+    def initialize(state, clType, linkName, host, port, eid)
+      @time     = Time.now
+      @state    = state
+      @clType   = clType
+      @linkName = linkName
+      @host     = host
+      @port     = port
+      @eid      = eid
+    end
+
+    def to_s
+      "#{@time.to_i}, #{@state}, #{@clType}, #{@linkName}, #{@host}, #{@port}, #{@eid}"
+    end
+
+  end
+
+  class StatGrabber < Monitor
+
+    def initialize(timeFile, outStatFile, inStatFile, contactStatFile, 
+		   subscribeStatFile, storeStatFile)
+      super()
+      # Log start time
+      open(timeFile, "w") {|f| f.puts(Time.now.to_i) }
+      @outFile      = outStatFile
+      @inFile       = inStatFile
+      @contactFile  = contactStatFile
+      @subscribeStatFile = subscribeStatFile
+      @storeStatFile = storeStatFile
+      EventDispatcher.instance.subscribe(:bundleToForward) do |bundle|
+	writeBundleStat(:in, bundle, bundle.incomingLink)
       end
       EventDispatcher.instance.subscribe(:bundleForwarded) do |bundle, link|
-	entry = StatEntry.new(bundle, link)
-	@outStats << entry
-	open(outStatFile, "a") { |outF| outF.puts(entry) }
+	writeBundleStat(:out, bundle, link)
+      end
+      EventDispatcher.instance.subscribe(:opportunityAvailable) do |tp, opts, eid|
+	writeContactStat(:opportunity, tp, "", opts[:host], opts[:port], eid)
+      end
+      EventDispatcher.instance.subscribe(:linkOpen) do |link|
+	type = CLReg.instance.getName(link.class)
+	if type == :tcp or type == :udp
+	  writeContactStat(:link, type, link.name, link.host, link.port, 
+			   link.remoteEid)
+	end
+      end
+      EventDispatcher.instance.subscribe(:neighborContact) do |neighbor, link|
+	type = CLReg.instance.getName(link.class)
+	if type == :tcp or type == :udp
+	  writeContactStat(:contact, type, link.name, link.host, link.port, 
+			   neighbor.eid)
+	end
+      end
+      EventDispatcher.instance.subscribe(:linkClosed) do |link|
+	type = CLReg.instance.getName(link.class)
+	if type == :tcp or type == :udp
+	  writeContactStat(:closed, type, link.name, link.host, link.port, 
+			   link.remoteEid)
+	end
+      end
+      EventDispatcher.instance.subscribe(:uriSubscribed) do |uri|
+	writeSubscribeStat(uri)
+      end
+      EventDispatcher.instance.subscribe(:bundleStored) do |bundle|
+	writeStoreStat(:stored, bundle)
+      end
+      EventDispatcher.instance.subscribe(:bundleRemoved) do |bundle|
+	writeStoreStat(:removed, bundle)
+      end
+
+    end
+
+    def writeBundleStat(inOut, bundle, link)
+      entry = BundleStatEntry.new(bundle, link)
+      file  = inOut == :in ? @inFile : @outFile
+      synchronize do
+      open(file, "a") { |f| f.puts(entry) }
+      end
+    end
+
+    def writeContactStat(state, clType, linkName, host, port, eid)
+      entry = ContactStatEntry.new(state, clType, linkName, host, port, eid)
+      synchronize do
+      open(@contactFile, "a") {|f| f.puts(entry) }
+      end
+    end
+
+    def writeSubscribeStat(uri)
+      synchronize do
+	open(@subscribeStatFile, "a") {|f| f.puts(uri) }
+      end
+    end
+
+    def writeStoreStat(status, bundle)
+      synchronize do
+      open(@storeStatFile, "a") do |f| 
+	f.puts("#{Time.now.to_i}, #{status}, #{bundle.bundleId}")
+      end
       end
     end
 

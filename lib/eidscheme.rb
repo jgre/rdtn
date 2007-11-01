@@ -64,5 +64,8 @@ class EID
     return res
   end
 
+  def ==(eid2)
+    self.to_s == eid2.to_s
+  end
 
 end

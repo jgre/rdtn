@@ -20,6 +20,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require "test/unit"
 require "subscriptionhandler"
 require "bundle"
+require "storage"
 
 class MockLink < Link
   attr_accessor :remoteEid, :bundle, :bundles
@@ -85,18 +86,19 @@ class TestSubscriptionHandler < Test::Unit::TestCase
 
   def setup
     @client = MockClient.new
-    @link = MockLink.new
-    RdtnConfig::Settings.instance.store = Storage.new("store")
-    @shandler = SubscriptionHandler.new(@client, 2)
+    #@link = MockLink.new
+    RdtnConfig::Settings.instance.store = Storage.new
+    @shandler = SubscriptionHandler.new(nil, @client, 2)
+    RdtnConfig::Settings.instance.subscriptionHandler = @shandler
     Uris.each {|uri| @shandler.subscribe(uri, MockClient.new)}
   end
 
   def teardown
-    RdtnConfig::Settings.instance.store.clear
-    begin
-      File.delete("store")
-    rescue
-    end
+    #RdtnConfig::Settings.instance.store.clear
+    #begin
+    #  File.delete("store")
+    #rescue
+    #end
     EventDispatcher.instance.clear
   end
 
@@ -107,16 +109,72 @@ class TestSubscriptionHandler < Test::Unit::TestCase
   end
 
   def test_subscription_bundles
-    EventDispatcher.instance.dispatch(:linkCreated, @link)
     client2 = MockClient.new
-    shandler2 = SubscriptionHandler.new(client2)
+    shandler2 = SubscriptionHandler.new(nil, client2)
 
-    sleep(1)
     # Feed the subscription bundle of the first handler to the client of the
     # second one.
-    client2.sendBundle(@shandler.generateSubscriptionBundle)
+    eid = "dtn://firstSubscriber/"
+    bundle = @shandler.generateSubscriptionBundle
+    bundle.srcEid = eid
+    shandler2.processBundle(bundle)
+    assert_equal(Uris, shandler2.neighborSubs[eid].subscribedUris)
     assert_equal(Uris, shandler2.subscribedUris)
-    assert_equal(Uris, client2.subscriptions)
+  end
+
+  def test_merge
+    addUri = "dtn://something.else/"
+    slist1 = SubscriptionList.new(nil)
+    slist2 = SubscriptionList.new(nil)
+    Uris.each do |uri|
+      sub = Subscription.new(uri)
+      slist1.addSubscription(sub)
+      sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, true))
+      sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, false))
+    end
+    Uris[0..1].each do |uri| 
+      sub = Subscription.new(uri)
+      slist2.addSubscription(sub)
+      sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, false))
+      sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, false))
+    end
+    sub = Subscription.new(addUri)
+    slist2.addSubscription(sub)
+    sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, false))
+    slist2.subscriptions[0].addBundleReceived("1234")
+    slist2.subscriptions[0].addBundleReceived("9876")
+
+    slist1.merge(slist2)
+
+    assert_equal(Uris + [addUri], slist1.subscribedUris)
+    slist2.bundlesReceived.each {|br| assert(slist2.bundleReceived?(br))}
+    slist2.bundlesReceived.each {|br| assert((not slist1.bundleReceived?(br)))}
+
+    slist2.subscriptions.each do |sub2|
+      sub1 = slist1.findSubscription {|sub| sub.uri == sub2.uri}
+      assert(sub1)
+      usubs1 = sub1.uniqueSubscriptions.map {|usub| usub.uid}
+      usubs2 = sub2.uniqueSubscriptions.map {|usub| usub.uid}
+      usubs2.each {|us| assert(usubs1.include?(us))}
+    end
+  end
+
+  def test_subscription_bundle_data
+    sub = Subscription.new(Uris[0])
+    io = RdtnStringIO.new
+    sub.addBundleReceived("1234")
+    sub.addBundleReceived("9876")
+    sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, true))
+    sub.serialize(io)
+    io.rewind
+    sleep(1)
+    sub2 = Subscription.parse(io)
+    assert_equal(sub.uri.to_s, sub2.uri.to_s)
+    #assert_equal(sub.uids, sub2.uids)
+    assert_equal(sub.creationTimestamp.to_i, sub2.creationTimestamp.to_i)
+    assert_equal(sub.expires.to_i, sub2.expires.to_i)
+    assert_equal(sub.hopCount, sub2.hopCount)
+    assert_equal(sub.bundlesReceived, sub2.bundlesReceived)
   end
 
   def test_check

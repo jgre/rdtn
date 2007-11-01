@@ -1,0 +1,121 @@
+#!/usr/bin/env ruby
+#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Dirk Kutscher <dku@tzi.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..", "lib")
+
+require "clientapi"
+require "clientlib"
+require 'optparse'
+require 'bundle'
+require 'configuration'
+require "stats"
+require "daemon"
+require "subscriptionhandler"
+require "storage"
+
+log     = RdtnConfig::Settings.instance.getLogger(self.class.name)
+eid     = "randomsender"
+port    = RDTNAPPIFPORT
+host    = "localhost"
+bytes   = 1024 #1048576
+maxWait = 15
+active  = 3500
+dests   = (1..10).to_a.map {|i| "dtn://kasuari#{i}/"}
+limit   = bytes * 50 #155443
+
+channels = (1..3).to_a.map {|i| "dtn://channel#{i}/"}
+
+senders = {}
+channels.each_with_index {|ch, i| senders["dtn://kasuari#{i+1}/"] = ch}
+
+receivers = {
+  "dtn://kasuari6/"  => ["dtn://channel1/", "dtn://channel2/"],
+  "dtn://kasuari7/"  => ["dtn://channel2/", "dtn://channel3/", "dtn://channel4/"],
+  "dtn://kasuari8/"  => ["dtn://channel4/", "dtn://channel5/", "dtn://channel1/"],
+  "dtn://kasuari9/"  => ["dtn://channel4/", "dtn://channel5/", "dtn://channel1/"],
+  "dtn://kasuari10/" => ["dtn://channel5/", "dtn://channel1/"]
+  }
+
+opts = OptionParser.new do |opts|
+  opts.on("-p", "--port PORT", "Connect to client interface on PORT") do |p|
+    port = p
+  end
+  opts.on("-h", "--host HOST", "Connect to client interface on HOST") do |h|
+    host = h
+  end
+  opts.on("-b", "--bytes BYTES", "Number of bytes of payload to send") do |b|
+    bytes = b
+  end
+  opts.on("-w", "--wait SECONDS", "Maximum number of seconds to wait befor sending the next bundle") do |w|
+    maxWait = w
+  end
+  opts.on("-m", "--max BYTES", "Maximum size of the store") do |m|
+    limit = m
+  end
+end
+
+daemon = RdtnDaemon::Daemon.new(opts)
+
+#daemon.subHandler.subscribe("dtn://dummy.channel") do |bundle|
+#  puts "Subscribed Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
+#end
+
+store = Storage.new(limit)
+RdtnConfig::Settings.instance.store = store
+
+dests.delete(RdtnConfig::Settings.instance.localEid.to_s)
+puts "dests: #{dests}"
+
+/kasuari(\d+)/ =~ RdtnConfig::Settings.instance.localEid.to_s
+nodeNum = $1.to_i
+
+mychannel = senders[RdtnConfig::Settings.instance.localEid.to_s]
+start = Time.now
+if mychannel
+  c=RdtnClient.new(host, port)
+  Thread.new do 
+    Thread.current.abort_on_exception = true
+    while true
+      wait = nodeNum*2
+      #wait = rand(maxWait)
+      puts "Wait #{wait}"
+      sleep(wait)
+      Thread.exit if Time.now > start + active
+      #payload = open("/dev/urandom") {|f| f.read(bytes) }
+      payload = "a" * bytes
+      #dest    = dests[rand(dests.length)]
+      b       = Bundling::Bundle.new(payload, EID.new(mychannel))
+      puts("sending bundle to #{mychannel}")
+      c.sendBundle(b)
+      sleep(maxWait - wait)
+    end
+  end
+end
+
+p receivers
+
+if receivers[RdtnConfig::Settings.instance.localEid.to_s]
+  receivers[RdtnConfig::Settings.instance.localEid.to_s].each do |channel|
+    puts "Subscribe #{channel}"
+    RdtnConfig::Settings.instance.subscriptionHandler.subscribe(channel) do |bundle|
+      puts "Subscribed Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
+    end
+  end
+end
+
+daemon.runLoop

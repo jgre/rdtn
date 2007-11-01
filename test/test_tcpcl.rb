@@ -17,6 +17,7 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
+require "bundle"
 require "test/unit"
 require "rdtnevent"
 require "tcpcl"
@@ -69,9 +70,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+    EventDispatcher.instance.subscribe(:linkOpen) do |link|
       mon.synchronize do
-	rentry.link.sendBundle(inBundle) unless bundleSent
+	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
       end
     end
@@ -114,9 +115,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+    EventDispatcher.instance.subscribe(:linkOpen) do |link|
       mon.synchronize do
-	rentry.link.sendBundle(inBundle) unless bundleSent
+	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
       end
     end

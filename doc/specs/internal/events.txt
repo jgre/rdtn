@@ -2,13 +2,17 @@ Symbol			Parameters
 ------			----------
 
 :opportunityAvailable   type, options, eid
+:opportunityDown        type, options, eid
 :linkCreated		Link
+:linkOpen		Link
 :routeAvailable		Str, Link
 :routeLost		Str, Link
 :linkClosed		Link
 :bundleParsed		Bundle
 :bundleToForward	Bundle
 :bundleForwarded	Bundle, Link
+:bundleStored		Bundle
+:bundleRemoved		Bundle
 :storeMe		Object
 
 

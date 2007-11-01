@@ -73,6 +73,7 @@ module FluteCL
 	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} -b #{bandwidth} #{@ppgDir}")
 	end
       end
+      EventDispatcher.instance.dispatch(:linkOpen, self)
 
     end
 

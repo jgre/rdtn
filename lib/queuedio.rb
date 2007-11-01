@@ -46,7 +46,7 @@ module QueuedSender
   # In most cases +doSend+ should be run in its onw thread.
   def doSend
     res = -1
-    while not @sendSocket.closed? and not @sendQueue.eof?
+    while @sendSocket and not @sendSocket.closed? and not @sendQueue.eof?
       buf = @sendQueue.read(@sendQueueChunkSize)
       res=@sendSocket.send(buf,0)
       if res < buf.length

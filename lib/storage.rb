@@ -15,276 +15,148 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-
-# Bundle information relevant to storage and internal processing
-
-require "fileutils"
+require "bundle"
+require "monitor"
 require "pstore"
-require "singleton"
-require "rdtnevent"
 
+class BundleAlreadyStored < RuntimeError
+  def initialize(bundleId)
+    super("Bundle #{bundleId} already stored.")
+  end
+end
 
+class AgeDisplacement
 
-class BundleInfo
-
-  attr_accessor :destEid, :srcEid, :creationTimestamp, :lifetime, :bundleId, :fragmentOffset
-  
-  def initialize(bundle)
-    @destEid = bundle.destEid.to_s
-    @srcEid = bundle.srcEid.to_s
-    @creationTimestamp = bundle.creationTimestamp
-    @lifetime = bundle.lifetime
-    @bundleId = bundle.bundleId
-    @fragmentOffset = bundle.fragmentOffset
+  def orderBundles(bundle1, bundle2)
+    bundle2.creationTimestamp <=> bundle1.creationTimestamp
   end
 
-  def to_s
-    @destEid + "-" + @srcEid + "-" + @creationTimestamp.to_s + "-" + @lifetime.to_s + "-" + @bundleId.to_s
-  end
-
-  #override the method eql? for Hash key equality. 
-  def eql?(other)
-    return (self.class == other.class) \
-	   && (@destEid == other.destEid) \
-           && (@srcEid == other.srcEid) \
-           && (@creationTimestamp == other.creationTimestamp) \
-           && (@lifetime == other.lifetime) \
-           && (@bundleId == other.bundleId) \
-           && (@fragmentOffset == other.fragmentOffset)
-  end
-
-  def hash
-    return @destEid.hash ^ @srcEid.hash ^ @creationTimestamp.hash \
-           ^ @lifetime.hash ^ @bundleId.hash ^ @fragmentOffset.hash
-  end
-
-end#BundleInfo
-
+end
 
 class Storage < Monitor
 
-  @bundleIds                    # list of ids (strings)
-  @bundles                      # Hash id => bundle
-  @bundleInfos                  # Hash of id => BundleInfo
+  include Enumerable
+  attr_accessor :displacement
 
-  def initialize(dir = nil)
+  def initialize(maxSize = nil, dir = nil)
     super()
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-    @bundleIds = []
-    @bundles = {}
-    @bundleInfos = {}
+    @maxSize = maxSize
     @storageDir = dir
+    @curSize = 0
+    @bundles = []
+    @displacement = []
+    #Bundling::PayloadBlock.storePolicy = :random
+
+    housekeeping
   end
 
-  def listBundles
-    # return list of ids
-    synchronize { return Array.new(@bundleIds) }
-  end
-
-  def getBundleInfo(bundleId)
-    # return BundleInfo
-    synchronize { @bundleInfos[bundleId] }
+  def each(&handler)
+    synchronize { @bundles.each(&handler) }
   end
 
   def getBundle(bundleId)
-    # return bundle
-    synchronize { @bundles[bundleId] }
+    getBundleMatching {|bundle| bundle.bundleId == bundleId}
   end
 
   def deleteBundle(bundleId)
     synchronize do 
-      @bundleIds.delete(bundleId)
-      @bundles.delete(bundleId)
-      @bundleInfos.delete(bundleId)
+      @bundles.delete_if do |bundle| 
+	if bundle.bundleId == bundleId
+	  @curSize -= bundle.payloadLength
+	  true
+	else
+	  false
+	end
+      end
     end
   end
 
   def storeBundle(bundle)
-    bi=BundleInfo.new(bundle)
-    id = bundle.bundleId
-    if(@bundleInfos.has_key?(id))
-      @log.warn("id collision")
-    end
-    synchronize do 
-      @bundleIds.push(id)
-      @bundleInfos[id]=bi
-      @bundles[id]=bundle
+    synchronize do
+      @curSize += bundle.payloadLength
+      if @bundles.find {|b| b.bundleId == bundle.bundleId}
+	raise BundleAlreadyStored, bundle.bundleId
+      end
+      @bundles.push(bundle)
+      EventDispatcher.instance.dispatch(:bundleStored, bundle)
+      enforceLimit
     end
   end
 
   def clear
-    synchronize do 
-      @bundleIds.clear
-      @bundleInfos.clear
+    synchronize do
       @bundles.clear
+      @curSize = 0
     end
+  end
+
+  def getBundleMatching(&handler)
+    synchronize { @bundles.find(&handler) }
+  end
+
+  def getBundleMatchingDest(destEid)
+    getBundleMatching {|bundle| bundle.destEid == destEid }
+  end
+
+  def getBundlesMatching(&handler)
+    synchronize { @bundles.find_all(&handler) }
+  end
+
+  def getBundlesMatchingDest(destEid)
+    getBundlesMatching {|bundle| destEid === bundle.destEid.to_s }
   end
 
   def save
     if @storageDir
       store=PStore.new(@storageDir)
-      store.transaction do
-	store["bundleIds"] = @bundleIds
-	store["bundleInfos"] = @bundleInfos
-	store["bundles"] = @bundles
-      end
+      store.transaction { store[:bundles] = @bundles }
     end
   end
-  
+
   def load
     if @storageDir
       store=PStore.new(@storageDir)
-      store.transaction do
-	@bundleIds = store["bundleIds"]
-	@bundleInfos = store["bundleInfos"]
-	@bundles = store["bundles"]
+      store.transaction { @bundles = store[:bundles] }
+    end
+  end
+
+  def addPriority(prio)
+    @displacement.push(prio)
+  end
+
+  private
+  def enforceLimit
+    while @maxSize and @curSize > @maxSize
+      @bundles.sort! do |b1, b2|
+	# Accumulate the comparision from all priority algorithms to 
+	# based on a bundle to bundle comparison.
+	accPrio = @displacement.inject(0) do |sum, prio| 
+	  sum+prio.orderBundles(b1,b2, @neighbor)
+	end
+	if accPrio == 0:   0
+	elsif accPrio > 0: 1
+	else               -1
+	end
+      end
+      outBndl = @bundles.pop
+      if outBndl
+        @curSize -= outBndl.payloadLength
+        EventDispatcher.instance.dispatch(:bundleRemoved, outBndl)
       end
     end
   end
 
-  def getBundlesMatching()
-    res=[]
-    synchronize do
-      # FIXME do this more elegantly and "ruby-like"
-      0.upto(@bundleIds.length()-1) do |i|
-	bi=@bundleInfos[@bundleIds[i]]
-	if bi and yield(bi)
-	  res << @bundles[@bundleIds[i]]
+  def housekeeping
+    Thread.new do
+      while true
+	sleep(10) #FIXME variable timer
+	synchronize do
+	  @bundles.delete_if do |b| 
+	    Time.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 
+	  end
 	end
       end
     end
-    return res
   end
 
-  # Get all Bundles with a destination EID matching destEid
-  # returns matching bundles as a list of ids
-
-  def getBundlesMatchingDest(destEid)
-    blist=getBundlesMatching() do |bundleInfo|
-      r=Regexp.new(destEid.to_s)
-      r =~ bundleInfo.destEid.to_s
-    end
-    
-  end
-
-end#Storage
-
-
-class Storage_perBundle
-#every bundle will be saved in a separate file.
-  attr_reader :bundleInfos
-  
-  Metainfo_Filename = "Metainfo.pstore"
-
-  def initialize(mfname=Metainfo_Filename)
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-    mfbasename = File.basename(mfname)
-    @pathname = RdtnConfig::Settings.instance.storageDir
-    FileUtils.mkdir_p(@pathname)
-    @bundleInfos = PStore.new(File.join(@pathname, mfbasename)) #{metaInfo, filename}
-  end
-
-  def self.create_filename(bundle)
-    dest = bundle.destEid.hash
-    src = bundle.srcEid.hash
-    timestamp = bundle.creationTimestamp.hash
-    fragmentOffset = bundle.fragmentOffset.hash
-    return "s#{src}d#{dest}t#{timestamp}f#{fragmentOffset}.pstore"
-  end
-
-  #persist bundle and it's infos. public interface
-  def save(bundle) 
-    fn = File.join(@pathname, Storage_perBundle.create_filename(bundle))
-    metaInfo = BundleInfo.new(bundle)
-    @bundleInfos.transaction do
-      if @bundleInfos.root?(metaInfo)
-	@log.warn("Bundle: #{bundle.bundleId} has already been stored as file: #{fn}.")
-      else
-	@bundleInfos[metaInfo] = fn
-      end
-    end
-    _save(fn, bundle)
-  end
-
-  def timeToDie?(bundleInfo)
-    toDie = false
-    @bundleInfos.transaction(true) do
-      if @bundleInfos.root?(bundleInfo)
-	#FIXME: - Time.gm(2000) in bundle.initialize => normalize(Time.now)
-	toDie = (bundleInfo.creationTimestamp + bundleInfo.lifetime) < (Time.now - Time.gm(2000)).to_i
-      end
-    end
-    return toDie
-  end
-  
-  #delete the bundle and it's Info, if it has expired
-  def delete_expired(bundleInfo)
-    if timeToDie?(bundleInfo)
-      @bundleInfos.transaction do
-	_delete(@bundleInfos[bundleInfo]) 
-	@bundleInfos.delete(bundleInfo)
-      end
-    end
-  end
-
-  #load bundles, which are not expired
-  def load(bundleInfo)
-    delete_expired(bundleInfo)
-    filename = nil
-    @bundleInfos.transaction(true) do
-      if @bundleInfos.root?(bundleInfo)
-	filename = @bundleInfos[bundleInfo]
-      else
-	@log.error("No bundleinfo: #{bundleInfo} has been stored.")
-	@bundleInfos.abort
-      end
-    end
-    if filename
-      return _load(filename)  
-    end
-    return nil #TODO: raise NoSuchBundle, "No #{bundleInfo} has been stored."
-  end
-  
-  #get a bundleinfo list, to load the bundle you wanted with 'load'
-  def get_bundleInfoList(srcEid=nil, destEid=nil,
-			 creationTimestamp=nil, fragmentOffset=nil)
-    @bundleInfos.transaction(true) do
-      matching = @bundleInfos.roots.find_all do |metaInfo|
-	match = true
-	match = metaInfo.srcEid == srcEid if srcEid
-	
-	match &&= metaInfo.destEid == destEid if destEid
-	match &&= metaInfo.creationTimestamp == creationTimestamp if creationTimestamp
-	match &&= metaInfo.fragmentOffset == fragmentOffset if fragmentOffset
-	return  match
-      end #do
-    end #transaction
-    
-    return matching
-  end #get_bundleInfoList
-
-
-  private
-  
-  #persist a bundle
-  def _save(filename, bundle) 
-    bundle_save = PStore.new(filename)
-    bundle_save.transaction do
-      bundle_save[:bundle] = bundle
-    end
-  end
-
-  def _load(filename)
-    bundle = nil
-    bundle_load = PStore.new(filename)
-    bundle_load.transaction(true) do
-      bundle = bundle_load[:bundle]
-    end
-    return bundle
-  end
-
-  def _delete(filename)
-    File.delete(filename)
-  end
-  
-end #Storage_perBundle
+end

@@ -36,6 +36,7 @@ module UDPCL
 
 
     attr_accessor :remoteEid, :maxBundleSize
+    attr_reader   :host, :port
     include QueuedSender
 
     def initialize(sock = nil)
@@ -46,14 +47,14 @@ module UDPCL
 
     def open(name, options)
       self.name = name
-      port = UDPInterface::UDPCLPORT 
-      host = nil 
+      @port = UDPInterface::UDPCLPORT 
+      @host = nil 
 
       if options.has_key?(:host)
-	host = options[:host]
+	@host = options[:host]
       end
       if options.has_key?(:port)
-	port = options[:port]
+	@port = options[:port]
       end
       if options.has_key?(:maxBundleSize)
 	@maxBundleSize = options[:maxBundleSize]
@@ -64,7 +65,8 @@ module UDPCL
       end
       @sendSocket = UDPSocket.new
       # For UDP this operation does not block, so we do it without thread
-      @sendSocket.connect(host, port)
+      @sendSocket.connect(@host, @port)
+      EventDispatcher.instance.dispatch(:linkOpen, self)
     end
 
     def close(wait = nil)

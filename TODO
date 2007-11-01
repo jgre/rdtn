@@ -12,6 +12,7 @@ jgre    initial      Improve documentation comments
 jgre    done         Tests for ContactManager
 jgre    done         Tests for Discovery
 jgre    initial      Fix handling of log messages (global function rlog)
+jgre    initial      Configuration of different routers
 ======  ============ ========================================================
 
 DTN Basics

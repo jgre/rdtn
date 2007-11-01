@@ -103,7 +103,7 @@ module Bundling
 	@bundle.parse(queue)
       rescue InputTooShort => detail
 	@idleSince = Time.now
-	@@log.info("Input too short need to read #{detail.bytesMissing} (#{queue.length} given)")
+	@@log.info("Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
       rescue ProtocolError => msg
 	@@log.error("Bundle parser error: #{msg}")
 	queue.close
@@ -349,7 +349,7 @@ module Bundling
 	@@lastSeqNo = @creationTimestampSeq = 0
       end
       @@lastTimestamp = @creationTimestamp
-      @lifetime = 3600
+      @lifetime = 60
       @destEid = EID.new(destEid)
       if not srcEid
 	@srcEid = EID.new(RdtnConfig::Settings.instance.localEid)
@@ -812,10 +812,12 @@ module Bundling
 
     attr_accessor :payload
 
+    @@storePolicy = :memory
+
     def initialize(bundle, payload = nil)
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       super(bundle)
-      @payload = payload
+      self.payload = payload
       self.flags   = 8 # last block
 
       defField(:plblockLength, :decode => GenParser::SdnvDecoder,
@@ -828,9 +830,40 @@ module Bundling
       data = ""
       data << Bundle::PAYLOAD_BLOCK
       data << flags
-      data << Sdnv.encode(@payload.length)
-      data << @payload
+      data << Sdnv.encode(self.payloadLength)
+      data << self.payload
       return data
+    end
+
+    def payload
+      case @@storePolicy
+      when :memory
+	@payload
+      when :random
+	if @payloadLength: open("/dev/urandom") {|f| f.read(@payloadLength)}
+	else "" end
+      else
+	nil
+      end
+    end
+
+    def payload=(pl)
+      case @@storePolicy
+      when :memory
+	@payload = pl
+      when :random
+	@payloadLength = pl.length if pl
+	@payload       = nil
+      end
+    end
+
+    def payloadLength
+      if @payloadLength: @payloadLength
+      else @payload.length end
+    end
+
+    def PayloadBlock.storePolicy=(policy)
+      @@storePolicy = policy
     end
 
   end

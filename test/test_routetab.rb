@@ -68,7 +68,7 @@ class TestRoutetab < Test::Unit::TestCase
     @link2.remoteEid = "dtn:grunt"
     @link3 = MockLink.new
     @link3.remoteEid = "dtn:grunt3"
-    RdtnConfig::Settings.instance.store = Storage.new("store")
+    RdtnConfig::Settings.instance.store = Storage.new(nil, "store")
     @contactManager = MockContactManager.new(@link1)
   end
 

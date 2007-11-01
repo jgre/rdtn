@@ -32,6 +32,7 @@ class CMockLink < Link
 
   def open(n, options)
     self.name = n
+    EventDispatcher.instance.dispatch(:linkOpen, self)
   end
 
   def sendBundle(bundle)
@@ -78,10 +79,14 @@ class TestContactManager < Test::Unit::TestCase
     eventRec  = false
     eid       = "dtn://test"
     cm = ContactManager.new
-    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+    EventDispatcher.instance.subscribe(:neighborContact) do |neighbor, link|
       eventRec = true
-      assert_equal(eid, rentry.destination.source)
+      assert_equal(eid, neighbor.eid)
     end
+    #EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+    #  eventRec = true
+    #  assert_equal(eid, rentry.destination.source)
+    #end
     EventDispatcher.instance.subscribe(:linkCreated) do |cmlink|
       linkFound = true
     end

@@ -26,7 +26,7 @@ class TestStorage < Test::Unit::TestCase
 
   def setup
     EventDispatcher.instance.clear
-    @store = Storage.new("store")
+    @store = Storage.new(nil, "store")
   end
 
   def teardown
@@ -37,9 +37,14 @@ class TestStorage < Test::Unit::TestCase
   end
 
   def test_storage1
-    
+    pl = "test"
+    idlist = []
+
     0.upto(99) do |i|
-      b=Bundling::Bundle.new(i.to_s)
+      b=Bundling::Bundle.new(nil, "dtn://test/")
+      idlist.push(b.bundleId)
+      b.payload = pl * i
+      assert_equal(pl.length * i, b.payload.length)
       @store.storeBundle(b)
     end
 
@@ -47,21 +52,18 @@ class TestStorage < Test::Unit::TestCase
 
     @store.clear
 
-    newstore=Storage.new("store")
+    newstore=Storage.new(nil, "store")
     newstore.load
 
-
-    idlist=newstore.listBundles
-
-    0.upto(99) do |i|
-      b=newstore.getBundle(idlist[i])
-      assert_equal(i.to_s, b.payload)
+    idlist.each_with_index do |id, i|
+      b=newstore.getBundle(id)
+      assert_equal(pl.length * i, b.payload.length)
     end
     
   end
 
 
-  def test_storage2
+  def test_storage_queries
     
     0.upto(99) do |i|
       b=Bundling::Bundle.new(i.to_s)
@@ -72,16 +74,15 @@ class TestStorage < Test::Unit::TestCase
     @store.save
     @store.clear
 
-    newstore=Storage.new("store")
+    newstore=Storage.new(nil, "store")
     newstore.load
 
-    blist=newstore.getBundlesMatching() do |bundleInfo|
+    blist=newstore.getBundlesMatching do |bundleInfo|
       bundleInfo.destEid.to_s =~ /dtn:\/\/test\/.*/
       bundleInfo.destEid.to_s =~ /.*test\/99/
     end
 
     assert_equal(blist.length(),1)
-
 
     blist=newstore.getBundlesMatching() do |bundleInfo|
       bundleInfo.destEid.to_s =~ /dtn:\/\/test\/.*/
@@ -89,13 +90,28 @@ class TestStorage < Test::Unit::TestCase
 
     assert_equal(blist.length(),100)
 
-
     blist=newstore.getBundlesMatchingDest("dtn://test/0") 
     assert_equal(blist.length(),1)
 
-
   end
 
+  def test_limits
+    @store = Storage.new(100)
+    b = Bundling::Bundle.new(nil, "dtn://test/")
+    id1 = b.bundleId
+    b.payload = "x" * 50
+    sleep(1)
+    b2 = Bundling::Bundle.new(nil, "dtn://test/")
+    b2.payload = "x" * 51
+    id2 = b2.bundleId
+    @store.storeBundle(b2)
+    @store.storeBundle(b)
+
+    ret1 = @store.getBundle(id1)
+    ret2 = @store.getBundle(id2)
+    assert_equal(51, ret2.payload.length)
+    assert_nil(ret1)
+  end
 
 
 end

@@ -24,6 +24,7 @@ require 'udpcl'
 require 'flutecl'
 require 'clientregcl'
 require 'discovery'
+require 'priorityrouter'
 
 module RdtnConfig
 
@@ -121,12 +122,16 @@ module RdtnConfig
 	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
 	ipd = IPDiscovery.new(address, port, interval, ifs)
 	ipd.start
+      when :kasuari
+	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
+	ipd = KasuariDiscovery.new(address, port, interval, ifs)
+	ipd.start
       else raise "syntax error: link #{action}"
       end
     end
 
-    def storageDir(dir)
-      Settings.instance.store = Storage.new(dir)
+    def storageDir(limit, dir)
+      Settings.instance.store = Storage.new(limit, dir)
     end
 
     def localEid(eid)
@@ -139,6 +144,26 @@ module RdtnConfig
       when :remove: rmRoute(dest, link)
       else raise "syntax error: link #{action}"
       end
+    end
+
+    def router(type)
+      case type
+      when :routingTable: Settings.instance.router = RoutingTable.new
+      when :priorityRouter 
+	Settings.instance.router = PriorityRouter.new(Settings.instance.contactManager)
+      else raise "Unknown type of router #{type}"
+      end
+    end
+
+    def addPriority(prio)
+      prioAlg = PrioReg.instance.makePrio(prio)
+      Settings.instance.router.addPriority(prioAlg)
+      Settings.instance.store.addPriority(prioAlg)
+    end
+
+    def addFilter(filter)
+      filterAlg = PrioReg.instance.makeFilter(filter)
+      Settings.instance.router.addFilter(filterAlg)
     end
 
     private
@@ -193,13 +218,23 @@ module RdtnConfig
   class Settings
     include Singleton
 
-    attr_accessor :localEid, :store
+    attr_accessor :localEid, :store, :router, :contactManager, :subscriptionHandler
 
     def initialize
       @localEid = ""
       @store = nil
       @logLevels = []
       @defaultLogLevel = Logger::ERROR
+    end
+
+    def contactManager
+      @contactManager  = ContactManager.new unless @contactManager
+      return @contactManager
+    end
+
+    def subscriptionHandler
+      @subscriptionHandler = SubscriptionHandler.new(nil) unless @subscriptionHandler
+      return @subscriptionHandler
     end
 
     # Set the log level for for a given classname pattern.

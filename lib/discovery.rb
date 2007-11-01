@@ -26,7 +26,7 @@ class Announcement
 
   include GenParser
 
-  attr_accessor :clType, :interval, :inetAddr, :inetPort, :senderEid
+  attr_accessor :clType, :interval, :inetAddr, :inetPort, :senderEid, :lastSeen
 
   def Announcement.typeSymToId(typeSym)
     case typeSym
@@ -51,6 +51,7 @@ class Announcement
     @inetAddr  = IPSocket.getaddress(addr)
     @inetPort  = port
     @senderEid = eid.to_s
+    @lastSeen  = Time.now
 
     defField(:type, :length => 1, :decode => GenParser::NumDecoder,
 	     :handler => :clType=)
@@ -69,6 +70,10 @@ class Announcement
   def ==(ann)
     return (@clType == ann.clType and @inetAddr == ann.inetAddr and 
 	    @inetPort == ann.inetPort and @senderEid == ann.senderEid)
+  end
+
+  def seenNow
+    @lastSeen = Time.now
   end
 
   def typeSym
@@ -103,12 +108,13 @@ class Announcement
 
 end
 
-class IPDiscovery
+class IPDiscovery < Monitor
 
   include QueuedReceiver
   include RerunThread
 
   def initialize(address, port, interval = 10, announceIfs = [])
+    super()
     @log         = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @addr        = address
     @port        = port
@@ -118,6 +124,14 @@ class IPDiscovery
     @myAnns      = @announceIfs.map do |aif| 
       Announcement.new(CLReg.instance.getName(aif.class), @interval, aif.host,
 		       aif.port)
+    end
+    @aliveTimer  = interval * 2
+    housekeeping
+    EventDispatcher.instance().subscribe(:linkClosed) do |link|
+      @recvdAnns.delete_if do |ann| 
+        puts "Discovery #{ann.inetAddr == link.host and ann.inetPort == link.port}"
+        ann.inetAddr == link.host and ann.inetPort == link.port
+      end
     end
   end
 
@@ -153,8 +167,13 @@ class IPDiscovery
 	  ann = Announcement.new
 	  ann.parse(input)
 	  
-	  next if @myAnns.include?(ann) or @recvdAnns.include?(ann)
+	  if @myAnns.include?(ann) or @recvdAnns.include?(ann)
+	    dup = @recvdAnns.find {|a| a == ann}
+	    dup.seenNow if dup
+	    next
+	  end
 
+	  @aliveTimer = [@aliveTimer, ann.interval * 2].min
 	  @recvdAnns.push(ann)
 	  if ann.typeSym == :tcp or ann.typeSym == :udp
 	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
@@ -178,6 +197,55 @@ class IPDiscovery
     while true
       data = encodedAnns.join
       ret = @sock.send(data, 0, @addr, @port)
+      sleep(@interval)
+    end
+  end
+
+  def housekeeping
+    Thread.new do 
+      while true
+	sleep(@aliveTimer)
+	delIndex = []
+	@recvdAnns.each_with_index do |ann, i|
+	  if ann.lastSeen < (Time.now - ann.interval*2)
+	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
+	    EventDispatcher.instance.dispatch(:opportunityDown, 
+					      ann.typeSym, opts, ann.senderEid)
+	    @log.debug("Announcement timed out for #{ann.senderEid}")
+	    delIndex.push(i)
+	  end
+	end
+	synchronize {delIndex.each {|i| @recvdAnns.delete_at(i)} }
+      end
+    end
+  end
+
+end
+
+class KasuariDiscovery < IPDiscovery
+
+  def initialize(naddrs, port, interval = 10, announceIfs = [])
+    super(IPSocket.getaddress(Socket.gethostname), port, interval, announceIfs)
+    @baseAddr = "10.0.0."
+    @naddrs = naddrs
+  end
+
+  def start
+    @sock = UDPSocket.new
+    @sock.bind(Socket::INADDR_ANY, @port)
+    queuedReceiverInit(@sock)
+    @listenerThread = spawnThread { read }
+    @senderThread   = spawnThread { announce }
+  end
+
+  def announce
+    return nil if @myAnns.empty?
+    encodedAnns = @myAnns.map {|ann| ann.to_s}
+    while true
+      data = encodedAnns.join
+      1.upto(@naddrs) do |i| 
+        ret = @sock.send(data, 0, @baseAddr + i.to_s, @port)
+      end
       sleep(@interval)
     end
   end

@@ -21,34 +21,15 @@ require "eidscheme"
 require "storage"
 require "contactmgr"
 require "monitor"
+require "router"
 
-class RoutingEntry
-  attr_reader :destination,
-    	      :exclusive
+class RoutingTable < Router
 
-  def initialize(dest, link, exclusive = false)
-    @destination = Regexp.new(dest.to_s)
-    @link = link
-    @exclusive = exclusive
-  end
-
-  # If +@link+ is not the Link object itself  but only its name lookup the name
-  # in the +ContactManager+ and assign the Link object to +@link+.
-  # Returns +@link+
-
-  def link(contactManager = nil)
-    if contactManager and not @link.kind_of?(Link)
-      @link = contactManager.findLinkByName(link)
-    end
-    return @link
-  end
-
-end
-
-class RoutingTable < Monitor
+  include MonitorMixin
 
   def initialize(contactManager)
     super()
+    mon_initialize
     @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @routes=[]
     @contactManager = contactManager
@@ -120,29 +101,4 @@ class RoutingTable < Monitor
     return nil
   end
 
-  private
-
-  # Forward a bundle. Takes a bundle and a list of links. Returns nil.
- 
-  def doForward(bundle, links)
-    links.each do |link|
-      begin
-	if defined?(link.maxBundleSize) and link.maxBundleSize
-	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
-	else
-	  fragments = [bundle]
-	end
-	fragments.each do |frag| 
-	  link.sendBundle(frag) 
-	  @log.info(
-               "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
-	end
-      rescue ProtocolError => err
-	@log.error("Routetab::doForward #{err}")
-      end
-    end
-    return nil
-  end
-  
 end

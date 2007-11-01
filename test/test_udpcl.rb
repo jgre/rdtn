@@ -17,11 +17,11 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
+require "bundle"
 require "test/unit"
 require "rdtnevent"
 require "udpcl"
 require "configuration"
-
 
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 

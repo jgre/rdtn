@@ -100,7 +100,8 @@ class Link
       end
     end
     until @receiverThreads.empty?
-      @receiverThreads.pop.kill
+      thr = @receiverThreads.pop
+      Thread.kill(thr) if thr != Thread.current
     end
     EventDispatcher.instance().dispatch(:linkClosed, self)
   end

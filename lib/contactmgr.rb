@@ -22,15 +22,81 @@ require "cl"
 require "eidscheme"
 require "monitor"
 
+class Neighbor
+
+  attr_accessor :eid,
+                :lastContact,
+		:downSince,
+		:nContacts,
+		:totalContactDuration,
+		:totalDowntime,
+		:curLink
+
+  def initialize(eid)
+    @eid                  = eid
+    @lastContact          = nil
+    @downSince            = nil
+    @nContacts            = 0
+    @totalContactDuration = 0
+    @totalDowntime        = 0
+    @curLink              = nil
+  end
+
+  def currentContactDuration
+    if @downSince or not @lastContact: 0
+    else Time.now - @lastContact
+    end
+  end
+
+  def currentDowntime
+    if @downSince: Time.now - @downSince
+    else 0
+    end
+  end
+
+  def contactStarts(link)
+    @lastContact    = Time.now
+    @totalDowntime += currentDowntime
+    @downSince      = nil
+    @nContacts     += 1
+    @curLink        = link
+  end
+
+  def contactEnds
+    @totalContactDuration += currentContactDuration
+    @downSince = Time.now
+    @curLink   = nil
+  end
+
+  def isContactOpen?
+    not @downSince
+  end
+
+  def averageContactDuration
+    if nContacts > 0
+      (@totalContactDuration + currentContactDuration)/ @nContacts
+    else 0
+    end
+  end
+
+  def averageDowntime
+    if nContacts > 0: (@totalDowntime + currentDowntime) / @nContacts
+    else 0
+    end
+  end
+
+end
+
 class ContactManager < Monitor
  
   # The housekeeping timer determines the interval between checks for idle
   # links.
   def initialize(housekeepingTimer = 300)
-    @oppCount = 0 # Counter for the name of opportunistic links.
     super()
+    @oppCount  = 0 # Counter for the name of opportunistic links.
+    @links     = []
+    @neighbors = []
     @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-    @links = []
 
     EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
       linkCreated(*args)
@@ -41,12 +107,17 @@ class ContactManager < Monitor
     EventDispatcher.instance().subscribe(:opportunityAvailable) do |*args|
       opportunity(*args)
     end
+    EventDispatcher.instance().subscribe(:opportunityDown) do |*args|
+      opportunityDown(*args)
+    end
+    EventDispatcher.instance().subscribe(:linkOpen) do |*args|
+      linkOpen(*args)
+    end
 
     housekeeping(housekeepingTimer)
   end
 
   def findLinkByName(name)
-    @links.each {|lnk| puts lnk}
     findLink { |lnk| lnk.name and lnk.name == name }
   end
 
@@ -54,6 +125,16 @@ class ContactManager < Monitor
     synchronize do
       return @links.find(&block)
     end
+  end
+
+  def findNeighbor(&block)
+    synchronize do
+      return @neighbors.find(&block)
+    end
+  end
+
+  def findNeighborByEid(eid)
+    findNeighbor {|n| n.eid.to_s == eid.to_s }
   end
 
   private
@@ -72,26 +153,56 @@ class ContactManager < Monitor
     synchronize do
       @links.delete(link)
     end
+    if link.remoteEid
+      neighbor = findNeighborByEid(link.remoteEid)
+      neighbor.contactEnds if neighbor
+    end
   end
 
   def opportunity(type, options, eid = nil)
+    neighbor = findNeighborByEid(eid)
+    return nil if eid and neighbor and neighbor.isContactOpen?
+
     clClasses = CLReg.instance.cl[type]
     if clClasses
       begin
 	@log.debug("Opportunity for #{type} link to #{eid}.")
 	link = clClasses[1].new
 	link.policy = :opportunistic
+	link.remoteEid = eid
 	link.open("opportunistic#{@oppCount}", options)
 	@oppCount += 1
 
-	EventDispatcher.instance.dispatch(:routeAvailable, 
-					  RoutingEntry.new(eid, link)) if eid
+	#EventDispatcher.instance.dispatch(:routeAvailable, 
+	#				  RoutingEntry.new(eid, link)) if eid
       rescue RuntimeError => err
 	@log.error("Failed to open opportunistic link #{err}")
       end
     else
       @log.warn("Opportunity signaled with unknown type #{type}")
       return nil
+    end
+  end
+
+  def opportunityDown(type, options, eid)
+    # FIXME use type and options, if eid is not given
+    @log.info("Opportunity down #{eid}")
+    link=findLink {|lnk| lnk.remoteEid == eid and lnk.policy == :opportunistic}
+    @log.info("Closing opportunistic link #{link}") if link
+    link.close if link
+  end
+
+  def linkOpen(link)
+    if link.remoteEid
+      neighbor = findNeighborByEid(link.remoteEid)
+      if not neighbor
+	neighbor = Neighbor.new(link.remoteEid)
+	synchronize { @neighbors.push(neighbor) }
+      end
+      neighbor.contactStarts(link)
+      EventDispatcher.instance.dispatch(:neighborContact, neighbor, link)
+#      EventDispatcher.instance.dispatch(:routeAvailable, RoutingEntry.new(
+#				        link.remoteEid, link))
     end
   end
 

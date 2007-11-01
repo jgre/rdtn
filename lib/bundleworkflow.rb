@@ -40,8 +40,10 @@ module Bundling
 
     def BundleWorkflow.registerEvents
       EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
-	bwf = BundleWorkflow.new(bundle)
-	bwf.processBundle
+        if bundle
+	  bwf = BundleWorkflow.new(bundle)
+	  bwf.processBundle
+	end
       end
     end
 
@@ -137,7 +139,12 @@ module Bundling
     def processBundle(bundle)
       store = RdtnConfig::Settings.instance.store
       if store
-	store.storeBundle(bundle)
+	begin
+	  store.storeBundle(bundle)
+	rescue BundleAlreadyStored
+	  puts "Already stored."
+	  return nil
+	end
 	store.save
       end
       self.state = :processed

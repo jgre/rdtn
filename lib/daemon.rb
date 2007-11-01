@@ -38,9 +38,6 @@ module RdtnDaemon
     def initialize(optParser = OptionParser.new)
 
       @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-      # Initialize Contact manager and routing table
-      cmgr = ContactManager.new
-      router = RoutingTable.new(cmgr)
       store = RdtnConfig::Settings.instance.store
       Bundling::ParserManager.registerEvents
       Bundling::BundleWorkflow.registerEvents
@@ -54,8 +51,12 @@ module RdtnDaemon
 	dir = File.expand_path(s)
 	begin
 	  Dir.mkdir(dir)
-	  stats = Stats::StatGrabber.new(File.join(dir, "out.stat"),  
-					 File.join(dir, "in.stat"))
+	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
+					 File.join(dir, "out.stat"),  
+					 File.join(dir, "in.stat"),
+					 File.join(dir, "contact.stat"),
+					 File.join(dir, "subscribe.stat"),
+					 File.join(dir, "store.stat"))
 	rescue
 	end
       end

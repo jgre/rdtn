@@ -1,0 +1,374 @@
+#!/usr/bin/env ruby
+#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Dirk Kutscher <dku@tzi.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+# id -> HostStat
+$hosts = {}
+# id -> BundleStat
+$bundles = {}
+
+class ContactStat
+
+  attr_accessor :myHost, :neighbor, :contactTimes
+
+  def initialize(myHost, neighbor)
+    @myHost = myHost
+    @neighbor = neighbor
+    @contactTimes = []
+    @bundlesIn = []
+    @bundlesOut = []
+  end
+
+  def contactStarts(time)
+    if @contactTimes[-1] and not @contactTimes[-1][1]
+      #puts "Error: there is already an open contact between #{@myHost} and #{@neighbor} starting at #{@contactTimes[-1][0]}"
+    else
+      @contactTimes.push([time, nil])
+    end
+  end
+
+  def contactEnds(time)
+    if not @contactTimes[-1] or @contactTimes[-1][1]
+      #puts "Error: there is no open contact between #{@myHost} and #{@neighbor}"
+    else
+      @contactTimes[-1][1] = time
+    end
+  end
+
+  def to_s
+    @bundlesIn  = @bundlesIn.sort_by  {|b| b[1]}
+    @bundlesOut = @bundlesOut.sort_by {|b| b[1]}
+    inHeap  = []
+    outHeap = []
+    res  = "Contact #{@myHost} -> #{@neighbor}\n"
+    @contactTimes.each do |starts, ends|
+      res += "    #{starts} -- #{ends} (#{Time.at(starts)} -- #{Time.at(ends)}, #{ends - starts})\n"
+      if starts and ends
+	inCont  = @bundlesIn.find_all {|b| b[1] >= starts and b[1] <= ends}
+	outCont = @bundlesIn.find_all {|b| b[1] >= starts and b[1] <= ends}
+	res += "    Incoming:\n"
+	inCont.each {|bs, time| res += "      #{time}: #{bs.dest}, #{bs.id}\n"}
+	res += "    Outgoing:\n"
+	outCont.each {|bs, time| res += "      #{time}: #{bs.dest}, #{bs.id}\n"}
+	inHeap  += inCont
+	outHeap += outCont
+      end
+    end
+    inMiss = @bundlesIn.find_all {|b| b[0] and not inHeap.include?(b)}
+    outMiss = @bundlesOut.find_all {|b| b[0] and not outHeap.include?(b)}
+    res += "    Incoming:\n"
+    inMiss.each {|bs, time| res += "      #{time}: #{bs.dest}, #{bs.id}\n"}
+    res += "    Outgoing:\n"
+    outMiss.each {|bs, time| res += "      #{time}: #{bs.dest}, #{bs.id}\n"}
+    res
+  end
+
+  def bundleIn(bundleStat, time)
+    @bundlesIn.push([bundleStat, time])
+  end
+
+  def bundleOut(bundleStat, time)
+    @bundlesOut.push([bundleStat, time])
+  end
+
+end
+
+class HostStat
+
+  attr_accessor :id, :startTime, :contacts, :origBundles, :subscriptions,
+                :contacts
+
+  BIOPattern=%r{(\d+), dtn://(\w+)/, dtn://(\w+)/, (-?\d+), (\d+), (true|false)(, dtn://(\w+)/)?}
+
+  def initialize(dir)
+    @id = dir.sub("10.0.0.", "kasuari")
+    @startTime = open(File.join(dir, "time.stat")) {|f| f.read.to_i}
+    @bundlesSeen = []
+    @bundlesDeleted = []
+    @subscriptions = []
+    @contacts = Hash.new {|hash, key| hash[key] = ContactStat.new(@id, key)}
+    open(File.join(dir, "contact.stat")) {|f| parseContacts(f) }
+    if File.exist?(File.join(dir, "subscribe.stat"))
+      open(File.join(dir, "subscribe.stat")) {|f| parseSubscribeStat(f) }
+    end
+    open(File.join(dir, "in.stat")) {|f| parseInStat(f) }
+    open(File.join(dir, "out.stat")) {|f| parseOutStat(f) }
+    @origBundles = open(File.join(dir, "out.stat")) {|f| getOrigBundles(f)}
+    open(File.join(dir, "store.stat")) {|f| parseStoreStat(f) }
+  end
+
+  def getDeliveredBundles
+    @bundlesSeen.find_all do |bid| 
+      $bundles[bid].dest == @id or @subscriptions.include?($bundles[bid].dest)
+    end
+  end
+
+  def storageUsed
+    all = @bundlesSeen.inject(0) {|sum, bid| $bundles[bid].size + sum}
+    @bundlesDeleted.inject(all) {|sum, bid| sum - $bundles[bis].size}
+  end
+
+  def getOrigBundles(file)
+    res = []
+    file.each_line do |line|
+      if BIOPattern =~ line
+	res.push($4) if @id == $3
+      end
+    end
+    return res.uniq
+  end
+
+  def print
+    puts "Generated #{@origBundles.length} bundles."
+    #puts "Bundles: #{@origBundles.join(", ")}"
+  end
+
+  def parseContacts(file)
+    file.each_line do |line|
+      if /(\d+), contact, tcp, (\w+), (.+), (\d+), dtn:\/\/(\w+)\// =~ line
+	@contacts[$5].contactStarts($1)
+      elsif /(\d+), closed, tcp, (\w+), (.+), (\d+), dtn:\/\/(\w+)\// =~ line
+	@contacts[$5].contactEnds($1)
+      end
+    end
+  end
+
+  def parseSubscribeStat(file)
+    file.each_line do |line|
+      if /dtn:\/\/(\w+)\// =~ line
+        @subscriptions.push($1)
+      end
+    end
+  end
+
+  def parseInStat(file)
+    file.each_line do |line|
+      if BIOPattern =~ line
+	# Ignore src == dest
+	#next if $2 == $3
+	bid = $4
+	$bundles[bid] = BundleStat.new(bid, $2, $3, $5) unless $bundles[bid]
+	$bundles[bid].incident($8, @id, $1)
+	@bundlesSeen.push(bid)
+	@contacts[$8].bundleIn($bundles[bid], $1) if $8
+      end
+    end
+    @bundlesSeen.uniq!
+  end
+
+  def parseOutStat(file)
+    file.each_line do |line|
+      if BIOPattern =~ line
+	bid = $4
+	@contacts[$8].bundleOut($bundles[bid], $1) if $8
+      end
+    end
+  end
+
+  def parseStoreStat(file)
+    file.each_line do |line|
+      if /(\d+), (stored|removed), (-?\d+)$/ =~ line
+	if $bundles[$3] and $2 == "stored"
+	  $bundles[$3].addStoredAt(@id)
+	elsif $bundles[$3] and $2 == "removed"
+	  @bundlesDeleted.push($3)
+	end
+      else
+	puts "Error in #{line}"
+      end
+    end
+  end
+
+  def subscribed?(uri)
+    @subscriptions.include?(uri)
+  end
+
+end
+
+class PathStat
+
+  attr_accessor :node, :receivedTime, :paths
+
+  def initialize(node, time)
+    @node = node
+    @receivedTime = time
+    @paths = []
+  end
+
+  def print
+  end
+
+  def forwarded(fromNode, toNode, time)
+    if @node == fromNode
+      @paths.push(PathStat.new(toNode, time))
+    else
+      paths.each {|path| path.forwarded(fromNode, toNode, time) }
+    end
+  end
+
+  def length(len = 0)
+    lengths = @paths.map {|p| p.length(len + 1)}
+    lengths.max.to_i # Conversion to_i for the empty list case
+  end
+
+end
+
+class BundleStat
+
+  attr_accessor :id, :dest, :src, :size, :path, :created, :incidents, :storedAt,
+    :creatorTime
+
+  def initialize(id, dest, src, size)
+    @id = id
+    @dest = dest
+    @src = src
+    @size = size.to_i
+    @incidents = []
+    @storedAt = []
+  end
+
+  def incident(fromNode, toNode, time)
+    if @created
+      @created = [@created, time.to_i].min
+    else
+      @created = time.to_i
+    end
+    if toNode == @src
+      if @creatorTime: @creatorTime = [@creatorTime, time.to_i].min
+      else @creatorTime = time.to_i
+      end
+    end
+    @incidents.push([fromNode, toNode, time.to_i])
+  end
+
+  def addStoredAt(node)
+    @storedAt.push(node)
+  end
+
+  def delivered
+    resPerHost = {}
+    @incidents.each do |inc| 
+      if $hosts[inc[1]].subscribed?(@dest)
+	if resPerHost[inc[1]]
+	  resPerHost[inc[1]]    = [resPerHost[inc[1]], inc[2]].min
+	else resPerHost[inc[1]] = inc[2] end
+      end
+    end
+    return resPerHost.to_a
+  end
+
+  def calculatePath
+    return if @incidents.empty?
+
+    # sort by time
+    @incidents.sort! {|i1, i2| i1[2] <=> i2[2]}
+
+    @path = PathStat.new(@incidents[0][2])
+    @incidents.each {|inc| @path.forwarded(inc[0], inc[1], inc[2])}
+  end
+
+end
+
+def getBundlesFor(hostId)
+  lst = $hosts[hostId].subscriptions
+  lst.each {|dest| $bundles.find_all {|bid, bundle| bundle.dest == dest } }
+end
+
+def getBundlesFrom(hostId)
+  $bundles.find_all {|bid, bundle| bundle.src == hostId}
+end
+
+Dir.foreach(Dir.pwd) do |filename|
+  next if filename == "." or filename == ".."
+    
+  h = HostStat.new(filename) if File.directory?(filename)
+  $hosts[h.id] = h
+end
+
+totalStorageUsed = 0
+
+$hosts.each_value do |host| 
+  puts "Host #{host.id}"
+  puts "  Originated #{getBundlesFrom(host.id).length} bundles"
+  puts "  Subscribed #{host.subscriptions.join(", ")}"
+  puts "  Should have received #{getBundlesFor(host.id).length} bundles"
+  puts "  Actually received #{host.getDeliveredBundles.length} bundles"
+  puts "  Storage used #{host.storageUsed} bytes"
+  host.contacts.each_value {|cont| puts "  #{cont.to_s}"}
+  totalStorageUsed += host.storageUsed
+end
+
+puts
+
+nSubscribed = 0
+nDelivered = 0
+nUniqDel = 0
+deliveryTime = 0
+deliveredSize = 0
+replicas = 0
+succReplicas = 0
+bndls = $bundles.to_a.map {|key, val| val}
+bndls.sort! {|b1, b2| b1.created <=> b2.created }
+bndls.each do |bundle| 
+  puts "Bundle #{bundle.id} from #{bundle.src} to #{bundle.dest}"
+  puts "  #{bundle.size} bytes"
+  puts "  Created   #{bundle.created}, (#{Time.at(bundle.created)})"
+  subBy = ($hosts.values.find_all {|h| h.subscribed?(bundle.dest)}).length
+  puts "  Subscribed by #{subBy}"
+  nSubscribed += subBy
+  if bundle.creatorTime
+    if bundle.creatorTime != bundle.created
+      puts "  Strange creation timing (seen at creator #{bundle.creatorTime})"
+    else
+      puts "  Creation OK"
+    end
+  else
+    puts "  Not seen at source!"
+  end
+  seenAt = bundle.incidents.map {|inc| inc[1]}
+  unless bundle.delivered.empty?
+    bundle.delivered.each do |host, time|
+      nDelivered += 1
+      deliveryTime  += time - bundle.created
+      #deliveryTime += (bundle.delivered(bundle.dest)-bundle.created)
+      deliveredSize += bundle.size
+      puts "  Delivered to #{host} at #{time} (#{Time.at(time)})"
+      puts "  In transit for #{time-bundle.created} sec"
+    end
+    succReplicas += seenAt.uniq.length
+    nUniqDel += 1
+  else
+    puts "  Not Delivered"
+  end
+  replicas += seenAt.uniq.length
+  puts "  Incidents (#{seenAt.uniq.length}): #{seenAt.uniq.join(", ")}"
+  puts "  Stored at (#{bundle.storedAt.uniq.length}): #{bundle.storedAt.uniq.join(", ")}"
+end
+
+puts
+puts "#{$bundles.length} bundles total, #{nSubscribed} bundles subscribed"
+puts "#{nDelivered} subscriptions fulfilled (#{nDelivered.to_f/nSubscribed*100}%)"
+puts "#{nUniqDel} bundles delivered at least once (#{nUniqDel.to_f/$bundles.length*100}%)"
+#puts "#{nDelivered} bundles delivered (#{nDelivered.to_f/$bundles.length*100}%)"
+puts "#{deliveredSize} bytes delivered (#{deliveredSize.to_f/nDelivered} average payload)"
+puts "#{deliveryTime.to_f/nDelivered} sec average transit time"
+puts "#{totalStorageUsed} bytes of storage used (#{totalStorageUsed.to_f/$hosts.length} average per host)"
+puts "#{replicas.to_f/$bundles.length} average replicas per bundle (#{replicas} replicas total)"
+puts "#{succReplicas.to_f/nUniqDel} average replicas per delivered bundle (#{succReplicas} replicas total)"
+puts "Overhead: #{totalStorageUsed.to_f/deliveredSize}"
+puts
+

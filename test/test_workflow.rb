@@ -23,7 +23,7 @@ class TestWorkflow < Test::Unit::TestCase
 
   def setup
     @bundle = Bundling::Bundle.new("test", "dtn:receiver")
-    RdtnConfig::Settings.instance.store = @store = Storage.new("store")
+    RdtnConfig::Settings.instance.store = @store = Storage.new(nil, "store")
   end
 
   def teardown
@@ -37,12 +37,8 @@ class TestWorkflow < Test::Unit::TestCase
 
   def test_marshal
     wf = Bundling::BundleWorkflow.new(@bundle)
-    @store.storeBundle(@bundle)
+    #@store.storeBundle(@bundle)
     #@store.save
-    b2 = @store.getBundle(@bundle.bundleId)
-    assert_equal(@bundle, b2)
-    str = Marshal.dump(wf)
-    wf2 = Marshal.load(str)
     fwBundle = nil
     bothEvents = false
     EventDispatcher.instance.subscribe(:bundleToForward) do |bundle|
@@ -54,7 +50,13 @@ class TestWorkflow < Test::Unit::TestCase
       end
     end
     wf.processBundle
+    b2 = @store.getBundle(@bundle.bundleId)
+    assert_equal(@bundle, b2)
     assert(fwBundle)
+
+    str = Marshal.dump(wf)
+    wf2 = Marshal.load(str)
+
     wf2.processBundle
     assert(bothEvents)
   end
