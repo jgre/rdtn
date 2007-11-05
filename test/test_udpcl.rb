@@ -34,9 +34,8 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
 
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
-    log.debug("starting contact exchange")
+    rdebug(self, "starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
     begin
@@ -48,7 +47,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read
-      log.debug("Received bundle1: #{outBundle}")
+      rdebug(self, "Received bundle1: #{outBundle}")
     end
     interface=UDPCL::UDPInterface.new("udp0", :host => "localhost", :port => 3456)
     link=UDPCL::UDPLink.new

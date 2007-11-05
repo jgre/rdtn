@@ -23,10 +23,9 @@ require 'optparse'
 require "clientlib"
 
 
-log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 eid = "/dtnrcv"
 
-log.debug("Starting dtnrcv")
+rdebug(self, "Starting dtnrcv")
 
 opts = OptionParser.new do |opts|
   opts.on("-l", "--local EID", "local EID") do |l|

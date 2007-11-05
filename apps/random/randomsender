@@ -28,7 +28,6 @@ require "daemon"
 require "subscriptionhandler"
 require "storage"
 
-log     = RdtnConfig::Settings.instance.getLogger(self.class.name)
 eid     = "randomsender"
 port    = RDTNAPPIFPORT
 host    = "localhost"

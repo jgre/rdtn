@@ -115,7 +115,6 @@ class IPDiscovery < Monitor
 
   def initialize(address, port, interval = 10, announceIfs = [])
     super()
-    @log         = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @addr        = address
     @port        = port
     @interval    = interval
@@ -183,9 +182,9 @@ class IPDiscovery < Monitor
 	end
       end
     rescue SystemCallError
-      @log.error("IPDiscovery::read" + $!)
+      rerror(self, "IPDiscovery::read" + $!)
     rescue ProtocolError => err
-      @log.warn("IPDiscovery: #{err}")
+      rwarn(self, "IPDiscovery: #{err}")
     end
     # If we are here, doRead hit an error or the link was closed.
     self.close
@@ -211,7 +210,7 @@ class IPDiscovery < Monitor
 	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
 	    EventDispatcher.instance.dispatch(:opportunityDown, 
 					      ann.typeSym, opts, ann.senderEid)
-	    @log.debug("Announcement timed out for #{ann.senderEid}")
+	    rdebug(self, "Announcement timed out for #{ann.senderEid}")
 	    delIndex.push(i)
 	  end
 	end

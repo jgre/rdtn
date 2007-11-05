@@ -31,7 +31,6 @@ require 'configuration'
 require "stats"
 require "daemon"
 
-log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 
 loopInterval = 10
 duration = 1
@@ -74,7 +73,7 @@ if defined? plFile and plFile
 
   b = Bundling::Bundle.new(payload)
   b.destEid = EID.new(dest)
-  log.debug("sending bundle")
+  rdebug(self, "sending bundle")
   EventDispatcher.instance().dispatch(:bundleParsed, b)
 
   if defined?(loopInterval)
@@ -83,18 +82,18 @@ if defined? plFile and plFile
 	sleep(interv)
 	b = Bundling::Bundle.new(payload)
 	b.destEid = EID.new(dest)
-	log.debug("sending bundle")
+	rdebug(self, "sending bundle")
 	EventDispatcher.instance().dispatch(:bundleParsed, b)
       end
     end
   end
 
 end
-log.debug("Starting DTN daemon main loop")
+rdebug(self, "Starting DTN daemon main loop")
 
 #daemon.runLoop
 sleep (duration)
-log.debug("Stopping notifier")
+rdebug(self, "Stopping notifier")
 
 ObjectSpace.each_object(Link) {|link| link.close}
 ObjectSpace.each_object(Interface) {|iface| iface.close}

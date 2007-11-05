@@ -343,7 +343,6 @@ module TCPCL
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
       super()
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       
       @segmentLength = 32768
       @options = {}
@@ -365,7 +364,7 @@ module TCPCL
 	@port = peer[1]
 	watch()
 	sendContactHeader()
-	@log.debug("TCPLink::initialize: watching new socket")
+	#rdebug(self, "TCPLink::initialize: watching new socket")
       end
       
     end
@@ -403,7 +402,6 @@ module TCPCL
       sdThread = senderThread { sendShutdown }
       #sdThread.join(1) #FIXME: Make this limit configurable
       #sdThread.kill
-      @log.debug("TCPLINK::close -- closing socket #{@s}")
       # Now close the thread
       super
       @sendSocket.close if @sendSocket and not @sendSocket.closed?
@@ -457,7 +455,7 @@ module TCPCL
       EventDispatcher.instance().dispatch(:bundleData, @currentBundle, self)
 
       if endSegment
-        @log.debug("TCPLink::handle_bundle_data Bundle is complete")
+        rdebug(self, "TCPLink::handle_bundle_data Bundle is complete")
         # We take a new object for the next bundle. The bundle parser must take
         # care of closing the old one.
         @currentBundle = RdtnStringIO.new
@@ -519,13 +517,13 @@ module TCPCL
 	    end
 
 	  rescue InputTooShort => detail
-	    @log.info("Input too short need to read 
+	    rinfo(self, "Input too short need to read 
 		       #{detail.bytesMissing} (#{input.length - input.pos} given)")
 	    self.bytesToRead = detail.bytesMissing
 	  end
 
           rescue SystemCallError, IOError    # lost TCP connection 
-    	    @log.warn("TCPLink::whenReadReady::recvfrom " + $!)
+    	    rwarn(self, "TCPLink::whenReadReady::recvfrom " + $!)
           end
 	end
       # If we are here, doRead hit an error or the link was closed.
@@ -596,8 +594,6 @@ module TCPCL
     @s
    
     def initialize(name, options)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-      
       self.name = name
       @host = "127.0.0.1"
       @port = TCPCLPORT          # default port
@@ -611,7 +607,7 @@ module TCPCL
 	@port = options[:port]
       end
 
-      @log.debug("Building TCP interface with port=#{@port} and hostname=#{@host}")
+      rdebug(self, "Building TCP interface with port=#{@port} and hostname=#{@host}")
       
       @s = TCPServer.new(@host,@port)
       # register this socket

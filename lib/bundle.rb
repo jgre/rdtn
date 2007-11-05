@@ -55,7 +55,6 @@ module Bundling
     # We index the bundles by the object_id of the queue that is filled by the
     # convergence layer.
     @@incomingBundles = {}
-    @@log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 
     def ParserManager.registerEvents
       EventDispatcher.instance.subscribe(:bundleData) do |*args|
@@ -69,11 +68,11 @@ module Bundling
 
 	if not @@incomingBundles.has_key?(queue.object_id)
 	  @@incomingBundles[queue.object_id] = ParserManager.new(link)
-	  @@log.debug("Adding new entry to @incomingBundles #{queue.object_id}")
+	  rdebug(self, "Adding new entry to @incomingBundles #{queue.object_id}")
 	end
 
 	if queue.closed?
-	  @@log.warn("':bundleData' event received, but the queue is closed.")
+	  rwarn(self, "':bundleData' event received, but the queue is closed.")
 	  @@incomingBundles.delete(queue.object_id)
 	  return
 	end
@@ -103,17 +102,17 @@ module Bundling
 	@bundle.parse(queue)
       rescue InputTooShort => detail
 	@idleSince = Time.now
-	@@log.info("Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
+	rinfo(self, "Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
       rescue ProtocolError => msg
-	@@log.error("Bundle parser error: #{msg}")
+	rerror(self, "Bundle parser error: #{msg}")
 	queue.close
 	@active = false
       rescue IOError => msg
-	@@log.error("Bundle parser IO error: #{msg}")
+	rerror(self, "Bundle parser IO error: #{msg}")
 	@active = false
       else
 	if @bundle.parserFinished?
-	  @@log.debug("Parsing Bundle finished")
+	  rdebug(self, "Parsing Bundle finished")
 	  EventDispatcher.instance.dispatch(:bundleParsed, @bundle)
 	  queue.close
 	  @active = false
@@ -140,7 +139,6 @@ module Bundling
 
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @blocks = []
       if payload or destEid or srcEid
 	@blocks.push(PrimaryBundleBlock.new(self, destEid, srcEid, 
@@ -336,7 +334,6 @@ module Bundling
     
     def initialize(bundle, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @bundle = bundle
       @version = 5
       @procFlags = 0
@@ -735,7 +732,6 @@ module Bundling
     protected :bundle
 
     def initialize(bundle)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @flags   = 0
       @bundle  = bundle
 
@@ -815,7 +811,6 @@ module Bundling
     @@storePolicy = :memory
 
     def initialize(bundle, payload = nil)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       super(bundle)
       self.payload = payload
       self.flags   = 8 # last block

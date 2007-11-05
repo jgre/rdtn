@@ -29,7 +29,6 @@ class RdtnClient
   attr_reader :bundleHandler, :host, :port
 
   def initialize(host="localhost", port=RDTNAPPIFPORT, blocking=true)
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @host = host
     @port = port
     @bundleHandler = lambda {}
@@ -59,7 +58,7 @@ class RdtnClient
 	wait = nil
       end
     end
-    @log.debug("RdtnClient::close -- closing socket #{@s}")
+    rdebug(self, "RdtnClient::close -- closing socket #{@s}")
     @sendSocket.close if not @sendSocket.closed?
     @receiveSocket.close if not @receiveSocket.closed?
     EventDispatcher.instance().dispatch(:linkClosed, self)
@@ -123,7 +122,7 @@ class RdtnClient
     begin
       doRead {|input| processData(input) }
     rescue SystemCallError    # lost TCP connection 
-      @log.error("RDTNClient::read" + $!)
+      rerror(self, "RDTNClient::read" + $!)
     end
     # If we are here, doRead hit an error or the link was closed.
     self.close()              
@@ -148,7 +147,7 @@ class RdtnClient
 
   def checkError(typeCode, args)
     if typeCode == STATUS and args[:status] >= 400
-      @log.error(
+      rerror(self,
 	"An error occured for #{args[:uri]}: #{args[:message]}")
       return true
     end

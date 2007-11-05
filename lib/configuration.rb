@@ -47,39 +47,37 @@ module RdtnConfig
 
 
     def initialize
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       @interfaces = {}
     end
 
     def self.load(filename)
       conf = new
       conf.instance_eval(File.read(filename), filename)
-      #conf.loglevel(:debug)
       conf
     end
 
     def loglevel(level, pattern = nil)
 
-      @log.level = curLevel = case level
-			      when :debug: Logger::DEBUG
-			      when :info : Logger::INFO
-			      when :error: Logger::ERROR
-			      when :warn : Logger::WARN
-			      when :fatal: Logger::FATAL
-			      else Logger:ERROR
-			      end
+      curLevel = case level
+		 when :debug: Logger::DEBUG
+		 when :info : Logger::INFO
+		 when :error: Logger::ERROR
+		 when :warn : Logger::WARN
+		 when :fatal: Logger::FATAL
+		 else Logger:ERROR
+		 end
       
       RdtnConfig::Settings.instance.setLogLevel(pattern, curLevel)
     end
 
     def log(level, msg)
       case level
-      when :debug: @log.debug(msg)
-      when :info: @log.info(msg)
-      when :warn: @log.warn(msg)
-      when :error: @log.error(msg)
-      when :fatal: @log.fatal(msg)
-      else @log.info(msg)
+      when :debug: rdebug(self, msg)
+      when :info:  rinfo(self, msg)
+      when :warn:  rwarn(self, msg)
+      when :error: rerror(self, msg)
+      when :fatal: rfatal(self, msg)
+      else rinfo(self, msg)
       end
     end
 
@@ -148,7 +146,8 @@ module RdtnConfig
 
     def router(type)
       case type
-      when :routingTable: Settings.instance.router = RoutingTable.new
+      when :routingTable: 
+	Settings.instance.router = RoutingTable.new(Settings.instance.contactManager)
       when :priorityRouter 
 	Settings.instance.router = PriorityRouter.new(Settings.instance.contactManager)
       else raise "Unknown type of router #{type}"
@@ -265,11 +264,36 @@ module RdtnConfig
 	  end
 	end
       end
-      logger = Logger.new(STDOUT)
-      logger.level = matchedLevel ? matchedLevel:@defaultLogLevel
-      return logger
+      @logger = Logger.new(STDOUT) unless @logger
+      @logger.level = matchedLevel ? matchedLevel : @defaultLogLevel
+      return @logger
     end
 
   end
 
 end #module RdtnConfig
+
+def rdebug(obj, *args)
+  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
+  log.debug(*args)
+end
+
+def rinfo(obj, *args)
+  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
+  log.info(*args)
+end
+
+def rwarn(obj, *args)
+  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
+  log.warn(*args)
+end
+
+def rerror(obj, *args)
+  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
+  log.error(*args)
+end
+
+def rfatal(obj, *args)
+  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
+  log.fatal(*args)
+end

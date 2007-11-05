@@ -54,12 +54,12 @@ class EID
   def join(str)
     res = EID.new
     res.scheme = @scheme
-    if @ssp[-1].chr == "/" and str[0].chr == "/"
+    if @ssp[-1].chr == "/" and str.to_s[0].chr == "/"
       res.ssp = @ssp + str[1..-1]
-    elsif @ssp[-1].chr != "/" and str[0].chr != "/"
-      res.ssp = @ssp + "/" + str
+    elsif @ssp[-1].chr != "/" and str.to_s[0].chr != "/"
+      res.ssp = @ssp + "/" + str.to_s
     else
-      res.ssp = @ssp + str
+      res.ssp = @ssp + str.to_s
     end
     return res
   end

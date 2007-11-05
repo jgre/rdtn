@@ -96,7 +96,6 @@ class ContactManager < Monitor
     @oppCount  = 0 # Counter for the name of opportunistic links.
     @links     = []
     @neighbors = []
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 
     EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
       linkCreated(*args)
@@ -140,7 +139,7 @@ class ContactManager < Monitor
   private
  
   def linkCreated(link)
-    @log.debug("Link created #{link.name}")
+    rdebug(self, "Link created #{link.name}")
     synchronize do
       @links << link
     end
@@ -148,7 +147,7 @@ class ContactManager < Monitor
 
   def contactClosed(link)
     EventDispatcher.instance.dispatch(:routeLost, link)
-    @log.debug(
+    rdebug(self,
 	"Removing link #{link.object_id} from ContactManager")
     synchronize do
       @links.delete(link)
@@ -166,7 +165,7 @@ class ContactManager < Monitor
     clClasses = CLReg.instance.cl[type]
     if clClasses
       begin
-	@log.debug("Opportunity for #{type} link to #{eid}.")
+	rdebug(self, "Opportunity for #{type} link to #{eid}.")
 	link = clClasses[1].new
 	link.policy = :opportunistic
 	link.remoteEid = eid
@@ -176,19 +175,19 @@ class ContactManager < Monitor
 	#EventDispatcher.instance.dispatch(:routeAvailable, 
 	#				  RoutingEntry.new(eid, link)) if eid
       rescue RuntimeError => err
-	@log.error("Failed to open opportunistic link #{err}")
+	rerror(self, "Failed to open opportunistic link #{err}")
       end
     else
-      @log.warn("Opportunity signaled with unknown type #{type}")
+      rwarn(self, "Opportunity signaled with unknown type #{type}")
       return nil
     end
   end
 
   def opportunityDown(type, options, eid)
     # FIXME use type and options, if eid is not given
-    @log.info("Opportunity down #{eid}")
+    rinfo(self, "Opportunity down #{eid}")
     link=findLink {|lnk| lnk.remoteEid == eid and lnk.policy == :opportunistic}
-    @log.info("Closing opportunistic link #{link}") if link
+    rinfo(self, "Closing opportunistic link #{link}") if link
     link.close if link
   end
 

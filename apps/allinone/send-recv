@@ -28,7 +28,6 @@ require "daemon"
 require "subscriptionhandler"
 
 
-log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 dest = "dtn://hamlet.dtn/test"
 eid = "send-recv"
 subscribeUri = nil
@@ -85,13 +84,13 @@ Thread.new(plFile) do |file|
       Thread.current.exit
     end
     b = Bundling::Bundle.new(payload, EID.new(dest))
-    log.debug("sending bundle")
+    rdebug(self, "sending bundle")
     c.sendBundle(b)
   end
   Thread.current.exit
 end
 
-log.debug("Starting DTN daemon main loop")
+rdebug(self, "Starting DTN daemon main loop")
 
 daemon.runLoop
 

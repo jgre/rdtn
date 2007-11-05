@@ -28,13 +28,13 @@ module RerunThread
 	  block.call(*args)
 	rescue => ex
 	  lastErrorTime = Time.now.to_i
-	  @log.error(ex)
-	  @log.info("Restarting thread operation in #{self.class.to_s}")
+	  rerror(self, ex)
+	  rinfo(self, "Restarting thread operation in #{self.class.to_s}")
 	else
 	  Thread.current.exit
 	end
       end
-      @log.error("Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
+      rerror(self, "Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
       Thread.current.exit
     end
   end

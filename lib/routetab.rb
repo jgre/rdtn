@@ -30,7 +30,6 @@ class RoutingTable < Router
   def initialize(contactManager)
     super()
     mon_initialize
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     @routes=[]
     @contactManager = contactManager
 
@@ -52,7 +51,7 @@ class RoutingTable < Router
   end
 
   def addEntry(routingEntry)
-    @log.info(
+    rinfo(self, 
       "Added route to #{routingEntry.destination.source} over #{routingEntry.link}.")
     synchronize { @routes.push(routingEntry) }
 
@@ -81,7 +80,7 @@ class RoutingTable < Router
   end
 
   def forward(bundle)
-    @log.debug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
+    rdebug(self, "Forward: #{bundle.destEid}, #{bundle.srcEid}")
     matches = self.match(bundle.destEid.to_s)
 
     # Avoid returning the bundle directly to its sender.

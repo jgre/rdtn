@@ -28,9 +28,8 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   def test_contact_exchange
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
-    log.debug("starting contact exchange")
+    rdebug(self, "starting contact exchange")
     
     @interface=TCPCL::TCPInterface.new("tcp0", :host=> "localhost", :port => 3456)
     @link=TCPCL::TCPLink.new
@@ -46,9 +45,8 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   def test_bundle_sending
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     
-    log.debug("starting contact exchange")
+    rdebug(self, "starting contact exchange")
     
     inBundle = "I'm a DTN bundle01!"
     begin
@@ -56,13 +54,13 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 	f.read
       end
     rescue
-      log.warn("Could not open large testfile")
+      rwarn(self, "Could not open large testfile")
     end
     outBundle = ""
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       oldLen = outBundle.length
       outBundle += queue.read
-      log.debug("Received bundle1: #{outBundle.length-oldLen}")
+      rdebug(self, "Received bundle1: #{outBundle.length-oldLen}")
     end
     interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
     link=TCPCL::TCPLink.new
@@ -93,17 +91,16 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   # Test negotiation of ack flags: true/false -> dont use acks
  
   def test_bundle_sending2
-    log = RdtnConfig::Settings.instance.getLogger(self.class.name)
-    
     RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
+    #RdtnConfig::Settings.instance.setLogLevel(/TCP/, Logger::DEBUG)
     
-    log.debug("starting contact exchange")
+    rdebug(self, "starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
     outBundle = "" 
     handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read 
-      log.debug("Received bundle2: #{outBundle}")
+      rdebug(self, "Received bundle2: #{outBundle}")
     end
     
     interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)

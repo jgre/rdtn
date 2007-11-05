@@ -25,7 +25,6 @@ require "clientlib"
 require 'bundle'
 
 
-log = RdtnConfig::Settings.instance.getLogger(self.class.name)
 dest = ""
 eid = "/dtncat"
 duration = 0
@@ -48,7 +47,7 @@ end
 
 opts.parse!(ARGV)
 
-log.debug("Starting dtncat")
+rdebug(self, "Starting dtncat")
 
 if not ARGV.empty?
   plFile = open(ARGV[0])
@@ -64,7 +63,7 @@ client = RdtnClient.new
 client.register(eid) {|bundle| puts "Bundle received #{bundle.payload}" }
 
 b = Bundling::Bundle.new(payload, dest)
-log.debug("sending bundle")
+rdebug(self, "sending bundle")
 client.sendBundle(b)
 
 if loopInterval
@@ -72,7 +71,7 @@ if loopInterval
       while true
 	sleep(interv)
 	b = Bundling::Bundle.new(payload, dest)
-	log.debug("sending bundle")
+	rdebug(self, "sending bundle")
 	client.sendBundle(b)
       end
   end

@@ -95,7 +95,7 @@ class PatternReg
     target = args[:target]
     if not target
       raise MissingParameter, "Destiniation EID"
-    elsif target =~ /([[:alnum:]]+):([[:print:]]+)/
+    elsif target.to_s =~ /([[:alnum:]]+):([[:print:]]+)/
       target = EID.new(target)
     else
       # If the target is only a partial eid, prepend the eid of the router.

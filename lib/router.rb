@@ -50,7 +50,6 @@ class Router
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
 
   def doForward(bundle, links)
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     links.each do |link|
       begin
 	if defined?(link.maxBundleSize) and link.maxBundleSize
@@ -60,12 +59,12 @@ class Router
 	end
 	fragments.each do |frag| 
 	  link.sendBundle(frag) 
-	  @log.info(
+	  rinfo(self, 
                "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
       rescue ProtocolError => err
-	@log.error("Routetab::doForward #{err}")
+	rerror(self, "Routetab::doForward #{err}")
       end
     end
     return nil

@@ -40,7 +40,6 @@ module UDPCL
     include QueuedSender
 
     def initialize(sock = nil)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       super()
       queuedSenderInit(sock)
     end
@@ -71,7 +70,7 @@ module UDPCL
 
     def close(wait = nil)
       super
-      @log.debug("UDPLink::close")
+      rdebug(self, "UDPLink::close")
       if socketOK?
 	@sendSocket.close
       end
@@ -98,7 +97,6 @@ module UDPCL
     include QueuedReceiver
 
     def initialize(name, options)
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       self.name = name
       @host = "127.0.0.1"
       @port = UDPCLPORT
@@ -110,7 +108,7 @@ module UDPCL
 	@port = options[:port]
       end
 
-      @log.debug("Building UDP interface with port=#{@port} and hostname=#{@host}")
+      rdebug(self, "Building UDP interface with port=#{@port} and hostname=#{@host}")
       sock = UDPSocket.new
       sock.bind(@host, @port)
       queuedReceiverInit(sock)
@@ -132,7 +130,7 @@ module UDPCL
 	  EventDispatcher.instance().dispatch(:bundleData, input, self)
 	end
       rescue SystemCallError
-	@log.error("UDPLink::whenReadReady::recvfrom" + $!)
+	rerror(self, "UDPLink::whenReadReady::recvfrom" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              

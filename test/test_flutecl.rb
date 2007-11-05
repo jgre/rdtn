@@ -31,7 +31,6 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   @@file2 = "fasel"
 
   def setup
-    @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
     Dir.mkdir(@@inDirname)
     begin
     Dir.mkdir(@@outDirname)
@@ -66,7 +65,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
     counter = 0
     EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
       outBundle = queue.read
-      @log.debug("Received bundle: #{outBundle}")
+      rdebug(self, "Received bundle: #{outBundle}")
       assert((outBundle == @@file1 or outBundle == @@file2), "Bundle must equal one of the test files")
       counter += 1
     end

@@ -37,7 +37,6 @@ module RdtnDaemon
 
     def initialize(optParser = OptionParser.new)
 
-      @log = RdtnConfig::Settings.instance.getLogger(self.class.name)
       store = RdtnConfig::Settings.instance.store
       Bundling::ParserManager.registerEvents
       Bundling::BundleWorkflow.registerEvents
@@ -68,7 +67,7 @@ module RdtnDaemon
     end
 
     def runLoop
-      @log.debug("Starting DTN daemon main loop")
+      rdebug(self, "Starting DTN daemon main loop")
       sleep # Let the other threads run until the process is killed.
     end
   end
