@@ -145,9 +145,11 @@ class Subscription
 
   def getBundlesReceived
     store = RdtnConfig::Settings.instance.store
-    bundles = store.getBundlesMatchingDest(@uri.to_s) if store
-    @bundlesReceived.concat(bundles.map {|b| b.bundleId})
-    @bundlesReceived.uniq!
+    if store
+      bundles = store.getBundlesMatchingDest(@uri.to_s) 
+      @bundlesReceived.concat(bundles.map {|b| b.bundleId})
+      @bundlesReceived.uniq!
+    end
   end
 
   def serialize(io)

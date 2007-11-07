@@ -159,7 +159,7 @@ module Bundling
       end
       
       return nil if methodId == :payload
-      raise NoMethodError, methodId, caller
+      raise NoMethodError, methodId.to_s, caller
     end
 
     def to_s
