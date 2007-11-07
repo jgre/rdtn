@@ -147,9 +147,11 @@ module RdtnConfig
     def router(type)
       case type
       when :routingTable: 
-	Settings.instance.router = RoutingTable.new(Settings.instance.contactManager)
+	Settings.instance.router = RoutingTable.new(
+	  Settings.instance.contactManager)
       when :priorityRouter 
-	Settings.instance.router = PriorityRouter.new(Settings.instance.contactManager)
+	Settings.instance.router = PriorityRouter.new(
+	  Settings.instance.contactManager)
       else raise "Unknown type of router #{type}"
       end
     end
@@ -163,6 +165,10 @@ module RdtnConfig
     def addFilter(filter)
       filterAlg = PrioReg.instance.makeFilter(filter)
       Settings.instance.router.addFilter(filterAlg)
+    end
+
+    def sprayWaitCopies(nCopies)
+      Settings.instance.sprayWaitCopies = nCopies
     end
 
     private
@@ -217,7 +223,9 @@ module RdtnConfig
   class Settings
     include Singleton
 
-    attr_accessor :localEid, :store, :router, :contactManager, :subscriptionHandler
+    attr_accessor :localEid, :store, :router, 
+      :contactManager, :subscriptionHandler,
+      :sprayWaitCopies
 
     def initialize
       @localEid = ""

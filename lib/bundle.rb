@@ -49,6 +49,12 @@ module Bundling
     end
   end
 
+  class BlockTypeInUse < ProtocolError
+    def initialize(blockType, klass)
+      super("Block type #{blockType} already used for class #{klass.name}")
+    end
+  end
+
   class ParserManager
 
     # Hash of bundles that are currently being received by convergence layers
@@ -162,6 +168,14 @@ module Bundling
       raise NoMethodError, methodId.to_s, caller
     end
 
+    def addBlock(block)
+      if @blocks[-1] and @blocks[-1].class != PrimaryBundleBlock
+	@blocks[-1].lastBlock = false 
+      end
+      block.lastBlock = true
+      @blocks.push(block)
+    end
+
     def to_s
       data = ""
       @blocks.each {|block| data << block.to_s}
@@ -174,11 +188,8 @@ module Bundling
 	  @blocks.push(PrimaryBundleBlock.new(self))
 	elsif @blocks[-1].parserFinished?
 	  blockType = io.getc
-	  block = case blockType
-		  when PAYLOAD_BLOCK: PayloadBlock.new(self)
-		  else raise UnknownBlockType, blockType
-		  end
-	  @blocks.push(block)
+	  block = BundleBlockReg.instance.makeBlock(blockType, self)
+	  addBlock(block)
 	end
 	oldPos = io.pos
 	begin
@@ -813,12 +824,11 @@ module Bundling
     def initialize(bundle, payload = nil)
       super(bundle)
       self.payload = payload
-      self.flags   = 8 # last block
+      #self.flags   = 8 # last block
 
       defField(:plblockLength, :decode => GenParser::SdnvDecoder,
-	       :object => @bundle,
 	       :block => lambda {|len| defField(:payload, :length => len)})
-      defField(:payload, :handler => :payload=, :object => @bundle)
+      defField(:payload, :handler => :payload=)
     end
 
     def to_s
@@ -864,3 +874,33 @@ module Bundling
   end
 
 end # module Bundling
+
+class BundleBlockReg
+
+  include Singleton
+  
+  attr_accessor :blocks
+
+  def initialize
+    @blocks = {}
+  end
+
+  def regBlock(blockType, klass)
+    if @blocks[blockType]
+      raise Bundling::BlockTypeInUse(blocktype, @blocks[blockType])
+    end
+    @blocks[blockType] = klass
+  end
+
+  def makeBlock(blockType, bundle)
+    return @blocks[blockType].new(bundle) if @blocks[blockType]
+    raise UnknownBlockType, blockType
+  end
+
+end
+
+def regBundleBlock(blockType, klass)
+  BundleBlockReg.instance.regBlock(blockType, klass)
+end
+
+regBundleBlock(Bundling::Bundle::PAYLOAD_BLOCK, Bundling::PayloadBlock)

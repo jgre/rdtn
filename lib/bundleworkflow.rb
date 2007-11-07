@@ -49,15 +49,8 @@ module Bundling
 
     def initialize(bundle)
       @bundle = bundle
-      @taskQueue = [
-	StoreHandler.new(self),
-	ReassemblyHandler.new(self),
-	CustodyHandler.new(self),
-	AdminRecHandler.new(self),
-	Forwarder.new(self)
-      ]
+      @taskQueue = WorkflowTaskReg.instance.makeTasks(@bundle)
       @curTaskIndex = 0
-
     end
 
     # We do not dump the actual bundle but only its id
@@ -213,3 +206,34 @@ module Bundling
   end
 
 end # module Bundling
+
+class WorkflowTaskReg
+
+  include Singleton
+
+  attr_accessor :tasks
+
+  def initialize
+    @tasks = []
+  end
+
+  def regTask(runlevel, klass)
+    @tasks.push([runlevel, klass]) unless @tasks.find {|rl, k| rl == runlevel}
+  end
+
+  def makeTasks(bundle)
+    @tasks = @tasks.sort_by {|task| task[0]}
+    @tasks.map {|rl, klass| klass.new(bundle)}
+  end
+
+end
+
+def regWFTask(runlevel, klass)
+  WorkflowTaskReg.instance.regTask(runlevel, klass)
+end
+
+regWFTask(10, Bundling::StoreHandler)
+regWFTask(20, Bundling::ReassemblyHandler)
+regWFTask(30, Bundling::CustodyHandler)
+regWFTask(40, Bundling::AdminRecHandler)
+regWFTask(50, Bundling::Forwarder)
