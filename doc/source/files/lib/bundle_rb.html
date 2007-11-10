@@ -56,7 +56,7 @@
     </tr>
     <tr class="top-aligned-row">
       <td><strong>Last Update:</strong></td>
-      <td>Sun Mar 11 10:36:06 CET 2007</td>
+      <td>Thu Nov 08 15:15:57 +0100 2007</td>
     </tr>
     </table>
   </div>
@@ -68,10 +68,54 @@
 
   <div id="contextContent">
 
+    <div id="description">
+      <pre>
+ Copyright (C) 2007 Janico Greifenberg &lt;jgre@jgre.org&gt; and
+ Dirk Kutscher &lt;dku@tzi.org&gt;
+</pre>
+<p>
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2 of the License, or (at your option)
+any later version.
+</p>
+<p>
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details.
+</p>
+<p>
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc., 59
+Temple Place, Suite 330, Boston, MA 02111-1307 USA
+</p>
 
+    </div>
+
+    <div id="requires-list">
+      <h3 class="section-bar">Required files</h3>
+
+      <div class="name-list">
+      rdtnerror&nbsp;&nbsp;
+      configuration&nbsp;&nbsp;
+      sdnv&nbsp;&nbsp;
+      queue&nbsp;&nbsp;
+      eidscheme&nbsp;&nbsp;
+      rdtnevent&nbsp;&nbsp;
+      genparser&nbsp;&nbsp;
+      </div>
+    </div>
 
    </div>
 
+    <div id="method-list">
+      <h3 class="section-bar">Methods</h3>
+
+      <div class="name-list">
+      <a href="#M000001">regBundleBlock</a>&nbsp;&nbsp;
+      </div>
+    </div>
 
   </div>
 
@@ -88,6 +132,34 @@
 
 
     <!-- if method_list -->
+    <div id="methods">
+      <h3 class="section-bar">Public Instance methods</h3>
+
+      <div id="method-M000001" class="method-detail">
+        <a name="M000001"></a>
+
+        <div class="method-heading">
+          <a href="#M000001" class="method-signature">
+          <span class="method-name">regBundleBlock</span><span class="method-args">(blockType, klass)</span>
+          </a>
+        </div>
+      
+        <div class="method-description">
+          <p><a class="source-toggle" href="#"
+            onclick="toggleCode('M000001-source');return false;">[Source]</a></p>
+          <div class="method-source-code" id="M000001-source">
+<pre>
+<span class="ruby-comment cmt"># File lib/bundle.rb, line 902</span>
+<span class="ruby-keyword kw">def</span> <span class="ruby-identifier">regBundleBlock</span>(<span class="ruby-identifier">blockType</span>, <span class="ruby-identifier">klass</span>)
+  <span class="ruby-constant">BundleBlockReg</span>.<span class="ruby-identifier">instance</span>.<span class="ruby-identifier">regBlock</span>(<span class="ruby-identifier">blockType</span>, <span class="ruby-identifier">klass</span>)
+<span class="ruby-keyword kw">end</span>
+</pre>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
 
 
   </div>

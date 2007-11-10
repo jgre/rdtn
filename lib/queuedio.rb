@@ -51,7 +51,7 @@ module QueuedSender
       begin
         res=@sendSocket.send(buf,0)
         
-      rescue  RunTimeError => detail
+      rescue  RuntimeError => detail
         puts("socket send error " + detail)
       end
       
