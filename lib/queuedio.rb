@@ -48,7 +48,13 @@ module QueuedSender
     res = -1
     while @sendSocket and not @sendSocket.closed? and not @sendQueue.eof?
       buf = @sendQueue.read(@sendQueueChunkSize)
-      res=@sendSocket.send(buf,0)
+      begin
+        res=@sendSocket.send(buf,0)
+        
+      rescue  RunTimeError => detail
+        puts("socket send error " + detail)
+      end
+      
       if res < buf.length
 	@sendQueue.pos -= (buf.length - res)
       end

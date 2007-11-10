@@ -21,6 +21,7 @@ require 'configuration'
 require 'rerun_thread'
 require 'genparser'
 require 'ipaddr'
+require 'platform.rb'
 
 class Announcement
 
@@ -137,10 +138,12 @@ class IPDiscovery < Monitor
   def start
     @sock = UDPSocket.new
     ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
-    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
-    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 1)
+
     @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 1)
     @sock.bind(Socket::INADDR_ANY, @port)
+    @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
+
     queuedReceiverInit(@sock)
     @listenerThread = spawnThread { read }
     @senderThread   = spawnThread { announce }
