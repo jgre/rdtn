@@ -894,7 +894,7 @@ class BundleBlockReg
 
   def makeBlock(blockType, bundle)
     return @blocks[blockType].new(bundle) if @blocks[blockType]
-    raise UnknownBlockType, blockType
+    raise Bundling::UnknownBlockType.new(blockType)
   end
 
 end
