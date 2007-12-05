@@ -29,8 +29,8 @@ jgre	done         Neighbor Discovery (Simple Multicast)
 jgre	initial      Neighbor Discovery (Bonjour/Avahi, DDA?)
 ?       initial      Fragmentation
 ?       initial      Reactive Fragmentation
-?       initial      Custoy
-?       initial	     Administrative Records
+mss     initial      Custoy
+mss     initial	     Administrative Records
 ?       initial      Loop detection
 ======  ============ ========================================================
 
@@ -40,8 +40,8 @@ TCP CL
 ======  ============ ========================================================
 Who     Status       What
 ======  ============ ========================================================
-hannes  initial      Retransmission for segments that were not ACKed
-hannes  initial      Keepalive
+?       initial      Retransmission for segments that were not ACKed
+?       initial      Keepalive
 ======  ============ ========================================================
 
 Routing
@@ -50,9 +50,30 @@ Routing
 ======  ============ ========================================================
 Who     Status       What
 ======  ============ ========================================================
-jgre    initial      Simple Flood router
+jgre    done         Simple Flood router
 ?       initial      PROPHET router
+?       initial      RAPID router
 ======  ============ ========================================================
+
+DTN2 Compatibility
+==================
+
+======  ============ ========================================================
+Who     Status       What
+======  ============ ========================================================
+?       initial      DTN2 compatible XDR-based Client Interface
+?       initial      DTN2 compatible external convergence layers
+?       initial      DTN2 compatible external router interface
+======  ============ ========================================================
+
+Misc
+====
+
+======  ============ ========================================================
+Who     Status       What
+======  ============ ======================================================
+jgre    initial      Rdtn EMulation (REM)
+======  ============ ======================================================
 
 
 Bundle Security
