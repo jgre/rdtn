@@ -31,16 +31,16 @@ class Announcement
 
   def Announcement.typeSymToId(typeSym)
     case typeSym
-    when :tcp: 1
-    when :udp: 2
+    when :tcp then 1
+    when :udp then 2
     else 0
     end
   end
 
   def Announcement.typeIdToSym(typeId)
     case typeId
-    when 1: :tcp
-    when 2: :udp
+    when 1 then :tcp
+    when 2 then :udp
     else :undefined
     end
   end
@@ -52,7 +52,7 @@ class Announcement
     @inetAddr  = IPSocket.getaddress(addr)
     @inetPort  = port
     @senderEid = eid.to_s
-    @lastSeen  = Time.now
+    @lastSeen  = RdtnTime.now
 
     defField(:type, :length => 1, :decode => GenParser::NumDecoder,
 	     :handler => :clType=)
@@ -74,7 +74,7 @@ class Announcement
   end
 
   def seenNow
-    @lastSeen = Time.now
+    @lastSeen = RdtnTime.now
   end
 
   def typeSym
@@ -129,7 +129,7 @@ class IPDiscovery < Monitor
     housekeeping
     EventDispatcher.instance().subscribe(:linkClosed) do |link|
       @recvdAnns.delete_if do |ann| 
-        puts "Discovery #{ann.inetAddr == link.host and ann.inetPort == link.port}"
+        #puts "Discovery #{ann.inetAddr == link.host and ann.inetPort == link.port}"
         ann.inetAddr == link.host and ann.inetPort == link.port
       end
     end
@@ -146,7 +146,7 @@ class IPDiscovery < Monitor
       @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 1)
       @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
     rescue RuntimeError => detail
-      puts("socket system call error: " + detail)
+      #puts("socket system call error: " + detail)
     end
 
     queuedReceiverInit(@sock)
@@ -214,7 +214,7 @@ class IPDiscovery < Monitor
 	sleep(@aliveTimer)
 	delIndex = []
 	@recvdAnns.each_with_index do |ann, i|
-	  if ann.lastSeen < (Time.now - ann.interval*2)
+	  if ann.lastSeen < (RdtnTime.now - ann.interval*2)
 	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
 	    EventDispatcher.instance.dispatch(:opportunityDown, 
 					      ann.typeSym, opts, ann.senderEid)
