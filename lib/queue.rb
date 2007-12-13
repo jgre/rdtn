@@ -16,6 +16,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require "monitor"
+require "stringio"
 
 class RdtnStringIO < StringIO
   include MonitorMixin
@@ -27,12 +28,14 @@ class RdtnStringIO < StringIO
 
   def enqueue(data)
     synchronize do
-      oldPos = self.pos
-      # Append always at the end
-      self.seek(0, IO::SEEK_END)
-      self << data
+      unless closed?
+	oldPos = self.pos
+	# Append always at the end
+	self.seek(0, IO::SEEK_END)
+	self << data
 
-      self.pos = oldPos
+	self.pos = oldPos
+      end
     end
   end
 
