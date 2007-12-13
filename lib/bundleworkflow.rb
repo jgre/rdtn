@@ -41,6 +41,7 @@ module Bundling
     def BundleWorkflow.registerEvents
       EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
         if bundle
+	  #puts "BundleParsed! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
 	  bwf = BundleWorkflow.new(bundle)
 	  bwf.processBundle
 	end
@@ -92,8 +93,9 @@ module Bundling
 
     def processBundle
       until finished?
+	#puts "ProcessBundle #{curTask.class}, #{curTask.state}"
 	curTask.processBundle(@bundle)
-	if curTask.state == :processed: nextTask 
+	if curTask.state == :processed then nextTask 
 	else break
 	end
       end
@@ -104,7 +106,7 @@ module Bundling
       until deletionFinished?
 	prevTask if finished?
 	curTask.processDeletion(@bundle)
-	if curTask.state == :deleted: prevTask
+	if curTask.state == :deleted then prevTask
 	else break
 	end
       end
@@ -135,7 +137,7 @@ module Bundling
 	begin
 	  store.storeBundle(bundle)
 	rescue BundleAlreadyStored
-	  puts "Already stored."
+	  #puts "Already stored."
 	  return nil
 	end
 	store.save
