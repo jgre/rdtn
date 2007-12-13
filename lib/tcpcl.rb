@@ -145,11 +145,11 @@ module TCPCL
       end
       typeCode = (io.getc & 0xf0) >> 4 # First 4 bits
       nextState = case typeCode
-                  when TCPLink::DATA_SEGMENT: ReceivingState.new(@tcpLink)
-                  when TCPLink::ACK_SEGMENT: AckState.new(@tcpLink)
-                  when TCPLink::REFUSE_BUNDLE: RefuseState.new(@tcpLink)
-                  when TCPLink::KEEPALIVE: KeepaliveState.new(@tcpLink)
-                  when TCPLink::SHUTDOWN: ShutdownState.new(@tcpLink)
+                  when TCPLink::DATA_SEGMENT  then ReceivingState.new(@tcpLink)
+                  when TCPLink::ACK_SEGMENT   then AckState.new(@tcpLink)
+                  when TCPLink::REFUSE_BUNDLE then RefuseState.new(@tcpLink)
+                  when TCPLink::KEEPALIVE     then KeepaliveState.new(@tcpLink)
+                  when TCPLink::SHUTDOWN      then ShutdownState.new(@tcpLink)
                   else raise InvalidTCPCLTypeCode, typeCode
                   end
       io.pos = io.pos - 1 # We still need this byte
@@ -315,8 +315,6 @@ module TCPCL
 
   class TCPLink < Link
 
-    include MonitorMixin
-    
     MAGIC = "dtn!"
     TCPCL_VERSION = 3
 
