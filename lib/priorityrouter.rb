@@ -59,9 +59,9 @@ class PriorityRouterQueue < Router
     #end
     # Avoid returning the bundle directly to its previous hop.
     @bundles = @store.find_all do |bundle|
-      if not bundle: false
+      if not bundle then false
       elsif bundle.incomingLink and bundle.incomingLink.remoteEid and @neighbor
-	if bundle.incomingLink.remoteEid.to_s == @neighbor: false
+	if bundle.incomingLink.remoteEid.to_s == @neighbor then false
 	else true
 	end
       else true
@@ -83,8 +83,8 @@ class PriorityRouterQueue < Router
       accPrio = @priorities.inject(0) do |sum, prio| 
 	sum+prio.orderBundles(b1,b2, @neighbor)
       end
-      if accPrio == 0:   0
-      elsif accPrio > 0: 1
+      if accPrio == 0   then 0
+      elsif accPrio > 0 then 1
       else               -1
       end
     end
@@ -106,14 +106,14 @@ class PriorityRouterQueue < Router
 
   def addBundle(bundle)
     return nil if @bundles.find {|b| b.bundleId == bundle.bundleId}
-    puts "Neighbor #{@neighbor}"
-    puts "AddBundle #{bundle.incomingLink}"
-    puts "AddBundle #{bundle.incomingLink.remoteEid}" if bundle.incomingLink
+    #puts "Neighbor #{@neighbor}"
+    #puts "AddBundle #{bundle.incomingLink}"
+    #puts "AddBundle #{bundle.incomingLink.remoteEid}" if bundle.incomingLink
     if bundle.incomingLink and bundle.incomingLink.remoteEid and @neighbor
-      if bundle.incomingLink.remoteEid.to_s == @neighbor: return nil end
-    elsif bundle.incomingLink == @link: return nil
+      if bundle.incomingLink.remoteEid.to_s == @neighbor then return nil end
+    elsif bundle.incomingLink == @link then return nil
     end
-    puts "Ok go ahead."
+    #puts "Ok go ahead."
     wasEmpty = false
     synchronize do
       wasEmpty = @curIndex >= @bundles.length
@@ -164,9 +164,9 @@ class PriorityRouter < Router
   def contact(neighbor, link)
     if @subHandler
       EventDispatcher.instance.subscribe(:subscriptionsReceived) do |neighborEid|
-	puts "SubRec #{neighborEid}, #{neighbor.eid}"
+	#puts "SubRec #{neighborEid}, #{neighbor.eid}"
 	if neighborEid.to_s == neighbor.eid.to_s
-          puts "ProcQ"
+          #puts "ProcQ"
 	  processQueue(neighbor, link)
 	end
       end
