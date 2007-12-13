@@ -21,6 +21,7 @@ require "eidscheme"
 require "genparser"
 require "queue"
 require "clientregcl"
+require "time"
 
 class Subscription
 
@@ -62,7 +63,7 @@ class Subscription
     #@bundlesReceived = sub2.bundlesReceived.clone
     sub2.uniqueSubscriptions.each do |us|
       myus = @uniqueSubscriptions.find {|u| u.uid == us.uid}
-      if myus: myus.merge(us)
+      if myus then myus.merge(us)
       else @uniqueSubscriptions.push(us.copy)
       end
     end
@@ -79,8 +80,8 @@ class Subscription
   def creationTimestamp(select = :min)
     tss = @uniqueSubscriptions.map {|us| us.creationTimestamp.to_i}
     case select
-    when :min: return tss.min
-    when :max: return tss.max
+    when :min then return tss.min
+    when :max then return tss.max
     when :average
       sum = tss.inject {|sum, ts| sum + ts}
       return sum / tss.length
@@ -90,8 +91,8 @@ class Subscription
   def expires(select = :max)
     tss = @uniqueSubscriptions.map {|us| us.expires.to_i}
     case select
-    when :min: return tss.min
-    when :max: return tss.max
+    when :min then return tss.min
+    when :max then return tss.max
     when :average
       sum = tss.inject {|sum, ts| sum + ts}
       return sum / tss.length
@@ -101,8 +102,8 @@ class Subscription
   def hopCount(select = :min)
     hcs = @uniqueSubscriptions.map {|us| us.hopCount}
     case select
-    when :min: return hcs.min
-    when :max: return hcs.max
+    when :min then return hcs.min
+    when :max then return hcs.max
     when :average
       sum = hcs.inject {|sum, hc| sum + hc}
       return sum / hcs.length
@@ -112,8 +113,8 @@ class Subscription
   def timeOfArrival(select = :min)
     toas = @uniqueSubscriptions.map {|us| us.timeOfArrival}
     case select
-    when :min: return toas.min
-    when :max: return toas.max
+    when :min then return toas.min
+    when :max then return toas.max
     when :average
       sum = toas.inject {|sum, toa| sum + toa}
       return sum / toas.length
@@ -123,8 +124,8 @@ class Subscription
   def transitTime(select = :average)
     tts = @uniqueSubscriptions.map {|us| us.transitTime}
     case select
-    when :min: return tts.min
-    when :max: return tts.max
+    when :min then return tts.min
+    when :max then return tts.max
     when :average
       sum = tts.inject {|sum, tt| sum + tt}
       return sum / tts.length
@@ -191,7 +192,7 @@ class UniqueSubscription
   include GenParser
 
   def initialize(link, local = true, 
-		 creationTimestamp = Time.now, expires = Time.now + 86400,
+		 creationTimestamp = RdtnTime.now, expires = RdtnTime.now + 86400,
 		 hopCount = 0)
     @link = link
     @local = local
@@ -199,12 +200,12 @@ class UniqueSubscription
     @creationTimestamp = creationTimestamp
     @expires = expires
     @hopCount = hopCount
-    @timeOfArrival = Time.now
+    @timeOfArrival = RdtnTime.now
     @neighbors = []
   end
 
   def UniqueSubscription.generateUID
-    "#{RdtnConfig::Settings.instance.localEid.to_s}#{Time.now}#{rand}".hash.to_s
+    "#{RdtnConfig::Settings.instance.localEid.to_s}#{RdtnTime.now}#{rand}".hash.to_s
   end
 
   def UniqueSubscription.parse(io)
@@ -297,13 +298,13 @@ class SubscriptionList
   end
 
   def check
-    @subscriptions.delete_if {|sub| sub.expires < Time.now}
+    @subscriptions.delete_if {|sub| sub.expires < RdtnTime.now}
   end
 
   def merge(subList2)
     subList2.subscriptions.each do |sub|
       mySub = findSubscription {|s| s.uri == sub.uri}
-      if mySub: mySub.merge(sub)
+      if mySub then mySub.merge(sub)
       else @subscriptions.push(sub.copy)
       end
     end
@@ -343,7 +344,7 @@ class SubscriptionList
   end
 
   def check
-    @subscriptions.delete_if {|sub| sub.expires < Time.now.to_i}
+    @subscriptions.delete_if {|sub| sub.expires < RdtnTime.now.to_i}
   end
 
 end
@@ -372,8 +373,8 @@ class SubscriptionHandler
 
   end
 
-  def subscribe(uri, subClient = nil, creationTimestamp = Time.now, 
-		expires = Time.now + 86400, &handler)
+  def subscribe(uri, subClient = nil, creationTimestamp = RdtnTime.now, 
+		expires = RdtnTime.now + 86400, &handler)
     #subClient = RdtnClient.new(@client.host, @client.port) if not subClient
     #subClient.register(uri, &handler)
     #@subClients.push(subClient)
@@ -511,7 +512,7 @@ class BundleTimeFilter
     mysub = slistM.findSubscription {|sub| sub.uri == bundle.destEid} 
     return false unless mysub
     expires = bundle.creationTimestamp + Time.gm(2000).to_i + bundle.lifetime
-    return (Time.now + mysub.transitTime).to_i > expires.to_i
+    return (RdtnTime.now + mysub.transitTime).to_i > expires.to_i
   end
 
 end
@@ -541,8 +542,8 @@ class SubscriptionHopCountPrio
       add2 = 1
     end
 
-    if sub1 and sub2: return sub1.hopCount + add1 <=> sub2.hopCount + add2
-    else              return 0
+    if sub1 and sub2 then return sub1.hopCount + add1 <=> sub2.hopCount + add2
+    else                  return 0
     end
   end
 
