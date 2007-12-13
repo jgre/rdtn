@@ -119,7 +119,7 @@ class HostStat
 
   def storageUsed
     all = @bundlesSeen.inject(0) {|sum, bid| $bundles[bid].size + sum}
-    @bundlesDeleted.inject(all) {|sum, bid| sum - $bundles[bis].size}
+    @bundlesDeleted.inject(all) {|sum, bid| sum - $bundles[bid].size}
   end
 
   def getOrigBundles(file)
@@ -293,7 +293,7 @@ def getBundlesFrom(hostId)
 end
 
 Dir.foreach(Dir.pwd) do |filename|
-  next if filename == "." or filename == ".."
+  next if filename == "." or filename == ".." or filename.index('kasuari') != 0
     
   h = HostStat.new(filename) if File.directory?(filename)
   $hosts[h.id] = h
