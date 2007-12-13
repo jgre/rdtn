@@ -133,8 +133,8 @@ class Storage < Monitor
 	accPrio = @displacement.inject(0) do |sum, prio| 
 	  sum+prio.orderBundles(b1,b2, @neighbor)
 	end
-	if accPrio == 0:   0
-	elsif accPrio > 0: 1
+	if accPrio == 0   then 0
+	elsif accPrio > 0 then 1
 	else               -1
 	end
       end
@@ -152,7 +152,7 @@ class Storage < Monitor
 	sleep(10) #FIXME variable timer
 	synchronize do
 	  @bundles.delete_if do |b| 
-	    Time.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 
+	    RdtnTime.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 
 	  end
 	end
       end
