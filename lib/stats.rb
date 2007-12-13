@@ -31,7 +31,7 @@ module Stats
     attr_reader :time, :dest, :src, :bundleId, :payloadSize, :fragment, :link
 
     def initialize(bundle, link=nil)
-      @time        = Time.now
+      @time        = RdtnTime.now
       @dest        = bundle.destEid
       @src         = bundle.srcEid
       @bundleId    = bundle.bundleId
@@ -55,7 +55,7 @@ module Stats
     attr_reader :time, :state, :clType, :linkName, :host, :port, :eid
 
     def initialize(state, clType, linkName, host, port, eid)
-      @time     = Time.now
+      @time     = RdtnTime.now
       @state    = state
       @clType   = clType
       @linkName = linkName
@@ -76,7 +76,7 @@ module Stats
 		   subscribeStatFile, storeStatFile)
       super()
       # Log start time
-      open(timeFile, "w") {|f| f.puts(Time.now.to_i) }
+      open(timeFile, "w") {|f| f.puts(RdtnTime.now.to_i) }
       @outFile      = outStatFile
       @inFile       = inStatFile
       @contactFile  = contactStatFile
@@ -96,6 +96,8 @@ module Stats
 	if type == :tcp or type == :udp
 	  writeContactStat(:link, type, link.name, link.host, link.port, 
 			   link.remoteEid)
+	elsif type == :rem
+	  writeContactStat(:link, type, link.name, '', '', link.remoteEid)
 	end
       end
       EventDispatcher.instance.subscribe(:neighborContact) do |neighbor, link|
@@ -103,6 +105,8 @@ module Stats
 	if type == :tcp or type == :udp
 	  writeContactStat(:contact, type, link.name, link.host, link.port, 
 			   neighbor.eid)
+	elsif type == :rem
+	  writeContactStat(:contact, type, link.name, '', '', link.remoteEid)
 	end
       end
       EventDispatcher.instance.subscribe(:linkClosed) do |link|
@@ -110,6 +114,8 @@ module Stats
 	if type == :tcp or type == :udp
 	  writeContactStat(:closed, type, link.name, link.host, link.port, 
 			   link.remoteEid)
+	elsif type == :rem
+	  writeContactStat(:closed, type, link.name, '', '', link.remoteEid)
 	end
       end
       EventDispatcher.instance.subscribe(:uriSubscribed) do |uri|
@@ -148,7 +154,7 @@ module Stats
     def writeStoreStat(status, bundle)
       synchronize do
       open(@storeStatFile, "a") do |f| 
-	f.puts("#{Time.now.to_i}, #{status}, #{bundle.bundleId}")
+	f.puts("#{RdtnTime.now.to_i}, #{status}, #{bundle.bundleId}")
       end
       end
     end
