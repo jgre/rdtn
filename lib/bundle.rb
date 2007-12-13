@@ -107,7 +107,7 @@ module Bundling
 	@idleSince = nil
 	@bundle.parse(queue)
       rescue InputTooShort => detail
-	@idleSince = Time.now
+	@idleSince = RdtnTime.now
 	rinfo(self, "Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
       rescue ProtocolError => msg
 	rerror(self, "Bundle parser error: #{msg}")
@@ -150,6 +150,7 @@ module Bundling
 	@blocks.push(PrimaryBundleBlock.new(self, destEid, srcEid, 
 					  reportToEid, custodianEid))
 	@blocks.push(PayloadBlock.new(self, payload))
+	@blocks[-1].lastBlock = true
       end
     end
 
@@ -194,6 +195,7 @@ module Bundling
 	oldPos = io.pos
 	begin
 	  @blocks[-1].parse(io)
+	  #puts "Parsing Block #{@blocks[-1].class}, #{@blocks[-1].flags} #{io.pos}, #{io.length}" unless @blocks.length == 1
 	rescue InputTooShort => detail
 	  io.pos = oldPos
 	  raise
@@ -251,8 +253,8 @@ module Bundling
 
     def Bundle.reassembleArray(fragments)
       case fragments.length
-      when 0: return nil
-      when 1: return fragments[0]
+      when 0 then return nil
+      when 1 then return fragments[0]
       else
 	fragments.sort {|f1, f2| f1.fragmentOffset <=> f2.fragmentOffset}
 	f1, *rest = fragments
@@ -350,7 +352,7 @@ module Bundling
       @procFlags = 0
       @cosFlags = 0
       @srrFlags = 0
-      @creationTimestamp = (Time.now - Time.gm(2000)).to_i
+      @creationTimestamp = (RdtnTime.now - Time.gm(2000)).to_i
       if @creationTimestamp == @@lastTimestamp
 	@@lastSeqNo = @creationTimestampSeq = @@lastSeqNo + 1
       else
@@ -561,15 +563,15 @@ module Bundling
       if @version == 4  
         @cosFlags & ~0x3 # this sets :bulk
         @cosFlags = case priority
-		    when :expedited: @cosFlags | 0x2  
-		    when :normal:    @cosFlags | 0x1
+		    when :expedited then @cosFlags | 0x2  
+		    when :normal    then @cosFlags | 0x1
 		    end
       elsif @version == 5
         @procFlags = @procFlags & 0xffe7f # this sets :bulk
 	@procFlags = case priority
-		     when :expedited: @procFlags | 0x100
-		     when :normal: @procFlags | 0x80
-		     else @procFlags
+		     when :expedited then @procFlags | 0x100
+		     when :normal    then @procFlags | 0x80
+		     else                 @procFlags
 		     end
       end
     end   
@@ -845,7 +847,7 @@ module Bundling
       when :memory
 	@payload
       when :random
-	if @payloadLength: open("/dev/urandom") {|f| f.read(@payloadLength)}
+	if @payloadLength then open("/dev/urandom") {|f| f.read(@payloadLength)}
 	else "" end
       else
 	nil
@@ -863,7 +865,7 @@ module Bundling
     end
 
     def payloadLength
-      if @payloadLength: @payloadLength
+      if @payloadLength then @payloadLength
       else @payload.length end
     end
 
@@ -894,6 +896,7 @@ class BundleBlockReg
 
   def makeBlock(blockType, bundle)
     return @blocks[blockType].new(bundle) if @blocks[blockType]
+    #puts "ErrorBundle: #{bundle.srcEid} #{bundle.destEid} #{RdtnConfig::Settings.instance.localEid}"
     raise Bundling::UnknownBlockType.new(blockType)
   end
 
