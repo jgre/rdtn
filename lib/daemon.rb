@@ -40,16 +40,20 @@ module RdtnDaemon
       store = RdtnConfig::Settings.instance.store
       Bundling::ParserManager.registerEvents
       Bundling::BundleWorkflow.registerEvents
+      owEid = nil
 
       configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
 
       optParser.on("-c", "--config FILE", "config file name") do |c|
 	configFileName = c
       end
+      optParser.on("-l", "--local EID", "local EID") do |l|
+	owEid = l
+      end
       optParser.on("-s", "--stat-dir DIR", "Directory for statistics") do |s|
 	dir = File.expand_path(s)
 	begin
-	  Dir.mkdir(dir)
+	  Dir.mkdir(dir) unless File.exist?(dir)
 	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
 					 File.join(dir, "out.stat"),  
 					 File.join(dir, "in.stat"),
@@ -62,7 +66,11 @@ module RdtnDaemon
 
       optParser.parse!(ARGV)
       
+      RdtnConfig::Settings.instance.localEid = owEid if owEid
+
       conf = RdtnConfig::Reader.load(configFileName)
+
+      RdtnConfig::Settings.instance.localEid = owEid if owEid
 
     end
 
