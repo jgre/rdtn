@@ -43,19 +43,19 @@ class Neighbor
   end
 
   def currentContactDuration
-    if @downSince or not @lastContact: 0
-    else Time.now - @lastContact
+    if @downSince or not @lastContact then 0
+    else RdtnTime.now - @lastContact
     end
   end
 
   def currentDowntime
-    if @downSince: Time.now - @downSince
+    if @downSince then RdtnTime.now - @downSince
     else 0
     end
   end
 
   def contactStarts(link)
-    @lastContact    = Time.now
+    @lastContact    = RdtnTime.now
     @totalDowntime += currentDowntime
     @downSince      = nil
     @nContacts     += 1
@@ -64,7 +64,7 @@ class Neighbor
 
   def contactEnds
     @totalContactDuration += currentContactDuration
-    @downSince = Time.now
+    @downSince = RdtnTime.now
     @curLink   = nil
   end
 
@@ -80,7 +80,7 @@ class Neighbor
   end
 
   def averageDowntime
-    if nContacts > 0: (@totalDowntime + currentDowntime) / @nContacts
+    if nContacts > 0 then (@totalDowntime + currentDowntime) / @nContacts
     else 0
     end
   end
