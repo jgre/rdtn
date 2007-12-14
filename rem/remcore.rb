@@ -109,7 +109,7 @@ module Rem
 
     def forkRdtnProcesses
       @pids = []
-      Config.instance.nnodes.times do |n|
+      1.upto(Config.instance.nnodes) do |n|
 	Dir.mkdir("kasuari#{n}") unless File.exist?("kasuari#{n}")
 	@pids.push fork {exec("/usr/bin/env ruby #{Config.instance.rdtnPath} -c #{Config.instance.configPath} -l dtn://kasuari#{n}/ -s kasuari#{n} --port #{7777+n}")} # > kasuari#{n}/rdtn.log")}
       end

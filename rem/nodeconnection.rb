@@ -43,8 +43,8 @@ module Rem
 
     def initialize(sock)
       @sock = sock
-      @sock2 = sock.clone
-      @sock2.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+      #@sock2 = sock.clone
+      #@sock2.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
       #sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
       queuedReceiverInit(sock)
       #queuedSenderInit(sock)
@@ -71,7 +71,7 @@ module Rem
       buf << [node2.id].pack('N')
       puts "Sending connect #{buf.length}"
       #@sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-      ret = @sock2.send(buf, 0)
+      ret = @sock.send(buf, 0)
       #@sock.fcntl(Fcntl::F_SETFL, 0)
       puts "Sent disconnect #{ret}, #{buf.length}"
       #puts "Sent Connect #{ret}, #{buf.length}"
@@ -88,7 +88,7 @@ module Rem
       buf << [node2.id].pack('N')
       puts "Sending disconnect #{buf.length}"
       #@sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-      ret = @sock2.send(buf, 0)
+      ret = @sock.send(buf, 0)
       puts "Sent disconnect #{ret}, #{buf.length}"
       #sendQueueAppend(buf)
       #doSend

@@ -203,7 +203,7 @@ module Rem
     def parseLine(line)
       return nil unless line
       if INIT_PATTERN =~ line
-	node = $1.to_i
+	node = $1.to_i + 1
 	axis = $2
 	pos  = $3.to_f
 
