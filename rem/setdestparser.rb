@@ -164,6 +164,7 @@ module Rem
 	    if @diff[1] < (newTime.to_f - Config.instance.granularity)
 	      puts "Error: times are not ordered (#{@diff[1]} < #{newTime})"
 	    end
+	    #puts "Line #{@traceFile.lineno}"
 	    @nodes[@diff[0]].dest  = @diff[2]
 	    @nodes[@diff[0]].speed = @diff[3]
 	    @diff = nil
@@ -213,7 +214,7 @@ module Rem
 	end
       elsif MOTION_PATTERN =~ line
 	time  = $1.to_i
-	node  = $2.to_i
+	node  = $2.to_i + 1
 	x     = $3.to_f
 	y     = $4.to_f
 	speed = $5.to_f

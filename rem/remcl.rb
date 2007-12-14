@@ -82,7 +82,9 @@ module Rem
 	exit(0)
       end
 
-      @sock = TCPSocket.new(@host, @port)
+      #@sock = TCPSocket.new(@host, @port)
+      @sock = UDPSocket.new
+      @sock.connect(@host, @port + @id)
       queuedReceiverInit(@sock)
       #queuedSenderInit(@sock)
 
@@ -92,7 +94,7 @@ module Rem
       buf << [@id].pack('N')
       @sock.send(buf, 0)
 
-      puts "RemCL sending START"
+      puts "(Node #{@id}) RemCL sending START to #{@port + @id}"
       spawnThread { watch }
       TimeTickReceiver.new(timeAddr, timePort) unless options[:realtime]
     end
@@ -116,12 +118,13 @@ module Rem
     private
 
     def watch
-      #doRead do |input|
-      input = @sock
-      loop do
+      doRead do |input|
+      #input = @sock
+      #loop do
 	unless @reader
 	  #puts "Client #{@id}: reading"
-	  typeCode = input.read(1)[0] #getc
+	  typeCode = input.getc
+	  #typeCode = @sock.recvfrom(1)[0][0]
 	  #puts "Client #{@id}: read #{typeCode}"
 	  case typeCode
 	  when Rem::SENDDATA   then @reader = :readData
@@ -130,6 +133,7 @@ module Rem
 	  when Rem::SHUTDOWN   then @reader = :shutdown
 	  end
 	  timestamp = input.read(8).unpack('G')[0]
+	  #timestamp = @sock.recvfrom(8)[0].unpack('G')[0]
 	  lag = RdtnTime.now.to_f - timestamp
 	  #puts "----------LAG (client): #{lag} #{@reader} #{timestamp}" #if lag > 2
 	end
@@ -138,10 +142,14 @@ module Rem
     end
 
     def readData(input, lag)
+      #@dataDest = @sock.recvfrom(4)[0].unpack('N')[0] unless @dataDest
+      #@dataSrc  = @sock.recvfrom(4)[0].unpack('N')[0] unless @dataSrc
+      #@dataSize = Sdnv.decode(@sock.recvfrom(2)[0])[0]        unless @dataSize
+      #buf, addr = @sock.recvfrom(@dataSize)
       @dataDest = input.read(4).unpack('N')[0] unless @dataDest
       @dataSrc  = input.read(4).unpack('N')[0] unless @dataSrc
       @dataSize = Sdnv.decode(input.read(2))[0]        unless @dataSize
-      #reset = (@dataSize <= (input.length - input.pos))
+      ##reset = (@dataSize <= (input.length - input.pos))
       buf = input.read(@dataSize)
       #open("dbg.cl#{@dataDest}-#{@dataSrc}", 'w') do |f|
       #  f.write(buf)
@@ -172,6 +180,7 @@ module Rem
     end
 
     def connect(input, lag)
+      #nodeId =  @sock.recvfrom(4)[0].unpack('N')[0]
       nodeId =  input.read(4).unpack('N')[0]
       puts "(Node #{@id}) REMCL Connect #{@id}, #{nodeId}, #{RdtnTime.now.to_f}, Lag: #{lag}"
       @links[nodeId] = RemLink.new(nodeId, self)
@@ -179,9 +188,14 @@ module Rem
     end
 
     def disconnect(input, lag)
+      #nodeId =  @sock.recvfrom(4)[0].unpack('N')[0]
       nodeId =  input.read(4).unpack('N')[0]
       puts "(Node #{@id}) REMCL Disconnect #{@id}, #{nodeId}, #{RdtnTime.now.to_f}, Lag: #{lag}"
-      @links[nodeId].close
+      if @links[nodeId]
+	@links[nodeId].close
+      else
+	puts "(Node #{@id}) Cannot close connection to #{nodeId}"
+      end
       @links[nodeId] = nil
       @reader = nil
     end

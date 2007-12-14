@@ -17,7 +17,7 @@
 
 module Rem
 
-  REM_PORT = 4321
+  REM_PORT = 10000
 
   class Config
 

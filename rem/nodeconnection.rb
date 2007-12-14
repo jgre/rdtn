@@ -41,29 +41,39 @@ module Rem
     include QueuedReceiver
     include RerunThread
 
-    def initialize(sock)
-      @sock = sock
+    def initialize(port, id)
+      @sock = UDPSocket.new
+      @sock.bind('localhost', port)
+      puts "Binding port #{port} for node #{id}"
+      #@sock = sock
       #@sock2 = sock.clone
       #@sock2.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
       #sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-      queuedReceiverInit(sock)
+      queuedReceiverInit(@sock)
       #queuedSenderInit(sock)
       @reader   = nil
       @dataSrc  = nil
       @dataDest = nil
       @dataSize = nil
       @connections = {}
+      @id = id
+    end
+
+    def readHandshake
       # Read initialial handshake
-      hs = @sock.read(5)
+      hs, addr = @sock.recvfrom(5)
       if hs.length != 5 or hs[0] != Rem::START
-	raise ProtocolError, 'Invalid START command'
+        raise ProtocolError, 'Invalid START command'
       end
-      @id = hs[1..4].unpack('N')[0]
+      id = hs[1..4].unpack('N')[0]
+      raise RuntimeError, "Id mismatch #{@id}, #{id}" if id != @id
+      @sock.connect(addr[3], addr[1])
       @readerThread = spawnThread { read }
     end
 
     def connect(node2)
       @connections[node2.id] = node2
+      #sleep(0.1)
       buf = ''
       buf << Rem::CONNECT
       buf << [Time.now.to_f].pack('G')
@@ -71,6 +81,7 @@ module Rem
       buf << [node2.id].pack('N')
       puts "Sending connect #{buf.length}"
       #@sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+      #ret = @sock.write(buf)
       ret = @sock.send(buf, 0)
       #@sock.fcntl(Fcntl::F_SETFL, 0)
       puts "Sent disconnect #{ret}, #{buf.length}"
@@ -81,6 +92,7 @@ module Rem
 
     def disconnect(node2)
       @connections[node2.id] = nil
+      #sleep(0.1)
       buf = ''
       buf << Rem::DISCONNECT
       buf << [Time.now.to_f].pack('G')
@@ -88,6 +100,7 @@ module Rem
       buf << [node2.id].pack('N')
       puts "Sending disconnect #{buf.length}"
       #@sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+      #ret = @sock.write(buf)
       ret = @sock.send(buf, 0)
       puts "Sent disconnect #{ret}, #{buf.length}"
       #sendQueueAppend(buf)
@@ -106,6 +119,7 @@ module Rem
 
     def sendData(src, data)
       buf = ''
+      #sleep(0.1)
       buf << Rem::SENDDATA
       buf << [Time.now.to_f].pack('G')
       #buf << [Config.instance.time.to_f].pack('G')
@@ -113,6 +127,7 @@ module Rem
       buf << [src].pack('N')
       buf << Sdnv.encode(data.length)
       buf << data
+      #@sock.write(buf)
       @sock.send(buf, 0)
       #sendQueueAppend(buf)
       #doSend
@@ -122,17 +137,19 @@ module Rem
     private
 
     def read
-      #doRead do |input|
-      input = @sock
-      loop do
+      doRead do |input|
+      #input = @sock
+      #loop do
 	unless @reader
 	  #puts "Core: reading..."
-	  typeCode = input.read(1)[0] #getc
+	  #typeCode = @sock.recvfrom(1)[0][0]
+	  typeCode = input.getc
 	  #puts "Core: read #{typeCode}"
 	  case typeCode
 	  when Rem::SENDDATA then @reader = :readData
 	  end
 	  timestamp = input.read(8).unpack('G')[0]
+	  #timestamp = @sock.recvfrom(8)[0].unpack('G')[0]
 	  lag = Time.now.to_f - timestamp
 	  #lag = Config.instance.time.to_f - timestamp
 	  #puts "----------LAG (core): #{lag} #{@reader} #{timestamp}" #if lag > 2
@@ -142,6 +159,10 @@ module Rem
     end
 
     def readData(input, lag)
+      #@dataDest = @sock.recvfrom(4)[0].unpack('N')[0] unless @dataDest
+      #@dataSrc  = @sock.recvfrom(4)[0].unpack('N')[0] unless @dataSrc
+      #@dataSize = Sdnv.decode(@sock.recvfrom(2)[0])[0]        unless @dataSize
+      #buf, addr = @sock.recvfrom(@dataSize)
       @dataDest = input.read(4).unpack('N')[0] unless @dataDest
       @dataSrc  = input.read(4).unpack('N')[0] unless @dataSrc
       @dataSize = Sdnv.decode(input.read(2))[0]        unless @dataSize

@@ -69,13 +69,16 @@ module Rem
       endTime = Time.now + Config.instance.duration
       puts "Duration #{Config.instance.duration} #{endTime}"
       # Open incoming socket
-      sock = TCPServer.new(Config.instance.host, 
-			   Config.instance.port)
+      #sock = TCPServer.new(Config.instance.host, 
+      #			   Config.instance.port)
+      #@sock = UDPSocket.new
+      #@sock.bind(Config.instance.host, Config.instance.port)
 
+      createNodes
       # Start @nnodes rdtn processes
       forkRdtnProcesses
       # Wait for all @nnodes to connect
-      acceptConnections(sock)
+      acceptConnections(@sock)
       EventDispatcher.instance.subscribe(:remTimerTick) do |time|
 	Config.instance.time = time
 	broadcastTime(time)
@@ -115,13 +118,23 @@ module Rem
       end
     end
 
+    def createNodes
+      basePort = Rem::REM_PORT
+      1.upto(Config.instance.nnodes) do |n|
+	@nodes[n] = NodeConnection.new(basePort + (n), n)
+      end
+    end
+
     def acceptConnections(sock)
       puts "Accepting connections..."
-      while @nodes.length < Config.instance.nnodes
-	nodeSock = sock.accept
-	conn = NodeConnection.new(nodeSock)
-	@nodes[conn.id] = conn
-	puts "Accepted node #{conn.id}"
+      @nodesByPort = {}
+      @nodes.each do |id, node|
+      #while @nodes.length < Config.instance.nnodes
+	#nodeSock = sock.accept
+	#conn = NodeConnection.new(nodeSock)
+
+	node.readHandshake
+	puts "Accepted node #{node.id}"
       end
     end
 
