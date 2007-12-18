@@ -17,12 +17,15 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
+require 'singleton'
 require 'remconf'
 require 'rdtnevent'
 
 module Rem
 
   class EventQueue
+
+    attr_reader :events
 
     def initialize
       @events = [] # [time, nodeId1, nodeId2, :remConnection|:remDisconnection]

@@ -1,0 +1,362 @@
+#!/usr/bin/env ruby
+#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Dirk Kutscher <dku@tzi.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..", "rem")
+
+require "eventqueue"
+
+class Strangeness
+
+  @@doubleEndedContacts = []
+  @@unfinishedContacts  = []
+  @@unmatchedContacts   = []
+
+  def Strangeness.doubleEndedContact(node, contactNode, oldTime, time)
+    @@doubleEndedContacts.push([node, contactNode, oldTime, time])
+  end
+
+  def Strangeness.unfinishedContact(node, contactNode, startTime, nextContTime)
+    @@unfinishedContacts.push([node, contactNode, startTime, nextContTime])
+  end
+
+  def Strangeness.unmatchedContact(node, contactNode, startTime, endTime, 
+				   prevEndCN, nextStartCN)
+    #puts
+    #puts @@unmatchedContacts.length
+    @@unmatchedContacts.push([node, contactNode, startTime, endTime, prevEndCN,
+			     nextStartCN])
+    #puts @@unmatchedContacts.length
+  end
+
+  def Strangeness.print(file)
+    file.puts("#{@@doubleEndedContacts.length} Contacts with two apparent end times.") unless @@doubleEndedContacts.empty?
+    @@doubleEndedContacts.each do |dec|
+      file.puts("Node#{dec[0]} -> Node#{dec[1]}: #{dec[2]} or #{dec[3]}")
+    end
+
+    file.puts("\n#{@@unfinishedContacts.length} unfinished Contacts") unless @@unfinishedContacts.empty?
+    @@unfinishedContacts.each do |uc|
+      file.puts("Node#{uc[0]} -> Node#{uc[1]}: #{uc[2]} - ?, #{uc[3]}")
+    end
+
+    file.puts("\n#{@@unmatchedContacts.length} contacts seen only by one node.") unless @@unmatchedContacts.empty?
+    @@unmatchedContacts.each do |umc|
+      file.puts("Node#{umc[0]} -> Node#{umc[1]}: #{umc[2]} - #{umc[3]} (Last end: #{umc[4]}; next Start #{umc[5]})")
+    end
+
+    # TODO: Contact time deviation
+  end
+
+end
+
+class ContactMap
+
+  CONTPATTERN = /(\d+), (contact|closed), \w+, \w*, .*, \d*, dtn:\/\/[a-zA-Z]+(\d+)\//
+
+  def initialize
+    @contacts = Hash.new { |hash, id| hash[id] = ContactHistory.new(id) }
+  end
+
+  def parseStatLine(fromNode, file, deltaTime = 0)
+    file.each_line do |line|
+      if CONTPATTERN =~ line
+	time   = $1.to_i - deltaTime
+	state  = $2
+	foreignNode = $3.to_i
+	if state == 'contact'
+	  @contacts[ContactHistory.getId(fromNode, foreignNode)].newContact(time,  fromNode)
+	elsif state == 'closed'
+	  @contacts[ContactHistory.getId(fromNode, foreignNode)].closedContact(time, fromNode)
+	end
+      end
+    end
+  end
+
+  def readQueuedEvent(event)
+    time  = event[0]
+    node1 = event[1]
+    node2 = event[2]
+    state = event[3]
+    if state == :remConnection
+      @contacts[ContactHistory.getId(node1, node2)].newContact(time, nil)
+    elsif state == :remDisconnection
+      @contacts[ContactHistory.getId(node1, node2)].closedContact(time, nil)
+    end
+  end
+
+  def countContacts
+    @contacts.inject(0) {|sum, keyval| sum + keyval[1].countContacts }
+  end
+
+  def totalContactDuration
+    @contacts.inject(0) {|sum, keyval| sum + keyval[1].totalContactDuration }
+  end
+
+  def printGlobalInformation(file)
+    file.puts("#{countContacts} contacts")
+    file.puts("#{totalContactDuration / countContacts.to_f} avarage contact duration")
+  end
+
+  def printContacts(dirName)
+    open(File.join(dirName, "contacts.stat"), "w") do |file|
+      @contacts.each_value do |contHist|
+      #open(File.join(dirName, "contact#{contHist.id}.stat"), "w") do |file|
+	contHist.print(file)
+	file.puts
+	file.puts
+      end
+    end
+  end
+
+end
+
+class ContactHistory
+
+  attr_reader :id
+
+  def initialize(id)
+    if /(\d+)-(\d+)/ =~ id
+      @id = id
+      @nodeId1 = $1.to_i
+      @nodeId2 = $2.to_i
+    else
+      raise RuntimeError, "Invalid Contact Id #{id}"
+    end
+    @contacts = {}
+    @contacts[@nodeId1] = []
+    @contacts[@nodeId2] = []
+    @contacts[nil]      = []
+  end
+
+  def ContactHistory.getId(nodeId1, nodeId2)
+    return "#{[nodeId1, nodeId2].min}-#{[nodeId1, nodeId2].max}"
+  end
+
+  def newContact(time, node)
+    n1 = node ? node : @nodeId1
+    otherNode = n1 == @nodeId1 ? @nodeId2 : @nodeId1
+    if @contacts[node][-1] and @contacts[node][-1].open?
+      Strangeness.unfinishedContact(n1, otherNode, 
+				    @contacts[node][-1].startTime, time)
+      @contacts.pop # Delete the unfinished contact as it only messes up our calculation
+    end
+    @contacts[node].push(Contact.new(n1, otherNode, time))
+  end
+
+  def closedContact(time, node)
+    otherNode = node == @nodeId1 ? @nodeId2 : @nodeId1
+    if not @contacts[node][-1]
+      Strangeness.doubleEndedContact(node, otherNode, nil, time)
+    end
+    @contacts[node][-1].endContact(time)
+  end
+
+  def print(file)
+    file.puts("#{@nodeId1} -> #{@nodeId2}: #{@contacts[@nodeId1].length} contacts seen")
+    file.puts("#{@nodeId2} -> #{@nodeId1}: #{@contacts[@nodeId2].length} contacts seen")
+    file.puts("#{@nodeId2} <-> #{@nodeId1} (EventQueue): #{@contacts[nil].length} contacts sent") if @contacts[nil]
+    file.puts
+    lengths = @contacts.map {|id, cont| cont.length}
+    lengths.max.times do |i|
+      if @contacts[@nodeId1][i] then str1 = @contacts[@nodeId1][i].to_s
+      else str1 = " " * 15
+      end
+      if @contacts[@nodeId2][i] then str2 = @contacts[@nodeId2][i].to_s
+      else str2 = " " * 15
+      end
+      if @contacts[nil] and @contacts[nil][i] then str3 = @contacts[nil][i].to_s
+      else str3 = " " * 15
+      end
+      file.puts("#{str1} / #{str2} / EQ: #{str3}")
+    end
+  end
+
+  def correspondingContacts
+    ret = []
+    clone1 = @contacts[@nodeId1].clone
+    clone2 = @contacts[@nodeId2].clone
+    endTimes = (clone1 + clone2).map {|c| c.endTime}
+    endTimes.delete(nil)
+    maxTime = 1
+    maxTime = endTimes.max + 1 unless endTimes.empty?
+    prevEndN1 = prevEndN2 = 0
+    nextStartN1 = nextStartN2 = maxTime
+    until clone1.empty? or clone2.empty?
+      if clone1[1] then nextStartN1 = clone1[1].startTime 
+      else nextStartN1 = maxTime
+      end
+      if clone2[1] then nextStartN2 = clone2[1].startTime 
+      else nextStartN2 = maxTime
+      end
+      curMatch = [nil, nil]
+      #puts
+      #puts "#{prevEndN1} #{prevEndN2}"
+      #puts "#{clone1[0].startTime} #{clone2[0].startTime}"
+      #puts "#{clone1[0].endTime} #{clone2[0].endTime}"
+      #puts "#{nextStartN1} #{nextStartN2}"
+      #puts
+      if (not clone1[0].endTime or clone1[0].endTime <= nextStartN2)
+        prevEndN1 = clone1[0].endTime if clone1[0].endTime
+        curMatch[0] = clone1.shift
+      end
+      if (not clone2[0].endTime or clone2[0].endTime <= nextStartN1)
+        prevEndN2 = clone2[0].endTime if clone2[0].endTime
+        curMatch[1] = clone2.shift
+      end
+      #if clone1[0].startTime > prevEndN2 and (not clone1[0].endTime or clone1[0].endTime < nextStartN2)
+      #  prevEndN1 = clone1[0].endTime if clone1[0].endTime
+      #  curMatch[0] = clone1.shift
+      #end
+      #if clone2[0].startTime > prevEndN1 and (not clone2[0].endTime or clone2[0].endTime < nextStartN1)
+      #  prevEndN2 = clone2[0].endTime if clone2[0].endTime
+      #  curMatch[1] = clone2.shift
+      #end
+      if curMatch[0] and curMatch[1]
+	ret.push(curMatch)
+      else
+	if curMatch[0] 
+	  seeingNode = @nodeId1 
+	  blindNode = @nodeId2
+	  prevEndBN = prevEndN2
+	  nextStartBN = nextStartN2
+	  cont = curMatch[0]
+	elsif curMatch[1]
+	  seeingNode = @nodeId2
+	  blindNode = @nodeId1
+	  prevEndBN = prevEndN1
+	  nextStartBN = nextStartN1
+	  cont = curMatch[1]
+	else 
+	  raise RuntimeError, "Overlapping Contacts (#{clone1[0].startTime} - #{clone1[0].endTime}, #{clone2[0].startTime} - #{clone2[0].endTime})"
+	end
+	Strangeness.unmatchedContact(seeingNode, blindNode, cont.startTime,
+				     cont.endTime, prevEndBN, nextStartBN)
+      end
+    end
+    unmatchedContacts = []
+    if not clone1.empty?
+      seeingNode = @nodeId1
+      blindNode  = @nodeId2
+      unmachtedContacts = clone1
+    elsif not clone2.empty?
+      seeingNode = @nodeId2
+      blindNode  = @nodeId1
+      unmatchedContacts = clone2
+    end
+    unmatchedContacts.each do |cont|
+      Strangeness.unmatchedContact(seeingNode, blindNode, cont.startTime,
+				   cont.endTime, nil, nil)
+    end
+    return ret
+  end
+
+  def countContacts
+    # FIXME ignore open contacts
+    allContacts = @contacts[@nodeId1].length + @contacts[@nodeId2].length
+    nMatchedContacts = correspondingContacts.length
+    return allContacts - nMatchedContacts
+  end
+
+  def totalContactDuration
+    (@contacts[@nodeId1] + @contacts[@nodeId2]).inject(0) do |sum, cont| 
+      sum + cont.duration
+    end
+  end
+
+end
+
+class Contact
+
+  attr_accessor :startTime, :endTime
+  attr_reader   :nodeId1, :nodeId2, :time
+
+  def initialize(nodeId1, nodeId2, startTime)
+    @nodeId1   = nodeId1
+    @nodeId2   = nodeId2
+    @startTime = startTime
+  end
+
+  def endContact(time)
+    unless open?
+      Strangeness.doubleEndedContact(@nodeId1, @nodeId2, @endTime, time)
+    end
+    @endTime = time
+  end
+
+  def open?
+    @startTime and not @endTime
+  end
+
+  def duration
+    return 0 if open?
+    @endTime - @startTime
+  end
+
+  def to_s
+    "#{@nodeId1} -> #{@nodeId2}: #{@startTime} - #{@endTime}"
+  end
+
+end
+
+if $0 == __FILE__
+  if ARGV.empty?
+    dirName = Dir.getwd
+  else
+    dirName = File.expand_path(ARGV[0])
+  end
+
+  contacts   = ContactMap.new
+  bundles    = {}
+  startTimes = []
+
+  Dir.foreach(dirName) do |filename|
+    unless filename=="." or filename==".." or not /^kasuari(\d+)$/ =~ filename
+      open(File.join(filename, "time.stat")) {|f| startTimes.push(f.read.to_i)}
+    end
+  end
+
+  if File.exist?(File.join(dirName, "eventdump"))
+    evQ = open(File.join(dirName, "eventdump")) {|f| Marshal.load(f)}
+    evQ.events.each do |event|
+      contacts.readQueuedEvent(event)
+    end
+  end
+
+  # Subtract the first start time from all time outputs
+  # to make them more readable
+  deltaTime = startTimes.min
+
+  Dir.foreach(dirName) do |filename|
+    unless filename=="." or filename==".." or not /^kasuari(\d+)$/ =~ filename
+      node = $1.to_i
+      open(File.join(filename, "contact.stat")) do |f| 
+	contacts.parseStatLine(node, f, deltaTime)
+      end
+    end
+  end
+
+  open(File.join(dirName, "global.stat"), "w") do |file|
+    contacts.printGlobalInformation(file)
+  end
+
+  contacts.printContacts(dirName)
+
+  open(File.join(dirName, "strangeness.stat"), "w") do |file|
+    Strangeness.print(file)
+  end
+end
