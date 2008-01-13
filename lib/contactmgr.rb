@@ -172,8 +172,6 @@ class ContactManager < Monitor
 	link.open("opportunistic#{@oppCount}", options)
 	@oppCount += 1
 
-	#EventDispatcher.instance.dispatch(:routeAvailable, 
-	#				  RoutingEntry.new(eid, link)) if eid
       rescue RuntimeError => err
 	rerror(self, "Failed to open opportunistic link #{err}")
       end
@@ -200,8 +198,8 @@ class ContactManager < Monitor
       end
       neighbor.contactStarts(link)
       EventDispatcher.instance.dispatch(:neighborContact, neighbor, link)
-#      EventDispatcher.instance.dispatch(:routeAvailable, RoutingEntry.new(
-#				        link.remoteEid, link))
+      EventDispatcher.instance.dispatch(:routeAvailable, RoutingEntry.new(
+				        link.remoteEid.to_s + ".*", link))
     end
   end
 

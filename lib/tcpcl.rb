@@ -381,8 +381,8 @@ module TCPCL
       if options.has_key?(:port)
 	@port = options[:port]
       end
-      if options.has_key?(:type)
-	type = options[:type]
+      if options.has_key?(:policy)
+	@policy = options[:policy]
       end
       if @sendSocket and not @sendSocket.closed?
         puts "Double open"
@@ -412,6 +412,14 @@ module TCPCL
     # sending.
     
     def sendBundle(bundle)
+
+      if not @sendSocket or @sendSocket.closed?
+	if @policy == :onDemand
+	  thread = connect(@host, @port)
+	  ex = thread.value
+	  raise ex if ex
+	end
+      end
       
       # Chop the bundle into segments
       bndQ = RdtnStringIO.new(bundle.to_s)
@@ -480,11 +488,17 @@ module TCPCL
       receiverThread(host, port) do |h, p| 
 	begin
 	  @sendSocket = @receiveSocket = TCPSocket.new(h, p) 
-	rescue
-	  Thread.current.exit
+	  watch
+	  thr = sendContactHeader
+	  thr.join
+	  nil
+	rescue SystemCallError, IOError => ex
+	  if @policy != :onDemand
+	    Thread.current.abort_on_exception = true
+	    raise
+	  end
+	  ex
 	end
-	watch()
-	sendContactHeader()
       end
     end
 

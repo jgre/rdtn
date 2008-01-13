@@ -54,7 +54,7 @@ class TestConfiguration < Test::Unit::TestCase
       when "FluteCL::FluteLink": fluteOK = true
       end
     end
-    CLs.each_with_index {|cl, i| conf.link(:add, cl, "link#{i}") unless cl == :client}
+    CLs.each_with_index {|cl, i| conf.link(:add, cl, "link#{i}", :policy => :onDemand) unless cl == :client}
     assert(tcpOK)
     assert(udpOK)
     assert(fluteOK)
