@@ -21,21 +21,26 @@ module RerunThread
     return Thread.new(*args) do |*args|
       lastErrorTime = 0
       
+      ret = nil
       # If two error occur within the same second, we give up; 
       # something is severely broken.
       while not Time.now.to_i == lastErrorTime
 	begin
-	  block.call(*args)
+	  ret = block.call(*args)
 	rescue => ex
 	  lastErrorTime = Time.now.to_i
 	  rerror(self, ex)
 	  rinfo(self, "Restarting thread operation in #{self.class.to_s}")
+	  err = true
 	else
-	  Thread.current.exit
+	  err = false
+	  break
 	end
       end
-      rerror(self, "Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
-      Thread.current.exit
+      if err
+	rerror(self, "Errors in thread for class #{self.class.to_s} are reoccuring too fast; giving up.")
+      end
+      ret
     end
   end
 

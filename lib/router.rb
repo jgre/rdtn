@@ -63,7 +63,7 @@ class Router
                "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
 	end
-      rescue ProtocolError => err
+      rescue ProtocolError, SystemCallError, IOError => err
 	rerror(self, "Routetab::doForward #{err}")
       end
     end
