@@ -18,6 +18,7 @@
 require "bundle"
 require "monitor"
 require "pstore"
+require "time"
 
 class BundleAlreadyStored < RuntimeError
   def initialize(bundleId)

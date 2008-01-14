@@ -22,6 +22,7 @@ require "queue"
 require "eidscheme"
 require "rdtnevent"
 require "genparser"
+require "time"
 
 module Bundling
 

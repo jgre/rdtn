@@ -23,6 +23,7 @@ require "eidscheme"
 require "rdtnevent"
 require "bundle"
 require "monitor"
+require "time"
 
 module Stats
 

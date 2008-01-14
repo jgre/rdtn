@@ -21,6 +21,7 @@ require "configuration"
 require "cl"
 require "eidscheme"
 require "monitor"
+require "time"
 
 class Neighbor
 
