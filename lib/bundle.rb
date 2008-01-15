@@ -23,6 +23,7 @@ require "eidscheme"
 require "rdtnevent"
 require "genparser"
 require "time"
+require "forwardlog"
 
 module Bundling
 
@@ -141,12 +142,15 @@ module Bundling
     PAYLOAD_BLOCK = 1
 
     attr_accessor :incomingLink
+    attr_reader   :forwardLog
 
     SUPPORTED_VERSIONS = [4, 5]
 
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		  custodianEid=nil)
       @blocks = []
+      @custodyAccepted = false
+      @forwardLog = Bundling::ForwardLog.new
       if payload or destEid or srcEid
 	@blocks.push(PrimaryBundleBlock.new(self, destEid, srcEid, 
 					  reportToEid, custodianEid))
@@ -154,7 +158,7 @@ module Bundling
 	@blocks[-1].lastBlock = true
       end
     end
-
+    
     # Most method calls are redirected to the blocks that make up the bundle.
     def method_missing(methodId, *args)
       return nil if @blocks.empty?
@@ -182,6 +186,38 @@ module Bundling
       data = ""
       @blocks.each {|block| data << block.to_s}
       return data
+    end
+
+    def custodyAccepted?
+      @custodyAccepted
+    end
+
+    def custodyAccepted=(acc)
+      @custodyAccepted = acc
+    end
+
+    def dispatchPending?
+      #TODO
+      false
+    end
+
+    def forwardPending?
+      #TODO
+      false
+    end
+
+    def reassemblyPending?
+      #TODO
+      false
+    end
+
+    def retentionContraints?
+      custodyAccepted? or dispatchPending? or forwardPending? or reassemblyPending?
+    end
+
+    def removeRetentionConstraints
+      @custodyAccepted = false
+      # TODO: cancel pending transmissions in forwardLog
     end
 
     def parse(io)
@@ -263,15 +299,12 @@ module Bundling
       end
     end
 
-    def marshal_load(bundleStr)     
-      io=RdtnStringIO.new(bundleStr)
-      @blocks = []
-      self.parse(io)
-      return self
+    def marshal_dump
+      [@blocks, @forwardLog, @custodyAccepted]
     end
 
-    def marshal_dump
-      return self.to_s
+    def marshal_load(arr)
+      @blocks, @forwardLog, @custodyAccepted = arr
     end
 
     def deepCopy

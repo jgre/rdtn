@@ -61,6 +61,19 @@ class TestBundle < Test::Unit::TestCase
     assert_equal(@inBundle, outStr)
   end
 
+  def test_marshalling
+    bundle = Bundling::Bundle.new("test", "dtn://test", "dtn://test")
+    bundle.incomingLink = 42
+    bundle.custodyAccepted = true
+    bundle.forwardLog.addEntry(:incoming, :transmitted, "dtn://hugo")
+    str    = Marshal.dump(bundle)
+    b2     = Marshal.load(str)
+    assert_equal(bundle.to_s, b2.to_s)
+    assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
+    assert_nil(b2.incomingLink)
+    assert(b2.custodyAccepted?)
+  end
+
   def test_bundle_events
     Bundling::ParserManager.registerEvents
     eventSent = false

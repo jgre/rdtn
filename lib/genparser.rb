@@ -90,6 +90,15 @@ module GenParser
     end
   end
 
+  def marshal_dump
+    vars = instance_variables.find_all {|var| var != "@genParserFields"}
+    vars.map {|var| [var, instance_variable_get(var)]}
+  end
+
+  def marshal_load(arr)
+    arr.each {|var, val| instance_variable_set(var, val)}
+  end
+
   def GenParser.decodeNum(sio, length)
     if not length
       raise TypeError, "Need to know the length of Numeric value"
