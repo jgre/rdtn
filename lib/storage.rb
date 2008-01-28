@@ -62,12 +62,12 @@ class Storage < Monitor
   def deleteBundle(bundleId)
     synchronize do 
       @bundles.delete_if do |bundle| 
-	if bundle.bundleId == bundleId
-	  @curSize -= bundle.payloadLength
-	  true
-	else
-	  false
-	end
+      	if bundle.bundleId == bundleId
+      	  @curSize -= bundle.payloadLength
+      	  true
+      	else
+      	  false
+      	end
       end
     end
   end
@@ -78,9 +78,15 @@ class Storage < Monitor
       if @bundles.find {|b| b.bundleId == bundle.bundleId}
 	raise BundleAlreadyStored, bundle.bundleId
       end
-      @bundles.push(bundle)
-      EventDispatcher.instance.dispatch(:bundleStored, bundle)
-      enforceLimit
+      
+      if (!$deletion)
+        @bundles.push(bundle)
+        EventDispatcher.instance.dispatch(:bundleStored, bundle)
+        enforceLimit
+      else
+          puts "deleting"
+          EventDispatcher.instance.dispatch(:bundleRemoved, bundle)
+      end
     end
   end
 
@@ -139,10 +145,14 @@ class Storage < Monitor
 	else               -1
 	end
       end
-      outBndl = @bundles.pop
-      if outBndl
-        @curSize -= outBndl.payloadLength
-        EventDispatcher.instance.dispatch(:bundleRemoved, outBndl)
+      
+      # TODO seek a replacement for the undeleted bundle
+      if (!@bundles.last.custodyAccepted?)
+        outBndl = @bundles.pop
+        if outBndl
+          @curSize -= outBndl.payloadLength
+          EventDispatcher.instance.dispatch(:bundleRemoved, outBndl)
+        end
       end
     end
   end
@@ -151,6 +161,18 @@ class Storage < Monitor
     Thread.new do
       while true
 	sleep(10) #FIXME variable timer
+	EventDispatcher.instance.dispatch(:timerTick)
+	
+	# do i have custody for bundles?
+	@bundles.each do |b| 
+          # puts "#{b.bundleId} has custody? #{b.custodyAccepted?}"
+          # puts "Store: creationTimestamp = #{b.creationTimestamp}"
+          #                 puts "Store: creationTimestampSeq = #{b.creationTimestampSeq}"
+          #                 puts "Store: srcEid = #{b.srcEid}"
+          #                 puts "Store: fragmentOffset = #{b.fragmentOffset}"
+          #                 puts "Store: bundleId = #{b.bundleId}"     
+        end
+	        
 	synchronize do
 	  @bundles.delete_if do |b| 
 	    RdtnTime.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 

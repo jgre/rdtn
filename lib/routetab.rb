@@ -87,9 +87,9 @@ class RoutingTable < Router
     matches.delete_if do |entry| 
       l = entry.link(@contactManager)
       if l
-	l == bundle.incomingLink
+	      l == bundle.incomingLink
       else
-	true
+	      true
       end
     end
     

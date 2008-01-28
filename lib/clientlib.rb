@@ -82,6 +82,37 @@ class RdtnClient
   def sendBundle(bundle)
     sendRequest(POST, {:uri => "rdtn:bundles/", :bundle => bundle})
   end
+  
+  def sendApplicationAcknowledgement(bundle)
+    # generate reception SR
+    bdsr = BundleStatusReport.new
+    bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+    if (bundle.fragment?)
+      bdsr.fragment = true
+      bdsr.fragmentOffset = bundle.fragmentOffset
+      bdsr.fragmentLength = bundle.aduLength
+    end
+
+    bdsr.ackedByApp = true
+    bdsr.creationTimestamp = bundle.creationTimestamp
+    bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+    bdsr.eidLength = bundle.srcEid.to_s.length
+    bdsr.srcEid = bundle.srcEid.to_s
+
+    b = Bundling::Bundle.new(bdsr.to_s)
+    if (bundle.reportToEid.to_s != "dtn:none")
+      b.destEid = bundle.reportToEid
+    else
+      b.destEid = bundle.srcEid
+    end
+
+    b.administrative = true
+    b.lifetime = bundle.lifetime
+
+    puts "SND: application acknowledgement status report to #{b.destEid}"
+    
+    sendBundle(b)
+  end
 
   def addRoute(pattern, link)
     sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern, 

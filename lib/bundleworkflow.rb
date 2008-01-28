@@ -18,6 +18,8 @@
 require "rdtnerror"
 require "rdtnevent"
 require "bundle"
+require "administrative"
+require "time"
 
 module Bundling
 
@@ -41,10 +43,17 @@ module Bundling
     def BundleWorkflow.registerEvents
       EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
         if bundle
-	  #puts "BundleParsed! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
-	  bwf = BundleWorkflow.new(bundle)
-	  bwf.processBundle
-	end
+      	  #puts "BundleParsed! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
+      	  bwf = BundleWorkflow.new(bundle)
+      	  bwf.processBundle
+      	end
+      end
+      EventDispatcher.instance.subscribe(:bundleRemoved) do |bundle|
+        if bundle
+      	  #puts "BundleDeleted! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
+      	  bwf = BundleWorkflow.new(bundle)
+      	  bwf.processDeletion
+      	end
       end
     end
 
@@ -63,11 +72,11 @@ module Bundling
       store = RdtnConfig::Settings.instance.store
       @bundle    = store.getBundle(params[0]) if store
       if @bundle 
-	@taskQueue    = params[1]
-	@curTaskIndex = params[2]
+	      @taskQueue    = params[1]
+	      @curTaskIndex = params[2]
       else        
-	@taskQueue    = []
-	@curTaskIndex = -1
+	      @taskQueue    = []
+	      @curTaskIndex = -1
       end
     end
 
@@ -93,22 +102,22 @@ module Bundling
 
     def processBundle
       until finished?
-	#puts "ProcessBundle #{curTask.class}, #{curTask.state}"
-	curTask.processBundle(@bundle)
-	if curTask.state == :processed then nextTask 
-	else break
-	end
+      	#puts "ProcessBundle #{curTask.class}, #{curTask.state}"
+      	curTask.processBundle(@bundle)
+      	if curTask.state == :processed then nextTask 
+      	else break
+      	end
       end
       return nil
     end
 
     def processDeletion
       until deletionFinished?
-	prevTask if finished?
-	curTask.processDeletion(@bundle)
-	if curTask.state == :deleted then prevTask
-	else break
-	end
+        prevTask if finished?
+      	curTask.processDeletion(@bundle)
+      	if curTask.state == :deleted then prevTask
+      	else break
+      	end
       end
       return nil
     end
@@ -134,23 +143,23 @@ module Bundling
     def processBundle(bundle)
       store = RdtnConfig::Settings.instance.store
       if store
-	begin
-	  store.storeBundle(bundle)
-	rescue BundleAlreadyStored
-	  #puts "Already stored."
-	  return nil
-	end
-	store.save
+      	begin
+      	  store.storeBundle(bundle)
+      	rescue BundleAlreadyStored
+      	  #puts "Already stored."
+      	  return nil
+      	end
+      	store.save
       end
       self.state = :processed
     end
 
     def processDeletion(bundle)
       store = RdtnConfig::Settings.instance.store
-      if store
-	store.deleteBundle(bundle.bundleId)
-	store.save
-      end
+      # if store
+      #         store.deleteBundle(bundle.bundleId)
+      #         store.save
+      # end
       self.state = :deleted
     end
 
@@ -169,34 +178,375 @@ module Bundling
   end
 
   class CustodyHandler < TaskHandler
-
+  
+    SUCCESS = true
+    FAILURE = false
+        
     def processBundle(bundle)
+      if bundle.requestCustody?
+        rdebug(self, "Requested Custody from #{bundle.custodianEid} for #{bundle.bundleId}")
+        if ($custody)
+          bundle.custodyAccepted = true
+          rdebug(self, "Accepted Custody for #{bundle.bundleId}")
+          
+          
+          # send custody signal and then update custodian
+          sendCustodySignal(bundle, SUCCESS)
+          bundle.custodianEid = RdtnConfig::Settings.instance.localEid
+        end
+        # send succeeded custody signal if delivered
+        h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+          # was the bundle delivered to an app?
+          if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
+                rdebug(self, "bundle with custody delivered on link: #{link}")
+                # generate delivery SR
+          
+                sendCustodySignal(bundle, SUCCESS)
+          
+                # prevent nasty loops
+                EventDispatcher.instance.unsubscribe(:bundleForwarded, h)          
+              end
+        end
+        
+      end
       self.state = :processed
     end
-
+  
     def processDeletion(bundle)
       self.state = :deleted
     end
-
+  
+    def sendCustodySignal(bundle, success)
+      # generate custody signal if there is a custodian waiting for it
+      
+      if (bundle.custodianEid.to_s != "dtn:none")
+        cs = CustodySignal.new
+        cs.status = CustodySignal::CUSTODY_NO_ADDTL_INFO
+        if (bundle.fragment?)
+          cs.fragment = true
+          cs.fragmentOffset = bundle.fragmentOffset
+          cs.fragmentLength = bundle.aduLength
+        end
+  
+        cs.transferSucceeded = success
+  
+        cs.creationTimestamp = bundle.creationTimestamp
+        cs.creationTimestampSeq = bundle.creationTimestampSeq
+        cs.eidLength = bundle.srcEid.to_s.length
+        cs.srcEid = bundle.srcEid.to_s
+        
+        b = Bundling::Bundle.new(cs.to_s)
+        b.destEid = bundle.custodianEid
+  
+        b.administrative = true
+        b.lifetime = bundle.lifetime
+  
+        rdebug(self, "Custody Signal to: #{b.destEid}")
+  
+        EventDispatcher.instance.dispatch(:bundleToForward, b)
+      end
+    end
   end
 
+  # Generation and handling of AdministrativeRecords happens here
   class AdminRecHandler < TaskHandler
-
+  
+    
     def processBundle(bundle)
+  
+      if (bundle.administrative?)
+        # handle the administrative record
+        handleAdminRecord(bundle)
+      end
+  
+      if (bundle.deliverySrr?)
+        sendDeliverySrr(bundle)
+      end
+      
+      if (bundle.forwardingSrr?)
+        sendForwardingSrr(bundle)
+      end
+      
+      if (bundle.receptionSrr?)
+        sendReceptionSrr(bundle)
+      end
+      
+      if (bundle.requestCustody?)
+        # Did we accept custody for this bundle
+        if (bundle.custodyAccepted?)
+          # If an acceptance sr is also requested, don't send an custody acceptance sr
+          sendCustodyAcceptanceSr(bundle) unless bundle.receptionSrr?
+        end
+      end
+      
       self.state = :processed
     end
-
+  
     def processDeletion(bundle)
+      if (bundle.deletionSrr?)
+        sendDeletionSrr(bundle)
+      end
+      
       self.state = :deleted
     end
-
+    
+    def sendCustodyAcceptanceSr(bundle)
+        
+      # generate reception SR
+      bdsr = BundleStatusReport.new
+      bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+      if (bundle.fragment?)
+        bdsr.fragment = true
+        bdsr.fragmentOffset = bundle.fragmentOffset
+        bdsr.fragmentLength = bundle.aduLength
+      end
+  
+      bdsr.custodyAccepted = true
+      bdsr.custAcceptTime = (RdtnTime.now - Time.gm(2000)).to_i
+      bdsr.creationTimestamp = bundle.creationTimestamp
+      bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+      bdsr.eidLength = bundle.srcEid.to_s.length
+      bdsr.srcEid = bundle.srcEid.to_s
+      
+      b = Bundling::Bundle.new(bdsr.to_s)
+      if (bundle.reportToEid.to_s != "dtn:none")
+        b.destEid = bundle.reportToEid
+      else
+        b.destEid = bundle.srcEid
+      end
+  
+      b.administrative = true
+      b.lifetime = bundle.lifetime
+  
+      rdebug(self, "SND: custody acceptance status report to #{b.destEid}")
+      EventDispatcher.instance.dispatch(:bundleToForward, b)
+    end
+    
+    def sendDeletionSrr(bundle)
+      # generate deletion SR
+      bdsr = BundleStatusReport.new
+      bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+      if (bundle.fragment?)
+        bdsr.fragment = true
+        bdsr.fragmentOffset = bundle.fragmentOffset
+        bdsr.fragmentLength = bundle.aduLength
+      end
+  
+      bdsr.bundleDeleted = true
+      bdsr.deletionTime = (RdtnTime.now - Time.gm(2000)).to_i
+      
+      bdsr.creationTimestamp = bundle.creationTimestamp
+      bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+      bdsr.eidLength = bundle.srcEid.to_s.length
+      bdsr.srcEid = bundle.srcEid.to_s
+  
+      b = Bundling::Bundle.new(bdsr.to_s)
+      if (bundle.reportToEid.to_s != "dtn:none")
+        b.destEid = bundle.reportToEid
+      else
+        b.destEid = bundle.srcEid
+      end
+  
+      b.administrative = true
+      b.lifetime = bundle.lifetime
+  
+      rdebug(self, "SND: bundle deletion status report to #{b.destEid}")
+  
+      EventDispatcher.instance.dispatch(:bundleToForward, b)
+    end
+    
+    def sendReceptionSrr(bundle)
+        
+      # generate reception SR
+      bdsr = BundleStatusReport.new
+      bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+      if (bundle.fragment?)
+        bdsr.fragment = true
+        bdsr.fragmentOffset = bundle.fragmentOffset
+        bdsr.fragmentLength = bundle.aduLength
+      end
+  
+      bdsr.bundleReceived = true
+      bdsr.receiptTime = (RdtnTime.now - Time.gm(2000)).to_i
+      
+      # Notify as well if custody was accepted
+      if (bundle.requestCustody? && bundle.custodyAccepted?)
+        bdsr.custodyAccepted = true
+        bdsr.custAcceptTime = (RdtnTime.now - Time.gm(2000)).to_i
+      end
+      
+      bdsr.creationTimestamp = bundle.creationTimestamp
+      bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+      bdsr.eidLength = bundle.srcEid.to_s.length
+      bdsr.srcEid = bundle.srcEid.to_s
+  
+      b = Bundling::Bundle.new(bdsr.to_s)
+      if (bundle.reportToEid.to_s != "dtn:none")
+        b.destEid = bundle.reportToEid
+      else
+        b.destEid = bundle.srcEid
+      end
+  
+      b.administrative = true
+      b.lifetime = bundle.lifetime
+  
+      rdebug(self, "SND: bundle reception status report to #{b.destEid}")
+  
+      EventDispatcher.instance.dispatch(:bundleToForward, b)
+    end
+  
+    def sendForwardingSrr(bundle)
+      h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+        
+        # generate forwarding SR
+        bdsr = BundleStatusReport.new
+        bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+        if (bundle.fragment?)
+          bdsr.fragment = true
+          bdsr.fragmentOffset = bundle.fragmentOffset
+          bdsr.fragmentLength = bundle.aduLength
+        end
+  
+        bdsr.bundleForwarded = true
+        bdsr.forwardingTime = (RdtnTime.now - Time.gm(2000)).to_i
+        bdsr.creationTimestamp = bundle.creationTimestamp
+        bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+        bdsr.eidLength = bundle.srcEid.to_s.length
+        bdsr.srcEid = bundle.srcEid.to_s
+  
+        b = Bundling::Bundle.new(bdsr.to_s)
+        if (bundle.reportToEid.to_s != "dtn:none")
+          b.destEid = bundle.reportToEid
+        else
+          b.destEid = bundle.srcEid
+        end
+  
+        b.administrative = true
+        b.lifetime = bundle.lifetime
+  
+        rdebug(self, "SND: bundle forwarding status report to #{b.destEid}")
+  
+        # prevent nasty loops
+        EventDispatcher.instance.unsubscribe(:bundleForwarded, h)
+  
+        EventDispatcher.instance.dispatch(:bundleToForward, b)
+      end
+    end
+    
+    def sendDeliverySrr(bundle)
+      h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+        # was the bundle delivered to an app?
+        if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
+          # generate delivery SR
+  
+          bdsr = BundleStatusReport.new
+          bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
+          if (bundle.fragment?)
+            bdsr.fragment = true
+            bdsr.fragmentOffset = bundle.fragmentOffset
+            bdsr.fragmentLength = bundle.aduLength
+          end
+  
+          bdsr.bundleDelivered = true
+          bdsr.deliveryTime = (RdtnTime.now - Time.gm(2000)).to_i
+          bdsr.creationTimestamp = bundle.creationTimestamp
+          bdsr.creationTimestampSeq = bundle.creationTimestampSeq
+          bdsr.eidLength = bundle.srcEid.to_s.length
+          bdsr.srcEid = bundle.srcEid.to_s
+  
+          b = Bundling::Bundle.new(bdsr.to_s)
+          if (bundle.reportToEid.to_s != "dtn:none")
+            b.destEid = bundle.reportToEid
+          else
+            b.destEid = bundle.srcEid
+          end
+          
+          b.administrative = true
+          b.lifetime = bundle.lifetime
+  
+          rdebug(self, "SND: bundle delivery status report to #{b.destEid}")
+  
+          # prevent nasty loops
+          EventDispatcher.instance.unsubscribe(:bundleForwarded, h)
+  
+          EventDispatcher.instance.dispatch(:bundleToForward, b)
+        end
+      end
+    end
+  
+    def handleAdminRecord(bundle)
+      administrativeRecord = AdministrativeRecord.parseBundle(bundle)
+      # there are several cases we need to handle here
+      
+      if (administrativeRecord.bundleStatusReport?)
+        # A "bundle reception status report" is a bundle status report with 
+        # the "reporting node received bundle" flag set to 1.
+        if (administrativeRecord.bundleReceived?)
+          rdebug(self, "RCV: bundle reception status report from #{bundle.srcEid}")
+          
+        end
+        
+        # A "custody acceptance status report" is a bundle status report
+        # with the "reporting node accepted custody of bundle" flag set to 1.
+        if (administrativeRecord.custodyAccepted?)
+          rdebug(self, "RCV: custody acceptance status report from #{bundle.srcEid}")
+          custody = RdtnConfig::Settings.instance.custodyTimer
+          custody.remove(administrativeRecord.bundleId)
+          
+        end
+        
+        # A "bundle forwarding status report" is a bundle status report with
+        # the "reporting node forwarded the bundle" flag set to 1.
+        if (administrativeRecord.bundleForwarded?)
+          rdebug(self, "RCV: bundle forwarding status report from #{bundle.srcEid}")
+        end
+        
+        # A "bundle delivery status report" is a bundle status report with
+        # the "reporting node delivered the bundle" flag set to 1.
+        if (administrativeRecord.bundleDelivered?)
+          rdebug(self, "RCV: bundle delivery status report from #{bundle.srcEid}")
+        end
+        
+        # A "bundle deletion status report" is a bundle status report with
+        # the "reporting node deleted the bundle" flag set to 1.
+        if (administrativeRecord.bundleDeleted?)
+          rdebug(self, "RCV: bundle deletion status report from #{bundle.srcEid}")
+        end
+        
+        if (administrativeRecord.ackedByApp?)
+          rdebug(self, "RCV: acked by app from #{bundle.srcEid}")
+        end
+        
+        # rfc 5050 6.1.1 transmitted to the report-to endpoint TODO
+      elsif (administrativeRecord.custodySignal?)
+        rdebug(self, "RCV: a custody signal arrived from #{bundle.srcEid}")
+        # The "current custodian" of a bundle is the endpoint identified by
+        # the current custodian endpoint ID in the bundle's primary block.
+  
+        # A "Succeeded" custody signal is a custody signal with the "custody
+        # transfer succeeded" flag set to 1.
+        if (administrativeRecord.transferSucceeded?)
+          rdebug(self, "RCV: transfer succeeded from #{bundle.srcEid}")
+          RdtnConfig::Settings.instance.custodyTimer.remove(administrativeRecord.bundleId)
+          # see rfc 5050 Section 5.11
+        end
+  
+        # A "Failed" custody signal is a custody signal with the "custody
+        # transfer succeeded" flag set to zero.
+        if (!administrativeRecord.transferSucceeded?)
+          rdebug(self, "RCV: transfer failed from #{bundle.srcEid}")
+          # see rfc 5050 Section 5.12
+        end
+      end  
+    end
   end
-
+  
   class Forwarder < TaskHandler
 
     def processBundle(bundle)
+        
       EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
-	self.state = :processed if bundle.bundleId == bndl.bundleId
+	      self.state = :processed if bundle.bundleId == bndl.bundleId
       end
       EventDispatcher.instance.dispatch(:bundleToForward, bundle)
     end
@@ -206,7 +556,7 @@ module Bundling
     end
 
   end
-
+  
 end # module Bundling
 
 class WorkflowTaskReg
@@ -220,6 +570,7 @@ class WorkflowTaskReg
   end
 
   def regTask(runlevel, klass)
+
     @tasks.push([runlevel, klass]) unless @tasks.find {|rl, k| rl == runlevel}
   end
 

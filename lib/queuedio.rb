@@ -50,7 +50,6 @@ module QueuedSender
       buf = @sendQueue.read(@sendQueueChunkSize)
       begin
         res=@sendSocket.send(buf,0)
-        
       rescue  RuntimeError => detail
         puts("socket send error " + detail)
       end
@@ -86,6 +85,7 @@ module QueuedReceiver
   def doRead
     while true
       data = @receiveSocket.recv(@readQueueChunkSize)
+      
       if data and data.length > 0
 	@readQueue.enqueue(data)
 	yield(@readQueue)

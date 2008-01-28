@@ -30,6 +30,7 @@ require 'storage'
 require 'clientregcl'
 require 'configuration'
 require "stats"
+require "metablock"
 
 module RdtnDaemon
 
@@ -38,30 +39,29 @@ module RdtnDaemon
     def initialize(optParser = OptionParser.new)
 
       store = RdtnConfig::Settings.instance.store
-      Bundling::ParserManager.registerEvents
       Bundling::BundleWorkflow.registerEvents
       owEid = nil
 
       configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
 
       optParser.on("-c", "--config FILE", "config file name") do |c|
-	configFileName = c
+	      configFileName = c
       end
       optParser.on("-l", "--local EID", "local EID") do |l|
 	owEid = l
       end
       optParser.on("-s", "--stat-dir DIR", "Directory for statistics") do |s|
-	dir = File.expand_path(s)
-	begin
-	  Dir.mkdir(dir) unless File.exist?(dir)
-	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
-					 File.join(dir, "out.stat"),  
-					 File.join(dir, "in.stat"),
-					 File.join(dir, "contact.stat"),
-					 File.join(dir, "subscribe.stat"),
-					 File.join(dir, "store.stat"))
-	rescue
-	end
+      	dir = File.expand_path(s)
+      	begin
+      	  Dir.mkdir(dir) unless File.exist?(dir)
+      	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
+				  File.join(dir, "out.stat"),  
+					File.join(dir, "in.stat"),
+					File.join(dir, "contact.stat"),
+					File.join(dir, "subscribe.stat"),
+					File.join(dir, "store.stat"))
+	       rescue
+	       end
       end
 
       optParser.parse!(ARGV)
@@ -69,14 +69,14 @@ module RdtnDaemon
       RdtnConfig::Settings.instance.localEid = owEid if owEid
 
       conf = RdtnConfig::Reader.load(configFileName)
+      Bundling::ParserManager.registerEvents   
 
       RdtnConfig::Settings.instance.localEid = owEid if owEid
-
     end
 
     def runLoop
       rdebug(self, "Starting DTN daemon main loop")
-      sleep # Let the other threads run until the process is killed.
+      sleep
     end
   end
 

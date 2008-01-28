@@ -43,9 +43,9 @@ module Sdnv
         slen = i + 1
         break
       elsif (i==buf.length()-1) or (slen and i>slen) 
-	n = nil
-	raise InputTooShort, nil # We cannot tell how long this SDNV is.
-	break
+	      n = nil
+	      raise InputTooShort, nil # We cannot tell how long this SDNV is.
+	      break
       end
       i += 1
     end

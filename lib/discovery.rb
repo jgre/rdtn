@@ -27,7 +27,7 @@ require 'time'
 class Announcement
 
   include GenParser
-
+    
   attr_accessor :clType, :interval, :inetAddr, :inetPort, :senderEid, :lastSeen
 
   def Announcement.typeSymToId(typeSym)
@@ -134,15 +134,16 @@ class IPDiscovery < Monitor
         ann.inetAddr == link.host and ann.inetPort == link.port
       end
     end
+    @platform = Platform.new
+    
   end
 
   def start
     @sock = UDPSocket.new
     ip =  IPAddr.new(@addr).hton + IPAddr.new("0.0.0.0").hton
 
-
     begin
-      @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+      @platform.soreuseaddr(@sock)
       @sock.bind(Socket::INADDR_ANY, @port)
       @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_MULTICAST_LOOP, 1)
       @sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)

@@ -25,6 +25,7 @@ require 'flutecl'
 require 'clientregcl'
 require 'discovery'
 require 'priorityrouter'
+require 'custodytimer'
 
 module RdtnConfig
 
@@ -225,7 +226,7 @@ module RdtnConfig
 
     attr_accessor :localEid, :store, :router, 
       :contactManager, :subscriptionHandler,
-      :sprayWaitCopies
+      :sprayWaitCopies, :custodyTimer
 
     def initialize
       @localEid = ""
@@ -242,6 +243,11 @@ module RdtnConfig
     def subscriptionHandler
       @subscriptionHandler = SubscriptionHandler.new(nil) unless @subscriptionHandler
       return @subscriptionHandler
+    end
+    
+    def custodyTimer
+      @custodyTimer = CustodyTimer.instance()
+      return @custodyTimer
     end
 
     # Set the log level for for a given classname pattern.

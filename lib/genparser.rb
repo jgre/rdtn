@@ -19,68 +19,68 @@ require "stringio"
 require "sdnv"
 
 module GenParser
-
-  def defField(fieldId, params)
-    @genParserFields = [] if not defined? @genParserFields
-    res = @genParserFields.find do |obj| 
-      if obj[0] == fieldId
-	obj[1].merge!(params)
-      end
-    end
-    @genParserFields << res = [fieldId, params] unless res
-  end
-
-  def parse(buf)
-    @finishedIndex = 0
-    if buf.class == String
-      sio = StringIO.new(buf)
-    elsif buf.kind_of? StringIO
-      sio = buf
-    else
-      raise TypeError, "Parser needs input as String or StringIO."
-    end
-
-    @genParserFields.each_with_index do |field, i|
-      if field[1].has_key?(:ignore) and field[1][:ignore]
-	@finishedIndex = i
-	next
-      end
-      if field[1].has_key?(:length): length = field[1][:length]
-      else length = nil
-      end
-      if field[1].has_key?(:decode)
-	data, length = field[1][:decode].call(sio, length) 
-      elsif length
-	data = sio.read(length)
-	if not data or data.length < length
-	  dlen = data ? data.length : 0
-	  raise InputTooShort, length - dlen
+	
+	def defField(fieldId, params)
+		@genParserFields = [] if not defined? @genParserFields
+		res = @genParserFields.find do |obj| 
+			if obj[0] == fieldId
+				obj[1].merge!(params)
+			end
+		end
+		@genParserFields << res = [fieldId, params] unless res
 	end
-      else
-	raise RuntimeError, "Cannot parse field #{field[0]} without decoder or length indication."
-      end
-
-      if field[1].has_key?(:condition)
-	if not field[1][:condition].call(data)
-	  raise ProtocolError, "Condition for field '#{field[0]}' not fulfilled."
+	
+	def parse(buf)
+		@finishedIndex = 0
+		if buf.class == String
+			sio = StringIO.new(buf)
+		elsif buf.kind_of? StringIO
+			sio = buf
+		else
+			raise TypeError, "Parser needs input as String or StringIO."
+		end
+		
+		@genParserFields.each_with_index do |field, i|
+			if field[1].has_key?(:ignore) and field[1][:ignore]
+				@finishedIndex = i
+				next
+			end
+			if field[1].has_key?(:length): length = field[1][:length]
+				else length = nil
+			end
+			if field[1].has_key?(:decode)
+				data, length = field[1][:decode].call(sio, length) 
+			elsif length
+				data = sio.read(length)
+				if not data or data.length < length
+					dlen = data ? data.length : 0
+					raise InputTooShort, length - dlen
+				end
+			else
+				raise RuntimeError, "Cannot parse field #{field[0]} without decoder or length indication."
+			end
+			
+			if field[1].has_key?(:condition)
+				if not field[1][:condition].call(data)
+					raise ProtocolError, "Condition for field '#{field[0]}' not fulfilled."
+				end
+			end
+			
+			if field[1].has_key?(:block)
+				field[1][:block].call(data) 
+			end
+			
+			if field[1].has_key?(:handler)
+				if field[1].has_key?(:object)
+					obj = field[1][:object]
+				else
+					obj = self
+				end
+				obj.send(field[1][:handler], data) 
+			end
+			@finishedIndex = i
+		end
 	end
-      end
-
-      if field[1].has_key?(:block)
-	field[1][:block].call(data) 
-      end
-
-      if field[1].has_key?(:handler)
-	if field[1].has_key?(:object)
-	  obj = field[1][:object]
-	else
-	  obj = self
-	end
-	obj.send(field[1][:handler], data) 
-      end
-      @finishedIndex = i
-    end
-  end
 
   def parserFinished?
     if @finishedIndex

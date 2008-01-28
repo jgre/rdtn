@@ -446,6 +446,7 @@ module TCPCL
     end
 
     def handleBundleData(startSegment, endSegment, data)
+      rdebug(self, "handleBundleData")
       if @currentBundle.size > 0 and startSegment
         raise OverwritingBundle
       end

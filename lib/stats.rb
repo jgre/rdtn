@@ -43,9 +43,9 @@ module Stats
 
     def to_s
       if @link and @link.remoteEid
-	"#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}, #{@link.remoteEid}"
+	      "#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}, #{@link.remoteEid}"
       else
-	"#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
+	      "#{@time.to_i}, #{@dest}, #{@src}, #{@bundleId}, #{@payloadSize}, #{@fragment}"
       end
     end
 
@@ -84,49 +84,54 @@ module Stats
       @subscribeStatFile = subscribeStatFile
       @storeStatFile = storeStatFile
       EventDispatcher.instance.subscribe(:bundleToForward) do |bundle|
-	writeBundleStat(:in, bundle, bundle.incomingLink)
+	      writeBundleStat(:in, bundle, bundle.incomingLink)
       end
       EventDispatcher.instance.subscribe(:bundleForwarded) do |bundle, link|
-	writeBundleStat(:out, bundle, link)
+	      writeBundleStat(:out, bundle, link)
       end
       EventDispatcher.instance.subscribe(:opportunityAvailable) do |tp, opts, eid|
-	writeContactStat(:opportunity, tp, "", opts[:host], opts[:port], eid)
+	      writeContactStat(:opportunity, tp, "", opts[:host], opts[:port], eid)
       end
       EventDispatcher.instance.subscribe(:linkOpen) do |link|
-	type = CLReg.instance.getName(link.class)
-	if type == :tcp or type == :udp
-	  writeContactStat(:link, type, link.name, link.host, link.port, 
-			   link.remoteEid)
-	elsif type == :rem
-	  writeContactStat(:link, type, link.name, '', '', link.remoteEid)
-	end
+	      type = CLReg.instance.getName(link.class)
+	      if type == :tcp or type == :udp
+	        writeContactStat(:link, type, link.name, link.host, link.port, 
+			                      link.remoteEid)
+	      elsif type == :rem
+	        writeContactStat(:link, type, link.name, '', '', link.remoteEid)
+	      end
       end
+      
       EventDispatcher.instance.subscribe(:neighborContact) do |neighbor, link|
-	type = CLReg.instance.getName(link.class)
-	if type == :tcp or type == :udp
-	  writeContactStat(:contact, type, link.name, link.host, link.port, 
-			   neighbor.eid)
-	elsif type == :rem
-	  writeContactStat(:contact, type, link.name, '', '', link.remoteEid)
-	end
+	      type = CLReg.instance.getName(link.class)
+	      if type == :tcp or type == :udp
+	        writeContactStat(:contact, type, link.name, link.host, link.port, 
+			                    neighbor.eid)
+	      elsif type == :rem
+	        writeContactStat(:contact, type, link.name, '', '', link.remoteEid)
+	      end
       end
+
       EventDispatcher.instance.subscribe(:linkClosed) do |link|
-	type = CLReg.instance.getName(link.class)
-	if type == :tcp or type == :udp
-	  writeContactStat(:closed, type, link.name, link.host, link.port, 
-			   link.remoteEid)
-	elsif type == :rem
-	  writeContactStat(:closed, type, link.name, '', '', link.remoteEid)
-	end
+	      type = CLReg.instance.getName(link.class)
+	      if type == :tcp or type == :udp
+	        writeContactStat(:closed, type, link.name, link.host, link.port, 
+			                      link.remoteEid)
+	      elsif type == :rem
+	        writeContactStat(:closed, type, link.name, '', '', link.remoteEid)
+	      end
       end
+      
       EventDispatcher.instance.subscribe(:uriSubscribed) do |uri|
-	writeSubscribeStat(uri)
+	      writeSubscribeStat(uri)
       end
+      
       EventDispatcher.instance.subscribe(:bundleStored) do |bundle|
-	writeStoreStat(:stored, bundle)
+	      writeStoreStat(:stored, bundle)
       end
+      
       EventDispatcher.instance.subscribe(:bundleRemoved) do |bundle|
-	writeStoreStat(:removed, bundle)
+	      writeStoreStat(:removed, bundle)
       end
 
     end
@@ -148,7 +153,7 @@ module Stats
 
     def writeSubscribeStat(uri)
       synchronize do
-	open(@subscribeStatFile, "a") {|f| f.puts(uri) }
+	      open(@subscribeStatFile, "a") {|f| f.puts(uri) }
       end
     end
 
@@ -156,7 +161,6 @@ module Stats
       synchronize do
       open(@storeStatFile, "a") do |f| 
 	f.puts("#{RdtnTime.now.to_i}, #{status}, #{bundle.bundleId}")
-      end
       end
     end
 

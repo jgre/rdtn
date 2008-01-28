@@ -22,9 +22,12 @@ require "test/unit"
 require "rdtnevent"
 require "udpcl"
 require "configuration"
+require "platform"
 
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
+  @platform = Platform.new
+  
   def setup
   end
 
@@ -40,7 +43,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     inBundle = "I'm a DTN bundle!"
     begin
       inBundle = open(File.join(File.dirname(__FILE__), "mbfile")) do |f|
-	f.read(65000)
+	f.read(@platform.udpmaxdgram)
       end
     rescue
     end

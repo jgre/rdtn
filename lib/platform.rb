@@ -16,14 +16,29 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require 'socket'
+require 'singleton'
 
-if (RUBY_PLATFORM == "i386-mswin32")
-  Socket::IP_MULTICAST_LOOP = 11 unless Socket.const_defined?('IP_MULTICAST_LOOP')
-  Socket::IP_ADD_MEMBERSHIP = 12 unless Socket.const_defined?('IP_ADD_MEMBERSHIP')
-end
-
+class Platform
+  if (RUBY_PLATFORM == "i386-mswin32")
+    Socket::IP_MULTICAST_LOOP = 11 unless Socket.const_defined?('IP_MULTICAST_LOOP')
+    Socket::IP_ADD_MEMBERSHIP = 12 unless Socket.const_defined?('IP_ADD_MEMBERSHIP')
+  end 
   
-
+  def udpmaxdgram 
+    if (RUBY_PLATFORM == "universal-darwin9.0") #FreeBSD? Mac OS X 10.4?
+      return 9216 
+    end
+    
+    return 65000
+  end
+  
+ def soreuseaddr(socket)
+   socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+   if (RUBY_PLATFORM == "universal-darwin9.0")
+       socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEPORT, 1)
+   end
+ end
+end
 
 
 
