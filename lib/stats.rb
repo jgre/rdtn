@@ -159,8 +159,9 @@ module Stats
 
     def writeStoreStat(status, bundle)
       synchronize do
-      open(@storeStatFile, "a") do |f| 
-	f.puts("#{RdtnTime.now.to_i}, #{status}, #{bundle.bundleId}")
+	open(@storeStatFile, "a") do |f| 
+	  f.puts("#{RdtnTime.now.to_i}, #{status}, #{bundle.bundleId}")
+	end
       end
     end
 
