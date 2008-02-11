@@ -39,8 +39,8 @@ module UDPCL
     attr_reader   :host, :port
     include QueuedSender
 
-    def initialize(sock = nil)
-      super()
+    def initialize(config, evDis, sock = nil)
+      super(config, evDis)
       queuedSenderInit(sock)
     end
 
@@ -65,7 +65,7 @@ module UDPCL
       @sendSocket = UDPSocket.new
       # For UDP this operation does not block, so we do it without thread
       @sendSocket.connect(@host, @port)
-      EventDispatcher.instance.dispatch(:linkOpen, self)
+      @evDis.dispatch(:linkOpen, self)
     end
 
     def close(wait = nil)
@@ -82,7 +82,8 @@ module UDPCL
       
     def sendBundle(bundle)
       sendQueueAppend(bundle.to_s)
-      senderThread { doSend }
+      doSend
+      #senderThread { doSend }
     end
 
   end
@@ -96,7 +97,9 @@ module UDPCL
 
     include QueuedReceiver
 
-    def initialize(name, options)
+    def initialize(config, evDis, name, options)
+      @config = config
+      @evDis  = evDis
       self.name = name
       @host = "127.0.0.1"
       @port = UDPCLPORT
@@ -127,7 +130,7 @@ module UDPCL
     def read
       begin
 	doRead do |input|
-	  EventDispatcher.instance().dispatch(:bundleData, input, self)
+	  @evDis.dispatch(:bundleData, input, self)
 	end
       rescue SystemCallError
 	rerror(self, "UDPLink::whenReadReady::recvfrom" + $!)

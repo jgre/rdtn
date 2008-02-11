@@ -14,36 +14,44 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
-require 'test/unit'
-require 'configuration'
- 
+require 'conf'
+require 'rdtnevent'
 
-class TestConfig < Test::Unit::TestCase
+module Sim
 
-  def test_rubyHash_instead_optString 
-    options = RdtnConfig::Reader::hash_to_optString()
-    assert_equal("", options)
+  class EventQueue
 
-    options = RdtnConfig::Reader::hash_to_optString({:port => 8888})
-    assert_equal("-p 8888", options)
+    attr_accessor :events, :deltaTime
 
-    options = RdtnConfig::Reader::hash_to_optString({:host => "localhost"})
-    assert_equal("-h localhost", options)
+    def initialize(deltaTime = 0)
+      @events = [] # [time, nodeId1, nodeId2, :simConnection|:simDisconnection]
+      @deltaTime = deltaTime
+    end
 
-    assert_raise(ArgumentError){
-      options = RdtnConfig::Reader::hash_to_optString({:unknown => 8888})
-    }
+    def register(config, evDis)
+      @eq = EventQueue.new
+      evDis.subscribe(:simTimerTick) do |t| 
+	# Set the offset to the fist clock tick, so that we start with time = 0
+	# for the parser
+	@offset = t.to_f unless @offset
+	while @events[0] and @events[0][0] <= (t.to_f - @offset)
+	  ev = @events.shift
+	  evDis.dispatch(ev[3], ev[1], ev[2])
+	end
+      end
+    end
+
+    def addEvent(time, nodeId1, nodeId2, type)
+      @events.push([time, nodeId1, nodeId2, type])
+    end
+
+    def empty?
+      @events.empty?
+    end
+
   end
 
-  def test_interface
-    assert_raise(RuntimeError){
-      RdtnConfig::Reader.new.interface(:noaction, :cl, "name")
-    }
-    assert_raise(RuntimeError){
-      RdtnConfig::Reader.new.interface(:noaction, :cl, "name", {:port => "low"})
-    }
-  end
-
-end #TestConfig
+end # module

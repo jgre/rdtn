@@ -25,29 +25,28 @@ class TestConfiguration < Test::Unit::TestCase
   CLs = [:tcp, :udp, :flute, :client]
 
   def setup
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
   end
 
   def teardown
-    EventDispatcher.instance.clear
   end
 
   def test_load
   end
 
   def test_add_interface
-    conf = RdtnConfig::Reader.new
+    conf = RdtnConfig::Reader.new(@config, @evDis)
     CLs.each_with_index {|cl, i| conf.interface(:add, cl, "if#{i}")}
-
-    #assert_equal(CLs.length, ObjectSpace.each_object(Interface) {})
   end
 
   def test_remove_interface
   end
 
   def test_add_link
-    conf = RdtnConfig::Reader.new
+    conf = RdtnConfig::Reader.new(@config, @evDis)
     tcpOK = udpOK = fluteOK = false
-    EventDispatcher.instance.subscribe(:linkCreated) do |link|
+    @evDis.subscribe(:linkCreated) do |link|
       case link.class.name
       when "TCPCL::TCPLink":     tcpOK   = true
       when "UDPCL::UDPLink":     udpOK   = true
@@ -65,10 +64,10 @@ class TestConfiguration < Test::Unit::TestCase
 
   def test_add_route
     eventSent = false
-    EventDispatcher.instance.subscribe(:routeAvailable) do |*args|
+    @evDis.subscribe(:routeAvailable) do |*args|
       eventSent = true
     end
-    conf = RdtnConfig::Reader.new
+    conf = RdtnConfig::Reader.new(@config, @evDis)
     conf.route(:add, "test", "someLink")
     assert(eventSent)
   end

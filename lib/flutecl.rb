@@ -34,9 +34,9 @@ module FluteCL
   # Never sends bundleData
   class FluteLink < Link
 
-    def initialize(papagenoDir="papageno_outgoing")
+    def initialize(config, evDis, papagenoDir="papageno_outgoing")
+      super(config, evDis)
       self.open("flute#{self.object_id}", :directory => papagenoDir)
-      super()
     end
 
     def open(name, options)
@@ -72,7 +72,7 @@ module FluteCL
 	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} -b #{bandwidth} #{@ppgDir}")
 	end
       end
-      EventDispatcher.instance.dispatch(:linkOpen, self)
+      @evDis.dispatch(:linkOpen, self)
 
     end
 
@@ -80,7 +80,7 @@ module FluteCL
       if defined? @pid and @pid and @pid != 0
 	Process.kill("HUP", @pid)
       end
-      EventDispatcher.instance().dispatch(:linkClosed, self)
+      @evDis.dispatch(:linkClosed, self)
     end
 
     # Puts two files into the outgoing directory:
@@ -94,7 +94,7 @@ module FluteCL
         file << "URI: uni-dtn://#{bundle.srcEid.to_s}/#{bundle.creationTimestamp}/#{bundle.creationTimestampSeq}/#{bundle.fragmentOffset}\r\n"
         file << "COS: 0\r\n"
         file << "Destination-EID: #{bundle.destEid.to_s}\r\n"
-        file << "Router-EID: #{RdtnConfig::Settings.instance.localEid}\r\n"
+        file << "Router-EID: #{@config.localEid}\r\n"
       end
       #Delete lock file
       File.delete(@ppgDir + "/" + "#{id}.meta.lock")
@@ -116,8 +116,10 @@ module FluteCL
   # Does not respond to sendBundle
   class FluteInterface < Interface
 
-    def initialize(name, options)
+    def initialize(config, evDis, name, options)
       self.name = name
+      @config = config
+      @evDis = evDis
       @ppgDir = File.expand_path("papageno_incoming") # default directory
       @pollInterval = 10 # seconds
       @addr = "224.1.2.3"
@@ -143,7 +145,7 @@ module FluteCL
 
       listenerThread(@pollInterval) do |interval|
 	poll
-	sleep(interval)
+	RdtnTime.rsleep(interval)
       end
 
       if defined? @ppgProg
@@ -165,7 +167,7 @@ module FluteCL
 
     private
 
-    def poll()
+    def poll
       return unless File.directory?(@ppgDir)
       Dir.foreach(@ppgDir) do |fn|
 	completeFn = @ppgDir + "/" + fn
@@ -174,7 +176,8 @@ module FluteCL
 	end
 	File.open(completeFn) do |file|
 	  bundle = StringIO.new(file.read)
-	  EventDispatcher.instance().dispatch(:bundleData, bundle, self)
+	  bundle.pos = 0
+	  @evDis.dispatch(:bundleData, bundle, self)
 	end
 	File.delete(completeFn)
       end

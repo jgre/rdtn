@@ -59,14 +59,16 @@ class Link
 
   @@linkCount = 0
 
-  def initialize
+  def initialize(config, evDis)
+    @config = config
+    @evDis = evDis
     @@linkCount += 1
     @name = "Link#{@@linkCount}"
     @policy = :alwaysOn
     @bytesToRead = MIN_READ_BUFFER
     @senderThreads = Queue.new
     @receiverThreads = Queue.new
-    EventDispatcher.instance().dispatch(:linkCreated, self)
+    @evDis.dispatch(:linkCreated, self)
   end
 
   def to_s
@@ -103,7 +105,7 @@ class Link
       thr = @receiverThreads.pop
       Thread.kill(thr) if thr != Thread.current
     end
-    EventDispatcher.instance().dispatch(:linkClosed, self)
+    @evDis.dispatch(:linkClosed, self)
   end
 
   protected
@@ -144,6 +146,6 @@ class CLReg
 end
 
 def regCL(name, interface, link)
-  c=CLReg.instance()
+  c=CLReg.instance
   c.reg(name, interface, link)
 end

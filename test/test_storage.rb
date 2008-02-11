@@ -25,8 +25,9 @@ require "bundle"
 class TestStorage < Test::Unit::TestCase
 
   def setup
-    EventDispatcher.instance.clear
-    @store = Storage.new(nil, "store")
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
+    @store = Storage.new(@evDis, nil, "store")
   end
 
   def teardown
@@ -52,7 +53,7 @@ class TestStorage < Test::Unit::TestCase
 
     @store.clear
 
-    newstore=Storage.new(nil, "store")
+    newstore=Storage.new(@evDis, nil, "store")
     newstore.load
 
     idlist.each_with_index do |id, i|
@@ -74,7 +75,7 @@ class TestStorage < Test::Unit::TestCase
     @store.save
     @store.clear
 
-    newstore=Storage.new(nil, "store")
+    newstore=Storage.new(@evDis, nil, "store")
     newstore.load
 
     blist=newstore.getBundlesMatching do |bundleInfo|
@@ -96,7 +97,7 @@ class TestStorage < Test::Unit::TestCase
   end
 
   def test_limits
-    @store = Storage.new(100)
+    @store = Storage.new(@evDis, 100)
     b = Bundling::Bundle.new(nil, "dtn://test/")
     id1 = b.bundleId
     b.payload = "x" * 50

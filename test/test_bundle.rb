@@ -32,11 +32,12 @@ end
 class TestBundle < Test::Unit::TestCase
 
   def setup
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
     @inBundle = "\004\020\000\000J\000\000\000\004\000\000\000\026\000\000\000\026\000\000\000(\r\213\274\f\000\000\000\001\000\000\016\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\010\003bla"
   end
 
   def teardown
-    EventDispatcher.instance.clear
   end
 
   def test_parser
@@ -75,24 +76,24 @@ class TestBundle < Test::Unit::TestCase
   end
 
   def test_bundle_events
-    Bundling::ParserManager.registerEvents
+    Bundling::ParserManager.registerEvents(@evDis)
     eventSent = false
-    EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
-    EventDispatcher.instance.dispatch(:bundleData, StringIO.new(@inBundle), nil)
+    @evDis.subscribe(:bundleParsed) { |bundle| eventSent = true}
+    @evDis.dispatch(:bundleData, StringIO.new(@inBundle), nil)
     assert(eventSent)
   end
 
   def test_short_bundles
-    Bundling::ParserManager.registerEvents
+    Bundling::ParserManager.registerEvents(@evDis)
     link = BDummyLink.new
     eventSent = false
-    EventDispatcher.instance.subscribe(:bundleParsed) { |bundle| eventSent = true}
+    @evDis.subscribe(:bundleParsed) { |bundle| eventSent = true}
 
     sio = RdtnStringIO.new
     @inBundle.length.times do |i|
       sio.enqueue(@inBundle[i].chr)
       fin = (sio.length == @inBundle.length)
-      EventDispatcher.instance.dispatch(:bundleData, sio, link)
+      @evDis.dispatch(:bundleData, sio, link)
     end
 
     assert(eventSent, "The ':bundleParsed' event was not received.")

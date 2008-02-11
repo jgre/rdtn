@@ -35,16 +35,17 @@ class PatternReg
     [/^rdtn:events\/(\w+)\/$/, :resolveEvent]
   ]
 
-  def PatternReg.resolve(uri, request, store, args={})
+  def PatternReg.resolve(config, evDis, uri, request, store, args={})
     Patterns.each do |pattern, meth|
       md = pattern.match(uri)
-      return self.send(meth, uri, request, store, md, args) if md
+      return self.send(meth, config, evDis, uri, request, store, md, args) if md
     end
     return STATUS, {:uri => uri, :status => 404, :message => "Not Found"}
   end
 
   private
-  def PatternReg.resolveBundleMethod(uri, request, store, matchData, args)
+  def PatternReg.resolveBundleMethod(config, evDis,uri, request, store, 
+				     matchData, args)
     case request.requestType
     when QUERY
       bundle = nil
@@ -72,11 +73,11 @@ class PatternReg
 	   request.sender.registration.to_s != "dtn:none"
 	  bundle.srcEid = request.sender.registration
 	else
-	  bundle.srcEid = RdtnConfig::Settings.instance.localEid
+	  bundle.srcEid = config.localEid
 	end
       end
       bundle.incomingLink = request.sender
-      EventDispatcher.instance.dispatch(:bundleParsed, bundle)
+      evDis.dispatch(:bundleParsed, bundle)
       return STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
     when DELETE
@@ -91,7 +92,8 @@ class PatternReg
     end
   end
 
-  def PatternReg.resolveRouteTab(uri, request, store, matchData, args)
+  def PatternReg.resolveRouteTab(config, evDis, uri, request, store, matchData, 
+				 args)
     target = args[:target]
     if not target
       raise MissingParameter, "Destiniation EID"
@@ -99,7 +101,7 @@ class PatternReg
       target = EID.new(target)
     else
       # If the target is only a partial eid, prepend the eid of the router.
-      target = RdtnConfig::Settings.instance.localEid.join(target)
+      target = config.localEid.join(target)
     end
 
     link = args[:link] ? args[:link] : request.sender
@@ -109,12 +111,12 @@ class PatternReg
       if defined? link.registration and link == request.sender
 	link.registration = target 
       end
-      EventDispatcher.instance.dispatch(:routeAvailable, 
+      evDis.dispatch(:routeAvailable, 
 					RoutingEntry.new(target, link))
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
     when DELETE
-      EventDispatcher.instance.dispatch(:routeLost, link, target)
+      evDis.dispatch(:routeLost, link, target)
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}
 
     else
@@ -122,11 +124,12 @@ class PatternReg
     end
   end
 
-  def PatternReg.resolveEvent(uri, request, store, matchData, args)
+  def PatternReg.resolveEvent(config, evDis, uri, request, store, matchData, 
+			      args)
     eventId = matchData[1]
     case request.requestType
     when POST
-      EventDispatcher.instance.subscribe(eventId.to_sym) do |*args|
+      evDis.subscribe(eventId.to_sym) do |*args|
 	request.sender.sendEvent(uri, *args)
       end
       return  STATUS, {:uri => uri, :status => 200, :message => "OK"}

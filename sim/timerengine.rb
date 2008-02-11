@@ -16,55 +16,39 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
-require "test/unit"
-require "rdtnevent"
 
-class TestEvent < Test::Unit::TestCase
-  
-  def setup
-    @ev = EventDispatcher.new
-  end
+require 'conf'
 
-  def teardown
-  end
+module Sim
 
-  def test_dispatch
-    param = "bla"
-    n = 5
-    n_received = 0
+  class TimerEngine
 
-    n.times do |cur_n|
-      @ev.subscribe(:test_event) do |my_arg|
-	assert_equal(param, my_arg)
-	n_received += 1
+    def initialize(config, evDis)
+      @config = config
+      @evDis  = evDis
+    end
+
+    def run
+      timer = Time.now
+      gran = @config.granularity
+      puts "Gran #{gran}"
+      thresh = 0.01 # Tolerance for timing inaccuracy for realtime emulation
+      loop do
+	# Blocks until all work for this clock tick is done
+	@evDis.dispatch(:simTimerTick, timer)
+	if @config.realTime
+	  sleepTime =  (timer + gran) - Time.now
+	  sleep(sleepTime) if sleepTime > 0
+	  newTime = Time.now
+	  if newTime > (timer + gran + thresh)
+	    puts "Timing deviation too great: T-1 = #{timer.to_f}, T = #{newTime.to_f}"
+	  end
+	  timer = newTime
+	else
+	  timer += gran
+	end
       end
     end
-
-    @ev.subscribe(:other_event) do |my_arg|
-    end
-
-    @ev.dispatch(:test_event, param)
-    @ev.dispatch(:other_event, "other")
-
-    assert_equal(n, n_received)
   end
 
-  def test_unsubscribe
-    param = "bla"
-    n_received = 0
-
-    h = @ev.subscribe(:test_event) do |my_arg|
-      assert_equal(param, my_arg)
-      n_received += 1
-    end
-
-    @ev.dispatch(:test_event, param)
-
-    @ev.unsubscribe(:test_event, h)
-
-    @ev.dispatch(:test_event, param)
-
-    assert_equal(1, n_received)
-  end
-
-end
+end # module

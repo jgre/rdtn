@@ -25,7 +25,7 @@ require "bundleworkflow"
 class MockLink < Link
   attr_accessor :remoteEid, :bundle
 
-  def initialize
+  def initialize(config, evDis)
     super
     @bundles = []
   end
@@ -58,7 +58,9 @@ end
 class TestAppLib < Test::Unit::TestCase
 
   def setup
-    @appIf = AppIF::AppInterface.new("client0", :port => 12345)
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
+    @appIf = AppIF::AppInterface.new(@config, @evDis, "client0", :port => 12345)
     @client = RdtnClient.new("localhost", 12345)
     @bundleContent="test!"
     begin
@@ -70,10 +72,6 @@ class TestAppLib < Test::Unit::TestCase
   end
 
   def teardown
-    EventDispatcher.instance.clear
-    if RdtnConfig::Settings.instance.store
-      RdtnConfig::Settings.instance.store.clear 
-    end
     @client.close
     @appIf.close
   end
@@ -85,7 +83,7 @@ class TestAppLib < Test::Unit::TestCase
     eventSent = false
     b=Bundling::Bundle.new(@bundleContent, bundleOrig)
 
-    EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+    @evDis.subscribe(:bundleParsed) do |bundle|
       assert_equal(b.to_s, bundle.to_s)
       eventSent = true
     end
@@ -96,8 +94,8 @@ class TestAppLib < Test::Unit::TestCase
   end
 
   def test_receive_bundle
-    router = RoutingTable.new(nil)
-    Bundling::BundleWorkflow.registerEvents
+    router = RoutingTable.new(@config, @evDis, nil)
+    Bundling::BundleWorkflow.registerEvents(@config, @evDis)
     eid = "dtn://test/receiver"
     eventSent = false
     b=Bundling::Bundle.new(@bundleContent, eid)
@@ -112,7 +110,7 @@ class TestAppLib < Test::Unit::TestCase
   end
 
   def test_unregister
-    router = RoutingTable.new(nil)
+    router = RoutingTable.new(@config, @evDis, nil)
     eid = "dtn://test/receiver"
     b=Bundling::Bundle.new(@bundleContent, eid)
     @client.register(eid) do |bundle|
@@ -126,10 +124,10 @@ class TestAppLib < Test::Unit::TestCase
 
   def test_add_route
     eid = "dtn://test/receiver"
-    link = MockLink.new
-    router = RoutingTable.new(MockContactManager.new(link))
+    link = MockLink.new(@config, @evDis)
+    router = RoutingTable.new(@config, @evDis, MockContactManager.new(link))
     b=Bundling::Bundle.new(@bundleContent, eid)
-    Bundling::BundleWorkflow.registerEvents
+    Bundling::BundleWorkflow.registerEvents(@config, @evDis)
 
     @client.addRoute(eid, link.name)
 
@@ -142,8 +140,8 @@ class TestAppLib < Test::Unit::TestCase
 
   def test_del_route
     eid = "dtn://test/receiver"
-    link = MockLink.new
-    router = RoutingTable.new(MockContactManager.new(link))
+    link = MockLink.new(@config, @evDis)
+    router = RoutingTable.new(@config, @evDis, MockContactManager.new(link))
     b=Bundling::Bundle.new(@bundleContent, eid)
 
     @client.addRoute(eid, link.name)
@@ -168,7 +166,7 @@ class TestAppLib < Test::Unit::TestCase
       eventSent = true
     end
     sleep(1)
-    EventDispatcher.instance.dispatch(:bogusEvent, a, b, c)
+    @evDis.dispatch(:bogusEvent, a, b, c)
     sleep(1)
     assert(eventSent)
   end
@@ -176,12 +174,11 @@ class TestAppLib < Test::Unit::TestCase
   def test_delete_bundle
     eid = "dtn://test/receiver"
     b=Bundling::Bundle.new(@bundleContent, eid)
-    store = Storage.new
-    RdtnConfig::Settings.instance.store = store
-    store.storeBundle(b)
+    @config.store = Storage.new(@evDis)
+    @config.store.storeBundle(b)
     @client.deleteBundle(b.bundleId)
     sleep(1)
-    assert_nil(store.getBundle(b.bundleId))
+    assert_nil(@config.store.getBundle(b.bundleId))
   end
 
 end

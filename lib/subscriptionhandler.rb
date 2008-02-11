@@ -33,13 +33,15 @@ class Subscription
 
   include GenParser
 
-  def initialize(uri)
+  def initialize(config, evDis, uri)
+    @config = config
+    @evDis = evDis
     @uri = EID.new(uri.to_s)
     @uniqueSubscriptions = []
     @bundlesReceived = []
     @nUSubs = 0
 
-    #EventDispatcher.instance.subscribe(:bundleToForward) do |bundle|
+    #@evDis.subscribe(:bundleToForward) do |bundle|
     #  if bundle.destEid.to_s == @uri.to_s
     #  puts "Bundle Received #{bundle.destEid}"
     #  addBundleReceived(bundle.bundleId) 
@@ -48,11 +50,13 @@ class Subscription
   end
 
   def bundleReceived?(bundleId)
+    #puts "BundlesReceived #{bundleId} #{bundleId.class}"
+    #@bundlesReceived.each {|br| puts "#{br}, #{br.class}"}
     @bundlesReceived.include?(bundleId)
   end
 
   def copy
-    ret = Subscription.new(@uri)
+    ret = Subscription.new(@config, @evDis, @uri)
     ret.bundlesReceived = @bundlesReceived.clone
     @uniqueSubscriptions.each{|us| ret.uniqueSubscriptions.push(us.copy)}
     return ret
@@ -60,7 +64,7 @@ class Subscription
 
   def merge(sub2)
     return nil if @uri != sub2.uri
-    #@bundlesReceived = sub2.bundlesReceived.clone
+    @bundlesReceived = sub2.bundlesReceived.clone
     sub2.uniqueSubscriptions.each do |us|
       myus = @uniqueSubscriptions.find {|u| u.uid == us.uid}
       if myus then myus.merge(us)
@@ -101,6 +105,7 @@ class Subscription
 
   def hopCount(select = :min)
     hcs = @uniqueSubscriptions.map {|us| us.hopCount}
+    #puts "UniqueSubs empty!" if hcs.empty?
     case select
     when :min then return hcs.min
     when :max then return hcs.max
@@ -132,22 +137,30 @@ class Subscription
     end
   end
 
-  def Subscription.parse(io)
-    ret = Subscription.new("")
+  def Subscription.parse(config, evDis, io)
+    ret = Subscription.new(config, evDis, "")
     ret.defField(:uriLength, :decode => GenParser::SdnvDecoder,
 		 :block => lambda {|len| ret.defField(:uri, :length => len)})
     ret.defField(:uri, :handler => :uri=)
     ret.defField(:nbundles, :decode => GenParser::SdnvDecoder, 
 		 :handler => :nbundles=)
     ret.parse(io)
-    ret.nUSubs.times {ret.uniqueSubscriptions.push(UniqueSubscription.parse(io))}
+    ret.nUSubs.times do 
+      usub = UniqueSubscription.parse(io)
+      if usub.hopCount <= 2
+	ret.uniqueSubscriptions.push(usub)
+      #else
+	#puts "Ignoring UniqueSubscription with hopcount #{usub.hopCount}"
+      end
+    end
+    return nil if ret.uniqueSubscriptions.empty?
     return ret
   end
 
   def getBundlesReceived
-    store = RdtnConfig::Settings.instance.store
+    store = @config.store
     if store
-      bundles = store.getBundlesMatchingDest(@uri.to_s) 
+      bundles = store.getBundlesMatchingDest(@uri.to_s, true) 
       @bundlesReceived.concat(bundles.map {|b| b.bundleId})
       @bundlesReceived.uniq!
     end
@@ -171,7 +184,7 @@ class Subscription
   end
 
   def addBundleReceived(bundleRec)
-    @bundlesReceived.push(bundleRec) unless @bundlesReceived.include?(bundleRec)
+    @bundlesReceived.push(bundleRec.to_i) unless @bundlesReceived.include?(bundleRec.to_i)
   end
 
 end
@@ -191,10 +204,11 @@ class UniqueSubscription
 
   include GenParser
 
-  def initialize(link, local = true, 
-		 creationTimestamp = RdtnTime.now, expires = RdtnTime.now + 86400,
+  def initialize(link, localEid, local = true,
+		 creationTimestamp = RdtnTime.now,expires=RdtnTime.now+86400,
 		 hopCount = 0)
     @link = link
+    @localEid = localEid
     @local = local
     @uid = UniqueSubscription.generateUID
     @creationTimestamp = creationTimestamp
@@ -205,11 +219,11 @@ class UniqueSubscription
   end
 
   def UniqueSubscription.generateUID
-    "#{RdtnConfig::Settings.instance.localEid.to_s}#{RdtnTime.now}#{rand}".hash.to_s
+    "#{@localEid.to_s}#{RdtnTime.now}#{rand}".hash.to_s
   end
 
   def UniqueSubscription.parse(io)
-    ret = UniqueSubscription.new(nil, false)
+    ret = UniqueSubscription.new(nil, @localEid, false)
     ret.defField(:uriLength, :decode => GenParser::SdnvDecoder,
 		 :block => lambda {|len| ret.defField(:uid, :length => len)})
     ret.defField(:uid, :handler => :uid=)
@@ -244,8 +258,8 @@ class UniqueSubscription
   end
 
   def copy
-    ret = UniqueSubscription.new(@link, @local, @creationTimestamp, @expires, 
-				 @hopCount + 1)
+    ret = UniqueSubscription.new(@link, @localEid, @local, @creationTimestamp, 
+				 @expires, @hopCount + 1)
     ret.uid = @uid.clone if @uid
     ret.neighbors = @neighbors.clone if @neighbors
     return ret
@@ -336,10 +350,10 @@ class SubscriptionList
     return io.read
   end
 
-  def parse(io)
+  def parse(config, evDis, io)
     while not io.eof?
-      sub = Subscription.parse(io)
-      addSubscription(sub)
+      sub = Subscription.parse(config, evDis, io)
+      addSubscription(sub) if sub
     end
   end
 
@@ -351,23 +365,28 @@ end
 
 class SubscriptionHandler
 
-  EidPattern = "dtn:subscribe/.*"
+  EidPattern = /dtn:subscribe\/.*/
 
   attr_reader :mySubs, :neighborSubs
 
-  def initialize(contactManager, client = RdtnClient.new, checkInterval = 300)
+  def initialize(config, evDis, contactManager, checkInterval = 300)
+    @config = config
+    @evDis = evDis
     @contactMgr = contactManager
-    @client = client
-    @client.register(EidPattern) {|bundle| processBundle(bundle) } if client
+    @evDis.subscribe(:bundleToForward) do |bundle|
+      if EidPattern =~ bundle.destEid.to_s
+	processBundle(bundle)
+      end
+    end
     @mySubs = SubscriptionList.new(@contactMgr, nil)
     @neighborSubs = {}
     @subClients = []
     @subscribeBundleId = nil
 
-    #EventDispatcher.instance.subscribe(:linkCreated){|link| sendSubscribe(link)}
+    #@evDis.subscribe(:linkCreated){|link| sendSubscribe(link)}
     Thread.new(checkInterval) do |interval|
       Thread.current.abort_on_exception = true
-      sleep(interval)
+      RdtnTime.rsleep(interval)
       check
     end
 
@@ -378,12 +397,13 @@ class SubscriptionHandler
     #subClient = RdtnClient.new(@client.host, @client.port) if not subClient
     #subClient.register(uri, &handler)
     #@subClients.push(subClient)
-    sub = Subscription.new(uri)
-    sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, true, 
+    sub = Subscription.new(@config, @evDis, uri)
+    sub.uniqueSubscriptions.push(UniqueSubscription.new(nil, @config.localEid,
+						       	true, 
 							creationTimestamp, 
 							expires))
     @mySubs.addSubscription(sub)
-    EventDispatcher.instance.dispatch(:uriSubscribed, uri)
+    @evDis.dispatch(:uriSubscribed, uri)
   end
 
   def subscribedUris
@@ -396,8 +416,7 @@ class SubscriptionHandler
 
   def generateSubscriptionBundle(neighborEid = nil)
     payload = @mySubs.serialize(nil) #TODO priority alg
-    bundle = Bundling::Bundle.new(payload, "dtn:subscribe/", 
-				  RdtnConfig::Settings.instance.localEid)
+    bundle = Bundling::Bundle.new(payload, "dtn:subscribe/", @config.localEid)
     @subscribeBundleId = bundle.bundleId
     return bundle
   end
@@ -408,10 +427,10 @@ class SubscriptionHandler
       @neighborSubs[neighbor] = SubscriptionList.new(@contactMgr, neighbor)
     end
     io = RdtnStringIO.new(bundle.payload)
-    @neighborSubs[neighbor.to_s].parse(io)
+    @neighborSubs[neighbor.to_s].parse(@config, @evDis, io)
     @mySubs.merge(@neighborSubs[neighbor.to_s])
-    EventDispatcher.instance.dispatch(:subscriptionsReceived, neighbor)
-    store = RdtnConfig::Settings.instance.store
+    @evDis.dispatch(:subscriptionsReceived, neighbor)
+    store = @config.store
     store.deleteBundle(bundle.bundleId) if store
 
       #FIXME create subscription list for neighbor
@@ -432,8 +451,7 @@ end
 
 class SubscribeBundleFilter
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
   end
 
   def filterBundle?(bundle, neighbor = nil)
@@ -450,13 +468,15 @@ regFilter(:subscribeBundleFilter, SubscribeBundleFilter)
 
 class DuplicateFilter
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def filterBundle?(bundle, neighbor = nil)
     return false unless neighbor and @subHandler.neighborSubs[neighbor.to_s]
-    @subHandler.neighborSubs[neighbor.to_s].bundleReceived?(bundle.bundleId)
+    ret = @subHandler.neighborSubs[neighbor.to_s].bundleReceived?(bundle.bundleId)
+    #puts "DuplicateFilter" if ret
+    ret
   end
 
 end
@@ -465,8 +485,8 @@ regFilter(:duplicateFilter, DuplicateFilter)
 
 class KnownSubscriptionFilter
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def filterBundle?(bundle, neighbor = nil)
@@ -481,18 +501,19 @@ regFilter(:knownSubscriptionFilter, KnownSubscriptionFilter)
 
 class HopCountFilter
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def filterBundle?(bundle, neighbor = nil)
     return false unless neighbor and @subHandler.neighborSubs[neighbor.to_s]
     slistN = @subHandler.neighborSubs[neighbor.to_s]
     slistM = @subHandler.mySubs
-    nsub = slistN.findSubscription {|sub| sub.uri == bundle.destEid}
-    mysub = slistM.findSubscription {|sub| sub.uri == bundle.destEid} 
+    nsub = slistN.findSubscription {|sub| sub.uri == bundle.destEid.to_s}
+    mysub = slistM.findSubscription {|sub| sub.uri == bundle.destEid.to_s} 
     if nsub and mysub
-      return nsub.hopCount > (mysub.hopCount + 1)
+      ret = nsub.hopCount > (mysub.hopCount)
+      return ret
     else
       return false
     end
@@ -503,8 +524,8 @@ regFilter(:hopCountFilter, HopCountFilter)
 
 class BundleTimeFilter
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def filterBundle?(bundle, neighbor = nil)
@@ -521,8 +542,8 @@ regFilter(:bundleTimeFilter, BundleTimeFilter)
 
 class SubscriptionHopCountPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def orderBundles(b1, b2, neighbor = nil)
@@ -542,8 +563,11 @@ class SubscriptionHopCountPrio
       add2 = 1
     end
 
-    if sub1 and sub2 then return sub1.hopCount + add1 <=> sub2.hopCount + add2
-    else                  return 0
+    if sub1 and sub2 
+      #puts "#{sub1.hopCount}, #{sub2.hopCount}."
+      return sub1.hopCount + add1 <=> sub2.hopCount + add2
+    else
+      return 0
     end
   end
 
@@ -553,8 +577,8 @@ regPrio(:subscriptionHopCount, SubscriptionHopCountPrio)
 
 class PopularityPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def orderBundles(b1, b2, neighbor = nil)
@@ -573,8 +597,7 @@ regPrio(:popularity, PopularityPrio)
 
 class LongDelayPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
   end
 
   def orderBundles(b1, b2, neighbor = nil)
@@ -587,8 +610,7 @@ regPrio(:longDelay, LongDelayPrio)
 
 class ShortDelayPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
   end
 
   def orderBundles(b1, b2, neighbor = nil)
@@ -601,8 +623,8 @@ regPrio(:shortDelay, ShortDelayPrio)
 
 class BundleCopiesPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def orderBundles(b1, b2, neighbor = nil)
@@ -615,8 +637,8 @@ regPrio(:bundleCopies, BundleCopiesPrio)
 
 class FeedbackPrio
 
-  def initialize
-    @subHandler = RdtnConfig::Settings.instance.subscriptionHandler
+  def initialize(config, evDis, subHandler)
+    @subHandler = subHandler
   end
 
   def orderBundles(b1, b2, neighbor = nil)

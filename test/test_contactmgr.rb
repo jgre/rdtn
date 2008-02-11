@@ -25,14 +25,14 @@ require "eidscheme"
 class CMockLink < Link
   attr_accessor :remoteEid, :bundle
 
-  def initialize
-    super
+  def initialize(config, evDis)
+    super(config, evDis)
     @bundles = []
   end
 
   def open(n, options)
     self.name = n
-    EventDispatcher.instance.dispatch(:linkOpen, self)
+    @evDis.dispatch(:linkOpen, self)
   end
 
   def sendBundle(bundle)
@@ -51,15 +51,16 @@ regCL(:cmock, nil, CMockLink)
 class TestContactManager < Test::Unit::TestCase
 
   def setup
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
   end
 
   def teardown
-    EventDispatcher.instance.clear
   end
 
   def test_insertion
-    cm = ContactManager.new
-    link = CMockLink.new
+    cm = ContactManager.new(@config, @evDis)
+    link = CMockLink.new(@config, @evDis)
     eid = EID.new("dtn://test/fasel")
     link.remoteEid = eid
 
@@ -74,24 +75,19 @@ class TestContactManager < Test::Unit::TestCase
   end
 
   def test_opportunity
-    #RdtnConfig::Settings.instance.setLogLevel(/ContactManager/, Logger::DEBUG)
     linkFound = false
     eventRec  = false
     eid       = "dtn://test"
-    cm = ContactManager.new
-    EventDispatcher.instance.subscribe(:neighborContact) do |neighbor, link|
+    cm = ContactManager.new(@config, @evDis)
+    @evDis.subscribe(:neighborContact) do |neighbor, link|
       eventRec = true
       assert_equal(eid, neighbor.eid)
     end
-    #EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
-    #  eventRec = true
-    #  assert_equal(eid, rentry.destination.source)
-    #end
-    EventDispatcher.instance.subscribe(:linkCreated) do |cmlink|
+    @evDis.subscribe(:linkCreated) do |cmlink|
       linkFound = true
     end
 
-    EventDispatcher.instance.dispatch(:opportunityAvailable, :cmock, {}, eid)
+    @evDis.dispatch(:opportunityAvailable, :cmock, {}, eid)
 
     assert(eventRec)
     assert(linkFound)

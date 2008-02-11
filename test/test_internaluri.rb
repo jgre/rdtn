@@ -62,17 +62,22 @@ end
 
 class TestIURI < Test::Unit::TestCase
 
+  def setup
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
+  end
+
   def test_query_bundle
     store = MockStore.new
     ri = RequestInfo.new(QUERY, self)
     uri = "rdtn:bundles/#{store.bundle.bundleId}/"
 
-    typeCode, hash = PatternReg.resolve(uri, ri, store)
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, store)
     assert_equal(RESOLVE, typeCode)
     assert_equal({:uri => uri, :bundle => store.bundle}, hash)
 
     methUri = uri + "destEid/"
-    typeCode, hash = PatternReg.resolve(methUri, ri, store)
+    typeCode, hash = PatternReg.resolve(@config, @evDis, methUri, ri, store)
     assert_equal(RESOLVE, typeCode)
     assert_equal({:uri => methUri, :bundleMeth => store.bundle.destEid}, hash)
   end
@@ -83,12 +88,13 @@ class TestIURI < Test::Unit::TestCase
     bundle = Bundling::Bundle.new("test", "dtn:dest")
     event = false
 
-    EventDispatcher.instance.subscribe(:bundleParsed) do |b, cl|
-      assert_equal(bundle, b)
+    @evDis.subscribe(:bundleParsed) do |b, cl|
+      assert_equal(bundle.to_s, b.to_s)
       event = true
     end
 
-    typeCode, hash = PatternReg.resolve(uri, ri, nil, {:bundle => bundle})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, nil, 
+					{:bundle => bundle})
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(event)
@@ -100,13 +106,14 @@ class TestIURI < Test::Unit::TestCase
     dest = "dtn://test.dtn/.*"
     event = false
     
-    EventDispatcher.instance.subscribe(:routeAvailable) do |rentry|
+    @evDis.subscribe(:routeAvailable) do |rentry|
       assert_equal(self, rentry.link)
       assert_equal(dest, rentry.destination.source)
       event = true
     end
 
-    typeCode, hash = PatternReg.resolve(uri, ri, nil, {:target => dest})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, nil, 
+					{:target => dest})
     						       
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
@@ -119,14 +126,14 @@ class TestIURI < Test::Unit::TestCase
     dest = "dtn://test.dtn/.*"
     event = false
     
-    EventDispatcher.instance.subscribe(:routeLost) do |link, target|
+    @evDis.subscribe(:routeLost) do |link, target|
       assert_equal(self, link)
       assert_equal(dest, target.to_s)
       event = true
     end
 
-    typeCode, hash = PatternReg.resolve(uri, ri, nil, {:target => dest,
-    						       :link   => self})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, nil, 
+					{:target => dest, :link   => self})
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(event)
@@ -137,11 +144,11 @@ class TestIURI < Test::Unit::TestCase
     map = MockAppProxy.new
     ri = RequestInfo.new(POST, map)
 
-    typeCode, hash = PatternReg.resolve(uri, ri, nil, {})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, nil, {})
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
 
-    EventDispatcher.instance.dispatch(:linkCreated, self)
+    @evDis.dispatch(:linkCreated, self)
 
     assert_equal(uri, map.uri)
   end
@@ -152,11 +159,13 @@ class TestIURI < Test::Unit::TestCase
     store = MockStore.new
     dest = store.bundle.destEid
 
-    typeCode, hash = PatternReg.resolve(uri, ri, store, {:destEid => dest})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, store, 
+					{:destEid => dest})
     assert_equal(RESOLVE, typeCode)
     assert_equal({:uri => uri, :bundle => store.bundle}, hash)
 
-    typeCode, hash = PatternReg.resolve(uri, ri, store, {:destEid => "hugo"})
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, store, 
+					{:destEid => "hugo"})
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status=> 404, :message => "Not Found"}, hash)
   end
@@ -166,15 +175,11 @@ class TestIURI < Test::Unit::TestCase
     store = MockStore.new
     uri = "rdtn:bundles/#{store.bundle.bundleId}/"
 
-    typeCode, hash = PatternReg.resolve(uri, ri, store)
+    typeCode, hash = PatternReg.resolve(@config, @evDis, uri, ri, store)
     assert_equal(STATUS, typeCode)
     assert_equal({:uri => uri, :status => 200, :message => "OK"}, hash)
     assert(store.deleted)
 
-  end
-
-  def teardown
-    EventDispatcher.instance.clear
   end
 
 end

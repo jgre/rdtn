@@ -25,21 +25,25 @@ require "udpcl"
 class TestDiscovery < Test::Unit::TestCase
 
   def setup
-    @tcpif = TCPCL::TCPInterface.new("testtcpif", :port => 4558)
-    @udpif = UDPCL::UDPInterface.new("testudpif", :port => 4558)
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
+    @tcpif = TCPCL::TCPInterface.new(@config, @evDis, "testtcpif", 
+				     :port => 4558)
+    @udpif = UDPCL::UDPInterface.new(@config, @evDis, "testudpif", 
+				     :port => 4558)
   end
 
   def teardown
-    EventDispatcher.instance.clear
     @tcpif.close
     @udpif.close
   end
 
   def test_ipdiscovery
-    discSender = IPDiscovery.new("224.224.1.1", 12345, 1, [@tcpif, @udpif])
-    discRecv   = IPDiscovery.new("224.224.1.1", 12345)
+    discSender = IPDiscovery.new(@config, @evDis, "224.224.1.1", 12345, 1, 
+				 [@tcpif, @udpif])
+    discRecv   = IPDiscovery.new(@config, @evDis, "224.224.1.1", 12345)
     tcpEventCount = udpEventCount = 0
-    EventDispatcher.instance.subscribe(:opportunityAvailable) do |tp, opts, eid|
+    @evDis.subscribe(:opportunityAvailable) do |tp, opts, eid|
       case tp
       when :tcp 
 	tcpEventCount += 1

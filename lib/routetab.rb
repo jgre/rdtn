@@ -27,19 +27,20 @@ class RoutingTable < Router
 
   include MonitorMixin
 
-  def initialize(contactManager)
-    super()
+  def initialize(config, evDis, contactManager)
+    super(evDis)
     mon_initialize
-    @routes=[]
+    @config         = config
+    @routes         = []
     @contactManager = contactManager
 
-    EventDispatcher.instance().subscribe(:routeAvailable) do |*args|
+    @evDis.subscribe(:routeAvailable) do |*args|
       self.addEntry(*args)
     end
-    EventDispatcher.instance.subscribe(:routeLost) do |*args|
+    @evDis.subscribe(:routeLost) do |*args|
       deleteEntry(*args)
     end
-    EventDispatcher.instance.subscribe(:bundleToForward) do |*args|
+    @evDis.subscribe(:bundleToForward) do |*args|
       forward(*args)
     end
   end
@@ -56,7 +57,7 @@ class RoutingTable < Router
     synchronize { @routes.push(routingEntry) }
 
     # See if we can send stored bundles over this link.
-    store = RdtnConfig::Settings.instance.store
+    store = @config.store
     if store
       bundles = store.getBundlesMatchingDest(routingEntry.destination)
       bundles.each {|bundle| doForward(bundle, [routingEntry.link])}

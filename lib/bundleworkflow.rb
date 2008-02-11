@@ -40,15 +40,14 @@ module Bundling
   # - Forward the bundle
   class BundleWorkflow
 
-    def BundleWorkflow.registerEvents
-      EventDispatcher.instance.subscribe(:bundleParsed) do |bundle|
+    def BundleWorkflow.registerEvents(config, evDis)
+      evDis.subscribe(:bundleParsed) do |bundle|
         if bundle
-      	  #puts "BundleParsed! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
-      	  bwf = BundleWorkflow.new(bundle)
-      	  bwf.processBundle
-      	end
+	  bwf = BundleWorkflow.new(config, evDis, bundle)
+	  bwf.processBundle
+	end
       end
-      EventDispatcher.instance.subscribe(:bundleRemoved) do |bundle|
+      evDis.subscribe(:bundleRemoved) do |bundle|
         if bundle
       	  #puts "BundleDeleted! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
       	  bwf = BundleWorkflow.new(bundle)
@@ -57,9 +56,11 @@ module Bundling
       end
     end
 
-    def initialize(bundle)
+    def initialize(config, evDis, bundle)
+      @config = config
+      @evDis  = evDis
       @bundle = bundle
-      @taskQueue = WorkflowTaskReg.instance.makeTasks(@bundle)
+      @taskQueue = WorkflowTaskReg.instance.makeTasks(@config, @evDis, @bundle)
       @curTaskIndex = 0
     end
 
@@ -69,14 +70,14 @@ module Bundling
     end
 
     def marshal_load(params)
-      store = RdtnConfig::Settings.instance.store
+      store = @config.store
       @bundle    = store.getBundle(params[0]) if store
       if @bundle 
-	      @taskQueue    = params[1]
-	      @curTaskIndex = params[2]
+        @taskQueue    = params[1]
+        @curTaskIndex = params[2]
       else        
-	      @taskQueue    = []
-	      @curTaskIndex = -1
+        @taskQueue    = []
+        @curTaskIndex = -1
       end
     end
 
@@ -131,7 +132,9 @@ module Bundling
     attr_reader   :workflow
     protected     :workflow, :state=
 
-    def initialize(workflow)
+    def initialize(config, evDis, workflow)
+      @config   = config
+      @evDis    = evDis
       @workflow = workflow
       @state    = :initial
     end
@@ -141,21 +144,21 @@ module Bundling
   class StoreHandler < TaskHandler
 
     def processBundle(bundle)
-      store = RdtnConfig::Settings.instance.store
+      store = @config.store
       if store
-      	begin
-      	  store.storeBundle(bundle)
-      	rescue BundleAlreadyStored
-      	  #puts "Already stored."
-      	  return nil
-      	end
-      	store.save
+	begin
+	  store.storeBundle(bundle)
+	rescue BundleAlreadyStored
+	  #puts "(#{@config.localEid}) Already stored."
+	  return nil
+	end
+	store.save
       end
       self.state = :processed
     end
 
     def processDeletion(bundle)
-      store = RdtnConfig::Settings.instance.store
+      store = @config.store
       # if store
       #         store.deleteBundle(bundle.bundleId)
       #         store.save
@@ -192,10 +195,10 @@ module Bundling
           
           # send custody signal and then update custodian
           sendCustodySignal(bundle, SUCCESS)
-          bundle.custodianEid = RdtnConfig::Settings.instance.localEid
+          bundle.custodianEid = @config.localEid
         end
         # send succeeded custody signal if delivered
-        h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+        h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
           # was the bundle delivered to an app?
           if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
                 rdebug(self, "bundle with custody delivered on link: #{link}")
@@ -204,7 +207,7 @@ module Bundling
                 sendCustodySignal(bundle, SUCCESS)
           
                 # prevent nasty loops
-                EventDispatcher.instance.unsubscribe(:bundleForwarded, h)          
+                @evDis.unsubscribe(:bundleForwarded, h)          
               end
         end
         
@@ -243,7 +246,7 @@ module Bundling
   
         rdebug(self, "Custody Signal to: #{b.destEid}")
   
-        EventDispatcher.instance.dispatch(:bundleToForward, b)
+        @evDis.dispatch(:bundleToForward, b)
       end
     end
   end
@@ -319,7 +322,7 @@ module Bundling
       b.lifetime = bundle.lifetime
   
       rdebug(self, "SND: custody acceptance status report to #{b.destEid}")
-      EventDispatcher.instance.dispatch(:bundleToForward, b)
+      @evDis.dispatch(:bundleToForward, b)
     end
     
     def sendDeletionSrr(bundle)
@@ -352,7 +355,7 @@ module Bundling
   
       rdebug(self, "SND: bundle deletion status report to #{b.destEid}")
   
-      EventDispatcher.instance.dispatch(:bundleToForward, b)
+      @evDis.dispatch(:bundleToForward, b)
     end
     
     def sendReceptionSrr(bundle)
@@ -392,11 +395,11 @@ module Bundling
   
       rdebug(self, "SND: bundle reception status report to #{b.destEid}")
   
-      EventDispatcher.instance.dispatch(:bundleToForward, b)
+      @evDis.dispatch(:bundleToForward, b)
     end
   
     def sendForwardingSrr(bundle)
-      h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+      h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
         
         # generate forwarding SR
         bdsr = BundleStatusReport.new
@@ -427,14 +430,14 @@ module Bundling
         rdebug(self, "SND: bundle forwarding status report to #{b.destEid}")
   
         # prevent nasty loops
-        EventDispatcher.instance.unsubscribe(:bundleForwarded, h)
+        @evDis.unsubscribe(:bundleForwarded, h)
   
-        EventDispatcher.instance.dispatch(:bundleToForward, b)
+        @evDis.dispatch(:bundleToForward, b)
       end
     end
     
     def sendDeliverySrr(bundle)
-      h = EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
+      h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
         # was the bundle delivered to an app?
         if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
           # generate delivery SR
@@ -467,9 +470,9 @@ module Bundling
           rdebug(self, "SND: bundle delivery status report to #{b.destEid}")
   
           # prevent nasty loops
-          EventDispatcher.instance.unsubscribe(:bundleForwarded, h)
+          @evDis.unsubscribe(:bundleForwarded, h)
   
-          EventDispatcher.instance.dispatch(:bundleToForward, b)
+          @evDis.dispatch(:bundleToForward, b)
         end
       end
     end
@@ -490,7 +493,7 @@ module Bundling
         # with the "reporting node accepted custody of bundle" flag set to 1.
         if (administrativeRecord.custodyAccepted?)
           rdebug(self, "RCV: custody acceptance status report from #{bundle.srcEid}")
-          custody = RdtnConfig::Settings.instance.custodyTimer
+          custody = @config.custodyTimer
           custody.remove(administrativeRecord.bundleId)
           
         end
@@ -527,7 +530,7 @@ module Bundling
         # transfer succeeded" flag set to 1.
         if (administrativeRecord.transferSucceeded?)
           rdebug(self, "RCV: transfer succeeded from #{bundle.srcEid}")
-          RdtnConfig::Settings.instance.custodyTimer.remove(administrativeRecord.bundleId)
+          @config.instance.custodyTimer.remove(administrativeRecord.bundleId)
           # see rfc 5050 Section 5.11
         end
   
@@ -544,11 +547,10 @@ module Bundling
   class Forwarder < TaskHandler
 
     def processBundle(bundle)
-        
-      EventDispatcher.instance.subscribe(:bundleForwarded) do |bndl, link|
-	      self.state = :processed if bundle.bundleId == bndl.bundleId
+      @evDis.subscribe(:bundleForwarded) do |bndl, link|
+	self.state = :processed if bundle.bundleId == bndl.bundleId
       end
-      EventDispatcher.instance.dispatch(:bundleToForward, bundle)
+      @evDis.dispatch(:bundleToForward, bundle)
     end
 
     def processDeletion(bundle)
@@ -574,9 +576,9 @@ class WorkflowTaskReg
     @tasks.push([runlevel, klass]) unless @tasks.find {|rl, k| rl == runlevel}
   end
 
-  def makeTasks(bundle)
+  def makeTasks(config, evDis, bundle)
     @tasks = @tasks.sort_by {|task| task[0]}
-    @tasks.map {|rl, klass| klass.new(bundle)}
+    @tasks.map {|rl, klass| klass.new(config, evDis, bundle)}
   end
 
 end

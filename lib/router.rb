@@ -45,6 +45,10 @@ end
 
 class Router
 
+  def initialize(evDis)
+    @evDis = evDis
+  end
+
   protected
  
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
@@ -52,25 +56,25 @@ class Router
   def doForward(bundle, links)
     links.each do |link|
       begin
-	      if defined?(link.maxBundleSize) and link.maxBundleSize
-	        fragments = bundle.fragmentMaxSize(link.maxBundleSize)
-	      else
-	        fragments = [bundle]
-	      end
-	      fragments.each do |frag| 
-	        if ($dropping && (rand(2) == 1))
-	          rdebug(self, "Dropping the bundle")
-          else
-            link.sendBundle(frag) 
-  	        rinfo(self, 
-               "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	             EventDispatcher.instance.dispatch(:bundleForwarded, frag, link)
-          end
-	      end
-        rescue ProtocolError, SystemCallError, IOError => err
-	        rerror(self, "Routetab::doForward #{err}")
-        end
+	if defined?(link.maxBundleSize) and link.maxBundleSize
+	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
+	else
+	  fragments = [bundle]
+	end
+	fragments.each do |frag| 
+	  if ($dropping && (rand(2) == 1))
+	    rdebug(self, "Dropping the bundle")
+	  else
+	    link.sendBundle(frag) 
+	    rinfo(self, 
+	       "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	    @evDis.dispatch(:bundleForwarded, frag, link)
+	  end
+	end
+      rescue ProtocolError, SystemCallError, IOError => err
+	rerror(self, "Routetab::doForward #{err}")
       end
+    end
     return nil
   end
   

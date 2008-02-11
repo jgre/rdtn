@@ -29,14 +29,12 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
   @platform = Platform.new
   
   def setup
-  end
-
-  def teardown
-    EventDispatcher.instance.clear
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
   end
 
   def test_bundle_sending
-    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
+    @config.localEid = "dtn://bla.fasel"
     
     rdebug(self, "starting contact exchange")
     
@@ -48,12 +46,13 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     rescue
     end
     outBundle = ""
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
+    handler = @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read
       rdebug(self, "Received bundle1: #{outBundle}")
     end
-    interface=UDPCL::UDPInterface.new("udp0", :host => "localhost", :port => 3456)
-    link=UDPCL::UDPLink.new
+    interface=UDPCL::UDPInterface.new(@config, @evDis, "udp0", 
+				      :host => "localhost", :port => 3456)
+    link=UDPCL::UDPLink.new(@config, @evDis)
     link.open("link1", :host => "localhost", :port => 3456)
 
     link.sendBundle(inBundle)

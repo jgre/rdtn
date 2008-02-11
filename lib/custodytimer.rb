@@ -1,30 +1,29 @@
 require 'rdtnevent'
 require 'monitor'
-require 'singleton'
 require 'configuration'
 require 'clientlib'
 
 class CustodyTimer
   
-  include Singleton
-  
   @monitor = nil
   
   def registerEvents
-    @timer = EventDispatcher.instance.subscribe(:timerTick) do
+    @timer = @evDis.subscribe(:timerTick) do
       @monitor.synchronize do
         cBundles = @store.getBundlesMatching {|b| b.custodyAccepted? == true}
         cBundles.each { |b| rdebug(self, "CT resending #{b.bundleId} has custody? #{b.custodyAccepted?}")}
-        cBundles.each { |b| EventDispatcher.instance.dispatch(:bundleToForward, b)}
+        cBundles.each { |b| @evDis.dispatch(:bundleToForward, b)}
       end
     end
   end
   
-  def initialize
+  def initialize(config, evDis)
+    @config = config
+    @evDis  = evDis
     @custodyBundles = []
     @timer = nil
     @monitor = Monitor.new
-    @store = RdtnConfig::Settings.instance.store
+    @store = @config.store
     registerEvents
   end
   
@@ -39,6 +38,6 @@ class CustodyTimer
   def stop
     # stop the timer
     rdebug(self, "Stopping CustodyTimer")
-    EventDispatcher.instance.unsubscribe(:timerTick, @timer)
+    @evDis.unsubscribe(:timerTick, @timer)
   end
 end

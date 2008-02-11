@@ -28,9 +28,10 @@ class RdtnClient
   include QueuedReceiver
   attr_reader :bundleHandler, :host, :port
 
-  def initialize(host="localhost", port=RDTNAPPIFPORT, blocking=true)
+  def initialize(host="localhost", port=RDTNAPPIFPORT,evDis = nil,blocking=true)
     @host = host
     @port = port
+    @evDis = evDis
     @bundleHandler = lambda {}
     @threads = Queue.new
     @pendingRequests = Hash.new()
@@ -61,7 +62,7 @@ class RdtnClient
     rdebug(self, "RdtnClient::close -- closing socket #{@s}")
     @sendSocket.close if not @sendSocket.closed?
     @receiveSocket.close if not @receiveSocket.closed?
-    EventDispatcher.instance().dispatch(:linkClosed, self)
+    @evDis.dispatch(:linkClosed, self) if @evDis
   end
 
   def register(pattern, &handler)
@@ -200,12 +201,14 @@ class RdtnClient
 
   def send(data)
     sendQueueAppend(data)
-    @threads << spawnThread { doSend }
+    doSend
+    #@threads << spawnThread { doSend }
     Thread.pass
   end
 
   def sendPDU(type, pdu)
     buf="" + type.chr() + Marshal.dump(pdu)
+    #puts "Sending #{pdu.class}, #{buf.length}"
     send(buf)
   end
 

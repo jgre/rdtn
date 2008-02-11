@@ -36,8 +36,8 @@ module AppIF
 
     attr_accessor :remoteEid, :registration
 
-    def initialize(sock = nil)
-      super()
+    def initialize(config, evDis, sock = nil)
+      super(config, evDis)
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
       @remoteEid = ""
@@ -74,7 +74,7 @@ module AppIF
 	  end
 	end
       rescue SystemCallError    # lost TCP connection 
-      rerror(self, "AppProxy::read" + $!)
+	rerror(self, "AppProxy::read" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              
@@ -87,6 +87,8 @@ module AppIF
 	args=Marshal.load(data)
       rescue ArgumentError => err
 	data.pos = oldPos
+	#puts "Clientregcl error #{err}"
+	#raise if err.to_s != "marshal data too short"
 	return true
       end
 
@@ -94,8 +96,8 @@ module AppIF
 	uri = args[:uri]
 	rdebug(self, "AppProxy #{@name} process: #{uri}")
 	ri = RequestInfo.new(typeCode, self)
-	store = RdtnConfig::Settings.instance.store
-	responseCode, response = PatternReg.resolve(uri, ri, store, args)
+	responseCode, response = PatternReg.resolve(@config, @evDis, uri, ri, 
+						    @config.store,args)
 	sendPDU(responseCode, response)
       rescue ProtocolError => err
 	rwarn(self, "AppProxy #{@name} error: #{err}")
@@ -107,7 +109,8 @@ module AppIF
 
     def send(buf)
       sendQueueAppend(buf)
-      senderThread { doSend }
+      doSend
+      #senderThread { doSend }
     end
 
     def sendPDU(type, pdu)
@@ -117,9 +120,11 @@ module AppIF
 
   end
 
-  class AppInterface <Interface
+  class AppInterface < Interface
 
-    def initialize(name, options = {})
+    def initialize(config, evDis, name, options = {})
+      @config = config
+      @evDis  = evDis
       host = "localhost"
       port = RDTNAPPIFPORT
 
@@ -150,7 +155,7 @@ module AppIF
     def whenAccept()
       while true
 	#FIXME deal with errors
-	@link= AppProxy.new(@s.accept())
+	@link= AppProxy.new(@config, @evDis, @s.accept())
 	rdebug(self, "created new AppProxy #{@link.object_id}")
       end
     end

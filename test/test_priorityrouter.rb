@@ -28,8 +28,8 @@ require "subscriptionhandler"
 class MockLink < Link
   attr_accessor :remoteEid, :bundle
 
-  def initialize
-    super
+  def initialize(config, evDis)
+    super(config, evDis)
     @bundles = []
   end
 
@@ -64,55 +64,59 @@ end
 class TestPriorityRouter < Test::Unit::TestCase
 
   def setup
-    @link1 = MockLink.new
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
+    @link1 = MockLink.new(@config, @evDis)
     @link1.remoteEid = "dtn:oink"
-    @link2 = MockLink.new
+    @link2 = MockLink.new(@config, @evDis)
     @link2.remoteEid = "dtn:grunt"
-    @link3 = MockLink.new
+    @link3 = MockLink.new(@config, @evDis)
     @link3.remoteEid = "dtn:grunt3"
-    RdtnConfig::Settings.instance.store = Storage.new
+    @config.store = Storage.new(@evDis)
     @contactManager = MockContactManager.new(@link1)
-    RdtnConfig::Settings.instance.contactManager = @contactManager
-    @subHandler = SubscriptionHandler.new(nil, nil)
-    RdtnConfig::Settings.instance.subscriptionHandler = @subHandler
-    @routeTab = PriorityRouter.new(@contactManager)
+    @config.contactManager = @contactManager
+    @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
+    @config.subscriptionHandler = @subHandler
+    @routeTab = PriorityRouter.new(@config, @evDis, @contactManager)
   end
 
   def teardown
-    RdtnConfig::Settings.instance.store.clear
-    EventDispatcher.instance.clear
+    @config.store.clear
   end
 
   def test_forward
-    store = RdtnConfig::Settings.instance.store
+    store = @config.store
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     bndl2 = Bundling::Bundle.new("test", "dtn:receiver2")
     store.storeBundle(bndl)
     store.storeBundle(bndl2)
-    @routeTab.priorities.push(LongDelayPrio.new)
-    @routeTab.priorities.push(SubscriptionHopCountPrio.new)
-    @routeTab.priorities.push(PopularityPrio.new)
+    @routeTab.priorities.push(LongDelayPrio.new(@config, @evDis, @subHandler))
+    @routeTab.priorities.push(SubscriptionHopCountPrio.new(@config, @evDis, @subHandler))
+    @routeTab.priorities.push(PopularityPrio.new(@config, @evDis, @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    EventDispatcher.instance.dispatch(:neighborContact, nil, @link1)
+    @evDis.dispatch(:neighborContact, nil, @link1)
 
-    assert_equal(@link1.bundle.to_s, bndl2.to_s)
+    assert(@link1.received?(bndl))
+    assert(@link1.received?(bndl2))
   end
 
   def test_filter
-    store = RdtnConfig::Settings.instance.store
+    store = @config.store
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     store.storeBundle(bndl)
-    @routeTab = PriorityRouter.new(@contactManager)
-    @routeTab.filters.push(KnownSubscriptionFilter.new)
+    @routeTab = PriorityRouter.new(@config, @evDis, @contactManager, 
+				   @subHandler)
+    @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
+						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    EventDispatcher.instance.dispatch(:neighborContact, nil, @link1)
+    @evDis.dispatch(:neighborContact, nil, @link1)
 
-    assert_equal(@link1.bundle.to_s, bndl.to_s)
+    assert(@link1.received?(bndl))
   end
 
   def test_local_registrations
-    Bundling::BundleWorkflow.registerEvents
-    appIf = AppIF::AppInterface.new("client0", :port => 12345)
+    Bundling::BundleWorkflow.registerEvents(@config, @evDis)
+    appIf = AppIF::AppInterface.new(@config, @evDis, "client0", :port => 12345)
     client = RdtnClient.new("localhost", 12345)
     eid = "dtn://test/receiver"
     b=Bundling::Bundle.new("test", eid)

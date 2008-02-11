@@ -29,6 +29,7 @@ require "daemon"
 require "subscriptionhandler"
 require "storage"
 require "remcl"
+require "time"
 
 eid     = "randomsender"
 port    = RDTNAPPIFPORT
@@ -37,9 +38,10 @@ bytes   = 1024 #1048576
 maxWait = 15
 active  = 3500
 dests   = (1..10).to_a.map {|i| "dtn://kasuari#{i}/"}
-limit   = bytes * 50 #155443
+limit   = bytes * 3 #155443
 
-channels = (1..3).to_a.map {|i| "dtn://channel#{i}/"}
+#channels = (1..3).to_a.map {|i| "dtn://channel#{i}/"}
+channels = (1..3).to_a.map {|i| "dtn://kasuari#{i+1}/"}
 
 senders = {}
 channels.each_with_index {|ch, i| senders["dtn://kasuari#{i+1}/"] = ch}
@@ -78,11 +80,14 @@ daemon = RdtnDaemon::Daemon.new(opts)
 
 AppIF::AppInterface.new('client0', {:port => port})
 
+RdtnConfig::Settings.instance.subscriptionHandler = SubscriptionHandler.new(nil, RdtnClient.new(host, port))
+
 #daemon.subHandler.subscribe("dtn://dummy.channel") do |bundle|
 #  puts "Subscribed Bundle received from #{bundle.srcEid} to #{bundle.destEid}"
 #end
 
-store = Storage.new(limit)
+store = Storage.new
+#store = Storage.new(limit)
 RdtnConfig::Settings.instance.store = store
 
 dests.delete(RdtnConfig::Settings.instance.localEid.to_s)
@@ -94,7 +99,7 @@ nodeNum = $1.to_i
 
 mychannel = senders[RdtnConfig::Settings.instance.localEid.to_s]
 puts "myc #{mychannel}, nodeNum #{nodeNum}, #{RdtnConfig::Settings.instance.localEid.to_s}"
-start = Time.now
+start = RdtnTime.now
 if mychannel
   c=RdtnClient.new(host, port)
   Thread.new do 
@@ -103,23 +108,21 @@ if mychannel
       wait = nodeNum*2
       #wait = rand(maxWait)
       #puts "Wait #{wait}"
-      sleep(wait)
-      Thread.exit if Time.now > start + active
+      #RdtnTime.rsleep(wait)
+      Thread.exit if RdtnTime.now > start + active
       #payload = open("/dev/urandom") {|f| f.read(bytes) }
       payload = "a" * bytes
       #dest    = dests[rand(dests.length)]
       b       = Bundling::Bundle.new(payload, EID.new(mychannel))
       #puts("sending bundle to #{mychannel}")
       c.sendBundle(b)
-      sleep(maxWait - wait)
+      RdtnTime.rsleep(maxWait - wait)
     end
   end
 end
 
 #puts 'Receivers'
 #p receivers
-
-RdtnConfig::Settings.instance.subscriptionHandler = SubscriptionHandler.new(nil, RdtnClient.new(host, port))
 
 if receivers[RdtnConfig::Settings.instance.localEid.to_s]
   receivers[RdtnConfig::Settings.instance.localEid.to_s].each do |channel|

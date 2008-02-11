@@ -18,7 +18,6 @@
 require 'cl'
 require "logger"
 require 'routetab'
-require 'singleton'
 require 'tcpcl'
 require 'udpcl'
 require 'flutecl'
@@ -26,6 +25,7 @@ require 'clientregcl'
 require 'discovery'
 require 'priorityrouter'
 require 'custodytimer'
+require 'subscriptionhandler'
 
 module RdtnConfig
 
@@ -47,37 +47,39 @@ module RdtnConfig
     :alwayson
 
 
-    def initialize
+    def initialize(settings, evDis)
       @interfaces = {}
+      @settings = settings
+      @evDis = evDis
     end
 
-    def self.load(filename)
-      conf = new
+    def self.load(evDis, filename, settings = Settings.new)
+      conf = new(settings, evDis)
       conf.instance_eval(File.read(filename), filename)
-      conf
+      settings
     end
 
     def loglevel(level, pattern = nil)
 
       curLevel = case level
-		 when :debug: Logger::DEBUG
-		 when :info : Logger::INFO
-		 when :error: Logger::ERROR
-		 when :warn : Logger::WARN
-		 when :fatal: Logger::FATAL
-		 else Logger:ERROR
+		 when :debug then Logger::DEBUG
+		 when :info  then Logger::INFO
+		 when :error then Logger::ERROR
+		 when :warn  then Logger::WARN
+		 when :fatal then Logger::FATAL
+		 else Logger::ERROR
 		 end
       
-      RdtnConfig::Settings.instance.setLogLevel(pattern, curLevel)
+      @settings.setLogLevel(pattern, curLevel)
     end
 
     def log(level, msg)
       case level
-      when :debug: rdebug(self, msg)
-      when :info:  rinfo(self, msg)
-      when :warn:  rwarn(self, msg)
-      when :error: rerror(self, msg)
-      when :fatal: rfatal(self, msg)
+      when :debug then rdebug(self, msg)
+      when :info  then  rinfo(self, msg)
+      when :warn  then  rwarn(self, msg)
+      when :error then rerror(self, msg)
+      when :fatal then rfatal(self, msg)
       else rinfo(self, msg)
       end
     end
@@ -87,8 +89,8 @@ module RdtnConfig
       options = []
       hash.each do |k, v|
 	case k
-	when :port: options << "-p #{v}" #TODO test 0 < int(v) < 65536
-	when :host: options << "-h #{v}" #TODO no blanks in string v
+	when :port then options << "-p #{v}" #TODO test 0 < int(v) < 65536
+	when :host then options << "-h #{v}" #TODO no blanks in string v
 	else
 	  raise ArgumentError, "Unknown hash key: #{k}."
 	end
@@ -101,16 +103,16 @@ module RdtnConfig
       #options = RDTNConf::hash_to_optString(optionHash)
 
       case action
-      when :add: addIf(cl, name, options)
-      when :remove: rmIf(cl, name, options)
+      when :add    then addIf(cl, name, options)
+      when :remove then rmIf(cl, name, options)
       else raise "syntax error: interface #{action}"
       end
     end
 
     def link(action, cl, name, options = {})
       case action
-      when :add: addLink(cl, name, options)
-      when :remove: rmLink(cl, name, options)
+      when :add    then addLink(cl, name, options)
+      when :remove then rmLink(cl, name, options)
       else raise "syntax error: link #{action}"
       end
     end
@@ -119,57 +121,61 @@ module RdtnConfig
       case action
       when :add
 	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-	ipd = IPDiscovery.new(address, port, interval, ifs)
+	ipd = IPDiscovery.new(@settings, @evDis, address, port, interval, ifs)
 	ipd.start
       when :kasuari
 	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-	ipd = KasuariDiscovery.new(address, port, interval, ifs)
+	ipd = KasuariDiscovery.new(@settings, @evDis, address, port, interval, 
+				   ifs)
 	ipd.start
       else raise "syntax error: link #{action}"
       end
     end
 
     def storageDir(limit, dir)
-      Settings.instance.store = Storage.new(limit, dir)
+      @settings.store = Storage.new(@evDis, limit, dir)
     end
 
     def localEid(eid)
-      Settings.instance.localEid = EID.new(eid)
+      @settings.localEid = EID.new(eid) unless @settings.localEid
     end
 
     def route(action, dest, link)
       case action
-      when :add: addRoute(dest, link)
-      when :remove: rmRoute(dest, link)
+      when :add    then addRoute(dest, link)
+      when :remove then rmRoute(dest, link)
       else raise "syntax error: link #{action}"
       end
     end
 
     def router(type)
       case type
-      when :routingTable: 
-	Settings.instance.router = RoutingTable.new(
-	  Settings.instance.contactManager)
+      when :routingTable 
+	@settings.router = RoutingTable.new(@settings, @evDis,
+					    @settings.contactManager)
       when :priorityRouter 
-	Settings.instance.router = PriorityRouter.new(
-	  Settings.instance.contactManager)
+	# FIXME generic code to create the objects needed for a router config
+	@settings.router = PriorityRouter.new(@settings, @evDis,
+	  @settings.contactManager, @settings.subscriptionHandler)
       else raise "Unknown type of router #{type}"
       end
     end
 
     def addPriority(prio)
-      prioAlg = PrioReg.instance.makePrio(prio)
-      Settings.instance.router.addPriority(prioAlg)
-      Settings.instance.store.addPriority(prioAlg)
+      #FIXME
+      prioAlg = PrioReg.instance.makePrio(prio, @settings, @evDis, @settings.subscriptionHandler)
+      @settings.router.addPriority(prioAlg)
+      @settings.store.addPriority(prioAlg)
     end
 
     def addFilter(filter)
-      filterAlg = PrioReg.instance.makeFilter(filter)
-      Settings.instance.router.addFilter(filterAlg)
+      #FIXME
+      filterAlg = PrioReg.instance.makeFilter(filter, @settings, @evDis, @settings.subscriptionHandler)
+      @settings.router.addFilter(filterAlg)
     end
 
     def sprayWaitCopies(nCopies)
-      Settings.instance.sprayWaitCopies = nCopies
+      @settings.sprayWaitCopies = nCopies
     end
 
     private
@@ -182,7 +188,7 @@ module RdtnConfig
       ifClass = clreg.cl[cl]
 
       if (ifClass)
-	interface = ifClass[0].new(name, options)
+	interface = ifClass[0].new(@settings, @evDis, name, options)
 	@interfaces[name] = interface
       else
 	log(:error, "no such convergence layer: #{cl}")
@@ -199,7 +205,7 @@ module RdtnConfig
       ifClass = clreg.cl[cl]
 
       if (ifClass)
-	link = ifClass[1].new()
+	link = ifClass[1].new(@settings, @evDis)
 	link.open(name, options)
       else
 	log(:error, "no such convergence layer: #{cl}")
@@ -207,107 +213,84 @@ module RdtnConfig
 
     end
 
-
     def addRoute(dest, link)
       log(:debug, "adding route to #{dest} over link #{link}")
-
-      EventDispatcher.instance.dispatch(:routeAvailable, 
-					RoutingEntry.new(dest, link))
-
+      @evDis.dispatch(:routeAvailable, RoutingEntry.new(dest, link))
     end
-
-
-
 
   end # class Reader
 
   class Settings
-    include Singleton
 
     attr_accessor :localEid, :store, :router, 
       :contactManager, :subscriptionHandler,
       :sprayWaitCopies, :custodyTimer
 
-    def initialize
-      @localEid = ""
+    def initialize(evDis)
+      # FIXME no big hairy object
+      @evDis = evDis
+      @localEid = nil
       @store = nil
       @logLevels = []
       @defaultLogLevel = Logger::ERROR
     end
 
     def contactManager
-      @contactManager  = ContactManager.new unless @contactManager
+      @contactManager  = ContactManager.new(self, @evDis) unless @contactManager
       return @contactManager
     end
 
     def subscriptionHandler
-      @subscriptionHandler = SubscriptionHandler.new(nil) unless @subscriptionHandler
+      unless @subscriptionHandler
+	@subscriptionHandler = SubscriptionHandler.new(self, @evDis,
+						       contactManager)
+      end
       return @subscriptionHandler
     end
     
     def custodyTimer
-      @custodyTimer = CustodyTimer.instance()
+      @custodyTimer = CustodyTimer.new(self, @evDis) unless @custodyTimer
       return @custodyTimer
     end
 
-    # Set the log level for for a given classname pattern.
-    # If a logmessage is written from a class, the log level associated with the
-    # longest pattern as passed to this function is used. E.g.:
-    # setLogLevel(/TCP/, INFO)
-    # setLogLevel(/TCPLink/, DEBUG)
-    #
-    # Log messages from class TCPLink will be written with level DEBUG; messages
-    # from TCPInterface will use INFO. 
+    # Set the log level for for a given classname.
     # The default level is ERROR
     def setLogLevel(pattern, level)
-      if pattern
-	@logLevels.push([pattern, level])
-      else
-	@defaultLogLevel = level
-      end
-    end
-
-    def getLogger(classname)
-      matchedLevel = nil
-      matchedLen   = 0
-      @logLevels.each do |pattern, level|
-	if pattern =~ classname
-	  if not matchedLevel or matchedLen < $&.length
-	    matchedLevel = level
-	    machtLen = $&.length
-	  end
-	end
-      end
-      @logger = Logger.new(STDOUT) unless @logger
-      @logger.level = matchedLevel ? matchedLevel : @defaultLogLevel
-      return @logger
+      $rdtnLogLevels[pattern] = level
     end
 
   end
 
 end #module RdtnConfig
 
+$rdtnLogLevels = {nil => Logger::ERROR}
+$rdtnLogger    = Logger.new(STDOUT)
+
+def rdtnSetLogLevel(clsname)
+  $rdtnLogger.level = $rdtnLogLevels[clsname] || $rdtnLogLevels[nil]
+end
+
 def rdebug(obj, *args)
-  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
-  log.debug(*args)
+  rdtnSetLogLevel(obj.class.name)
+  $rdtnLogger.debug(*args)
 end
 
 def rinfo(obj, *args)
-  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
-  log.info(*args)
+  rdtnSetLogLevel(obj.class.name)
+  $rdtnLogger.info(*args)
 end
 
 def rwarn(obj, *args)
-  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
-  log.warn(*args)
+  rdtnSetLogLevel(obj.class.name)
+  $rdtnLogger.warn(*args)
 end
 
 def rerror(obj, *args)
-  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
-  log.error(*args)
+  rdtnSetLogLevel(obj.class.name)
+  $rdtnLogger.error(*args)
 end
 
 def rfatal(obj, *args)
-  log = RdtnConfig::Settings.instance.getLogger(obj.class.name)
-  log.fatal(*args)
+  rdtnSetLogLevel(obj.class.name)
+  $rdtnLogger.fatal(*args)
 end

@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 #  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
 #  Dirk Kutscher <dku@tzi.org>
 #
@@ -15,25 +16,27 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-class RdtnTime
+$:.unshift File.join(File.dirname(__FILE__))
 
-  @@timerFunc = lambda {Time.now}
-  @@sleepFunc = lambda {|sec| sleep(sec)}
+require 'core'
+require File.join(File.dirname(__FILE__), "..", "apps", "stateval", "eval2")
 
-  def RdtnTime.timerFunc=(func)
-    @@timerFunc = func
+if $0 == __FILE__
+  Dir.chdir(File.join(File.dirname(__FILE__), ".."))
+  system("git commit -a")
+  # get commit hash
+  revision = IO.popen("git log -n1") {|p| p.read}
+  dirName = File.join(Dir.getwd, 
+			  "experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
+  fork do
+    Sim::SimCore.instance.run(dirName)
   end
-
-  def RdtnTime.now
-    @@timerFunc.call
+  Process.waitall
+  system("cp #{File.join(File.dirname(__FILE__), "eventdump")} #{dirName}")
+  # write commit hash to dirName/revision
+  open(File.join(dirName, "revision"), "w") do |f| 
+    f.write(revision.to_s)
   end
-
-  def RdtnTime.sleepFunc=(func)
-    @@sleepFunc = func
-  end
-
-  def RdtnTime.rsleep(sec = nil)
-    @@sleepFunc.call(sec)
-  end
-
+  # run eval
+  evalRun(dirName)
 end

@@ -17,7 +17,6 @@
 
 require "rdtnevent"
 require "bundle"
-require "configuration"
 require "cl"
 require "eidscheme"
 require "monitor"
@@ -92,29 +91,31 @@ class ContactManager < Monitor
  
   # The housekeeping timer determines the interval between checks for idle
   # links.
-  def initialize(housekeepingTimer = 300)
+  def initialize(config, evDis, housekeepingTimer = 300)
     super()
+    @config = config
+    @evDis = evDis
     @oppCount  = 0 # Counter for the name of opportunistic links.
     @links     = []
     @neighbors = []
 
-    EventDispatcher.instance().subscribe(:linkCreated) do |*args| 
+    @evDis.subscribe(:linkCreated) do |*args| 
       linkCreated(*args)
     end
-    EventDispatcher.instance().subscribe(:linkClosed) do |*args|
+    @evDis.subscribe(:linkClosed) do |*args|
       contactClosed(*args)
     end
-    EventDispatcher.instance().subscribe(:opportunityAvailable) do |*args|
+    @evDis.subscribe(:opportunityAvailable) do |*args|
       opportunity(*args)
     end
-    EventDispatcher.instance().subscribe(:opportunityDown) do |*args|
+    @evDis.subscribe(:opportunityDown) do |*args|
       opportunityDown(*args)
     end
-    EventDispatcher.instance().subscribe(:linkOpen) do |*args|
+    @evDis.subscribe(:linkOpen) do |*args|
       linkOpen(*args)
     end
 
-    housekeeping(housekeepingTimer)
+    #housekeeping(housekeepingTimer)
   end
 
   def findLinkByName(name)
@@ -147,7 +148,7 @@ class ContactManager < Monitor
   end
 
   def contactClosed(link)
-    EventDispatcher.instance.dispatch(:routeLost, link)
+    @evDis.dispatch(:routeLost, link)
     rdebug(self,
 	"Removing link #{link.object_id} from ContactManager")
     synchronize do
@@ -167,7 +168,7 @@ class ContactManager < Monitor
     if clClasses
       begin
 	rdebug(self, "Opportunity for #{type} link to #{eid}.")
-	link = clClasses[1].new
+	link = clClasses[1].new(@config, @evDis)
 	link.policy = :opportunistic
 	link.remoteEid = eid
 	link.open("opportunistic#{@oppCount}", options)
@@ -198,8 +199,8 @@ class ContactManager < Monitor
 	synchronize { @neighbors.push(neighbor) }
       end
       neighbor.contactStarts(link)
-      EventDispatcher.instance.dispatch(:neighborContact, neighbor, link)
-      EventDispatcher.instance.dispatch(:routeAvailable, RoutingEntry.new(
+      @evDis.dispatch(:neighborContact, neighbor, link)
+      @evDis.dispatch(:routeAvailable, RoutingEntry.new(
 				        link.remoteEid.to_s + ".*", link))
     end
   end
@@ -210,7 +211,7 @@ class ContactManager < Monitor
   def housekeeping(timer)
     Thread.new(timer) do |ti|
       while true
-	sleep(timer)
+	RdtnTime.rsleep(timer)
 	synchronize do
 	  @links.delete_if {|lnk| lnk.policy != :alwaysOn and not lnk.busy?}
 	end

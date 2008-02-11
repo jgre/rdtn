@@ -37,12 +37,13 @@ module RdtnDaemon
   class Daemon
 
     def initialize(optParser = OptionParser.new)
+      @evDis = EventDispatcher.new
 
-      store = RdtnConfig::Settings.instance.store
-      Bundling::BundleWorkflow.registerEvents
+      Bundling::ParserManager.registerEvents(@evDis)
+      Bundling::BundleWorkflow.registerEvents(@config, @evDis)
       owEid = nil
 
-      configFileName=File.join(File.dirname(__FILE__),"rdtn.conf")
+      configFileName = File.join(File.dirname(__FILE__), "rdtn.conf")
 
       optParser.on("-c", "--config FILE", "config file name") do |c|
 	      configFileName = c
@@ -51,27 +52,28 @@ module RdtnDaemon
 	owEid = l
       end
       optParser.on("-s", "--stat-dir DIR", "Directory for statistics") do |s|
-      	dir = File.expand_path(s)
-      	begin
-      	  Dir.mkdir(dir) unless File.exist?(dir)
-      	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
-				  File.join(dir, "out.stat"),  
-					File.join(dir, "in.stat"),
-					File.join(dir, "contact.stat"),
-					File.join(dir, "subscribe.stat"),
-					File.join(dir, "store.stat"))
-	       rescue
-	       end
+	dir = File.expand_path(s)
+	begin
+	  Dir.mkdir(dir) unless File.exist?(dir)
+	  stats = Stats::StatGrabber.new(File.join(dir, "time.stat"),
+					 File.join(dir, "out.stat"),  
+					 File.join(dir, "in.stat"),
+					 File.join(dir, "contact.stat"),
+					 File.join(dir, "subscribe.stat"),
+					 File.join(dir, "store.stat"))
+	rescue => ex
+	  rwarn(self, "Could not create statistics handler: #{ex}")
+	end
       end
 
       optParser.parse!(ARGV)
       
-      RdtnConfig::Settings.instance.localEid = owEid if owEid
+      @rdtnConfig = RdtnConfig::Settings.new(@evDis)
+      # FIXME: this repetition cannot be right
+      @rdtnConfig.localEid = owEid if owEid
+      RdtnConfig::Reader.load(@evDis, configFileName, @rdtnConfig)
+      @rdtnConfig.localEid = owEid if owEid
 
-      conf = RdtnConfig::Reader.load(configFileName)
-      Bundling::ParserManager.registerEvents   
-
-      RdtnConfig::Settings.instance.localEid = owEid if owEid
     end
 
     def runLoop

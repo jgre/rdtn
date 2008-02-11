@@ -27,24 +27,25 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
 
   def test_contact_exchange
-    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
+    @config.localEid = "dtn://bla.fasel"
     
     rdebug(self, "starting contact exchange")
     
-    @interface=TCPCL::TCPInterface.new("tcp0", :host=> "localhost", :port => 3456)
-    @link=TCPCL::TCPLink.new
+    @interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
+				       :host=> "localhost", :port => 3456)
+    @link=TCPCL::TCPLink.new(@config, @evDis)
     @link.open("link1", :host => "localhost", :port => 3456)
 
     sleep(2)
     @interface.close
     @link.close
     
-    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, @link.remoteEid.to_s)
+    assert_equal(@config.localEid.to_s, @link.remoteEid.to_s)
 
   end
 
   def test_bundle_sending
-    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
+    @config.localEid = "dtn://bla.fasel"
     
     rdebug(self, "starting contact exchange")
     
@@ -57,18 +58,19 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
       rwarn(self, "Could not open large testfile")
     end
     outBundle = ""
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
+    handler = @evDis.subscribe(:bundleData) do |queue, cl|
       oldLen = outBundle.length
       outBundle += queue.read
       rdebug(self, "Received bundle1: #{outBundle.length-oldLen}")
     end
-    interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
-    link=TCPCL::TCPLink.new
+    interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
+				      :host => "localhost", :port => 3456)
+    link=TCPCL::TCPLink.new(@config, @evDis)
     link.open("link1", :host => "localhost", :port => 3456)
 
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:linkOpen) do |link|
+    @evDis.subscribe(:linkOpen) do |link|
       mon.synchronize do
 	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
@@ -78,7 +80,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     link.close
     interface.close
     
-    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, link.remoteEid.to_s)
+    assert_equal(@config.localEid.to_s, link.remoteEid.to_s)
     assert_equal(inBundle.length, outBundle.length)
     
     assert_equal(true, link.connection[:acks])
@@ -91,20 +93,20 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   # Test negotiation of ack flags: true/false -> dont use acks
  
   def test_bundle_sending2
-    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
-    #RdtnConfig::Settings.instance.setLogLevel(/TCP/, Logger::DEBUG)
+    @config.localEid = "dtn://bla.fasel"
     
     rdebug(self, "starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
     outBundle = "" 
-    handler = EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
+    handler = @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read 
       rdebug(self, "Received bundle2: #{outBundle}")
     end
     
-    interface=TCPCL::TCPInterface.new("tcp0", :host => "localhost", :port => 3456)
-    link=TCPCL::TCPLink.new
+    interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
+				      :host => "localhost", :port => 3456)
+    link=TCPCL::TCPLink.new(@config, @evDis)
     
     link.options[:acks] = false
     
@@ -112,7 +114,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     
     bundleSent = false
     mon = Monitor.new
-    EventDispatcher.instance.subscribe(:linkOpen) do |link|
+    @evDis.subscribe(:linkOpen) do |link|
       mon.synchronize do
 	link.sendBundle(inBundle) unless bundleSent
 	bundleSent = true
@@ -122,9 +124,9 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     link.close
     interface.close
     
-    EventDispatcher.instance().unsubscribe(:bundleData, handler)
+    @evDis.unsubscribe(:bundleData, handler)
 
-    assert_equal(RdtnConfig::Settings.instance.localEid.to_s, link.remoteEid.to_s)
+    assert_equal(@config.localEid.to_s, link.remoteEid.to_s)
     assert_equal(inBundle, outBundle)
   
     assert_equal(false, link.connection[:acks])
@@ -135,9 +137,8 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   end
 
   def setup
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
   end
 
-  def teardown
-    EventDispatcher.instance.clear
-  end
 end

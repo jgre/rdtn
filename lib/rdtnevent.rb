@@ -15,15 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-require "singleton"
 require "monitor"
 
 class EventDispatcher < Monitor
-  include Singleton
 
   def initialize
     super
-    @subscribers = Hash.new()
+    @subscribers = Hash.new {|hash, key| hash[key] = []}
   end
 
   # Register a handler for an event. The block handler is called when the
@@ -32,8 +30,8 @@ class EventDispatcher < Monitor
 
   def subscribe(eventId, &handler)
     synchronize do
-      if not @subscribers[eventId]: @subscribers[eventId] = [] end
       @subscribers[eventId] << handler
+      handler
     end
   end
 
@@ -42,15 +40,7 @@ class EventDispatcher < Monitor
 
   def unsubscribe(eventId, handler)
     synchronize do
-      @subscribers.delete_if {|id, h| id == eventId and h == handler}
-    end
-  end
-
-  # Remove every subscription for wich block returns true.
-
-  def unsubscribeIf(&block)
-    synchronize do
-      @subscribers.delete_if(&block)
+      @subscribers[eventId].delete(handler)
     end
   end
 
@@ -63,9 +53,7 @@ class EventDispatcher < Monitor
   end
 
   def dispatch(eventId, *args)
-    if @subscribers[eventId]
-      @subscribers[eventId].each { |handler| handler.call(*args) }
-    end
+    @subscribers[eventId].each { |handler| handler.call(*args) }
   end
 
 

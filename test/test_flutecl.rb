@@ -31,9 +31,11 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   @@file2 = "fasel"
 
   def setup
-    Dir.mkdir(@@inDirname)
+    @evDis  = EventDispatcher.new
+    @config = RdtnConfig::Settings.new(@evDis)
     begin
-    Dir.mkdir(@@outDirname)
+      Dir.mkdir(@@inDirname)
+      Dir.mkdir(@@outDirname)
     rescue
     end
     File.open(@@inDirname + "/" + @@fn1, "w") {|file| file << @@file1}
@@ -41,7 +43,6 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   end
 
   def teardown
-    EventDispatcher.instance.clear
     begin
       File.delete(@@inDirname + "/" + @@fn1)
       File.delete(@@inDirname + "/" + @@fn2)
@@ -59,11 +60,12 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
   end
 
   def test_receiver
-    fluteIF = FluteCL::FluteInterface.new("flute0", :directory => @@inDirname,
+    fluteIF = FluteCL::FluteInterface.new(@config, @evDis, "flute0", 
+					  :directory => @@inDirname,
 					  :interval => 1)
 
     counter = 0
-    EventDispatcher.instance().subscribe(:bundleData) do |queue, cl|
+    @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle = queue.read
       rdebug(self, "Received bundle: #{outBundle}")
       assert((outBundle == @@file1 or outBundle == @@file2), "Bundle must equal one of the test files")
@@ -81,21 +83,21 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
     createReceived = closedReceived = false
     srcEid = "dtn://test/bla"
     destEid = "dtn://oink/grunt"
-    RdtnConfig::Settings.instance.localEid = "dtn://bla.fasel"
+    @config.localEid = "dtn://bla.fasel"
     bundle = Bundling::Bundle.new("mypayload", destEid, srcEid)
     bundle.cosFlags = 1
 
-    EventDispatcher.instance().subscribe(:linkCreated) do |cl|
+    @evDis.subscribe(:linkOpen) do |cl|
       createReceived = true 
       cl.sendBundle(bundle)
       cl.close()
     end
 
-    EventDispatcher.instance().subscribe(:linkClosed) do |cl|
+    @evDis.subscribe(:linkClosed) do |cl|
       closedReceived= true 
     end
 
-    fluteLink = FluteCL::FluteLink.new(@@outDirname)
+    fluteLink = FluteCL::FluteLink.new(@config, @evDis, @@outDirname)
     #sleep(2)
     #fluteLink.close
     assert(createReceived, "Create Event was not received for the FLUTE link")

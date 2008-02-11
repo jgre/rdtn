@@ -49,8 +49,9 @@ module TCPCL
   
   class State
     
-    def initialize(tcpLink)
+    def initialize(evDis, tcpLink)
       @tcpLink = tcpLink
+      @evDis   = evDis
     end
     
   end
@@ -61,8 +62,8 @@ module TCPCL
   class ConnectedState < State
     include GenParser
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
       
       defField(:magic, :length => 4, 
 	       :condition => lambda {|data| data == TCPLink::MAGIC})
@@ -117,8 +118,8 @@ module TCPCL
 	raise
       end
 
-      EventDispatcher.instance.dispatch(:linkOpen, @tcpLink)
-      return ContactEstablishedState.new(@tcpLink)
+      @evDis.dispatch(:linkOpen, @tcpLink)
+      return ContactEstablishedState.new(@evDis, @tcpLink)
     end
   end
   
@@ -131,8 +132,8 @@ module TCPCL
   
   class ContactEstablishedState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     # Parse the type code from the incoming data. Io is a StringIO object
@@ -145,11 +146,16 @@ module TCPCL
       end
       typeCode = (io.getc & 0xf0) >> 4 # First 4 bits
       nextState = case typeCode
-                  when TCPLink::DATA_SEGMENT  then ReceivingState.new(@tcpLink)
-                  when TCPLink::ACK_SEGMENT   then AckState.new(@tcpLink)
-                  when TCPLink::REFUSE_BUNDLE then RefuseState.new(@tcpLink)
-                  when TCPLink::KEEPALIVE     then KeepaliveState.new(@tcpLink)
-                  when TCPLink::SHUTDOWN      then ShutdownState.new(@tcpLink)
+                  when TCPLink::DATA_SEGMENT 
+		    ReceivingState.new(@evDis, @tcpLink)
+                  when TCPLink::ACK_SEGMENT   
+		    AckState.new(@evDis, @tcpLink)
+                  when TCPLink::REFUSE_BUNDLE 
+		    RefuseState.new(@evDis, @tcpLink)
+                  when TCPLink::KEEPALIVE
+		    KeepaliveState.new(@evDis, @tcpLink)
+                  when TCPLink::SHUTDOWN
+		    ShutdownState.new(@evDis, @tcpLink)
                   else raise InvalidTCPCLTypeCode, typeCode
                   end
       io.pos = io.pos - 1 # We still need this byte
@@ -168,8 +174,8 @@ module TCPCL
     include GenParser
     attr_accessor :contentLength
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
       
       defField(:flags, :length => 1, :block => lambda do |data| 
                  @sFlag = data[0] & 0x2 # The 7th bit
@@ -200,7 +206,7 @@ module TCPCL
 	io.pos = oldPos
 	raise
       end
-      return ContactEstablishedState.new(@tcpLink)
+      return ContactEstablishedState.new(@evDis, @tcpLink)
     end
     
   end
@@ -208,8 +214,8 @@ module TCPCL
   class AckState < State
     include GenParser
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
       
       defField(:flags, :length => 1,
                :condition => lambda {|data| data[0] == (TCPLink::ACK_SEGMENT << 4)})
@@ -236,15 +242,15 @@ module TCPCL
 	io.pos = oldPos
 	raise
       end
-      return ContactEstablishedState.new(@tcpLink)
+      return ContactEstablishedState.new(@evDis, @tcpLink)
     end
     
   end
   
   class RefuseState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     def readData(io)
@@ -257,8 +263,8 @@ module TCPCL
   
   class KeepaliveState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     def readData(io)
@@ -270,8 +276,8 @@ module TCPCL
   
   class ShutdownState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     def readData(io)
@@ -283,8 +289,8 @@ module TCPCL
   
   class ErrorState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     def readData(io)
@@ -296,8 +302,8 @@ module TCPCL
   
   class DisconnectedState < State
     
-    def initialize(tcpLink)
-      super(tcpLink)
+    def initialize(evDis, tcpLink)
+      super(evDis, tcpLink)
     end
     
     def readData(io)
@@ -336,11 +342,11 @@ module TCPCL
     # DisconnectedState. If a connected socket was passed, a contact header is
     # send and the socket is watched for incoming data.
     
-    def initialize(sock = nil)
+    def initialize(config, evDis, sock = nil)
       mon_initialize
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
-      super()
+      super(config, evDis)
       
       @segmentLength = 32768
       @options = {}
@@ -353,7 +359,7 @@ module TCPCL
       @connection[:nacks] = false
       @connection[:reactiveFragmentation] = false
       
-      self.state = DisconnectedState.new(self)
+      self.state = DisconnectedState.new(@evDis, self)
       @currentBundle = RdtnStringIO.new  
       
       if sock
@@ -396,6 +402,7 @@ module TCPCL
     def close(wait = nil)
       #puts "Close called from:"
       #puts caller
+      #sendShutdown
       #sendShutdown
       sdThread = senderThread { sendShutdown }
       #sdThread.join(1) #FIXME: Make this limit configurable
@@ -442,6 +449,7 @@ module TCPCL
 	sendQueueAppend(buf)
       end
 
+      #doSend
       senderThread { doSend }
     end
 
@@ -459,7 +467,7 @@ module TCPCL
       #  #raise InputTooShort, 42
       #end
       @currentBundle.enqueue(data)
-      EventDispatcher.instance().dispatch(:bundleData, @currentBundle, self)
+      @evDis.dispatch(:bundleData, @currentBundle, self)
 
       if endSegment
         rdebug(self, "TCPLink::handle_bundle_data Bundle is complete")
@@ -507,7 +515,7 @@ module TCPCL
     # ConnectedState.
 
     def watch
-      self.state = ConnectedState.new(self)
+      self.state = ConnectedState.new(@evDis, self)
       receiverThread { read }
     end
 
@@ -547,6 +555,7 @@ module TCPCL
     # Send the data over the current socket in a new thread
     def send(data)
       sendQueueAppend(data)
+      #doSend
       senderThread { doSend }
     end
 
@@ -569,8 +578,8 @@ module TCPCL
       keepaliveInterval = 120
       # use array#pack to get a short in network byte order
       hdr << [keepaliveInterval].pack('n')
-      hdr << Sdnv.encode(RdtnConfig::Settings.instance.localEid.to_s.length)
-      hdr << RdtnConfig::Settings.instance.localEid.to_s
+      hdr << Sdnv.encode(@config.localEid.to_s.length)
+      hdr << @config.localEid.to_s
       
       send(hdr)
     end
@@ -606,7 +615,9 @@ module TCPCL
     attr_reader :links, :host, :port
     @s
    
-    def initialize(name, options)
+    def initialize(config, evDis, name, options)
+      @config = config
+      @evDis  = evDis
       self.name = name
       @host = "127.0.0.1"
       @port = TCPCLPORT          # default port
@@ -630,7 +641,7 @@ module TCPCL
     def whenAccept
       while true
 	#FIXME deal with errors
-	link = TCPLink.new(@s.accept)
+	link = TCPLink.new(@config, @evDis, @s.accept)
 	link.policy = :opportunistic
 	@links << link
       end
