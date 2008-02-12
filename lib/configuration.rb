@@ -37,7 +37,6 @@ module RdtnConfig
     :warn
     :fatal
 
-
     :add
 
     :tcp
@@ -178,6 +177,11 @@ module RdtnConfig
       @settings.sprayWaitCopies = nCopies
     end
 
+    def acceptCustody(custody)
+      puts "#{custody} #{custody.class}"
+      @settings.acceptCustody = custody
+    end
+    
     private
 
     def addIf(cl, name, options)
@@ -224,7 +228,7 @@ module RdtnConfig
 
     attr_accessor :localEid, :store, :router, 
       :contactManager, :subscriptionHandler,
-      :sprayWaitCopies, :custodyTimer
+      :sprayWaitCopies, :custodyTimer, :acceptCustody
 
     def initialize(evDis)
       # FIXME no big hairy object

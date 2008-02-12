@@ -62,14 +62,10 @@ class Router
 	  fragments = [bundle]
 	end
 	fragments.each do |frag| 
-	  if ($dropping && (rand(2) == 1))
-	    rdebug(self, "Dropping the bundle")
-	  else
-	    link.sendBundle(frag) 
-	    rinfo(self, 
-	       "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	    @evDis.dispatch(:bundleForwarded, frag, link)
-	  end
+          link.sendBundle(frag) 
+          rinfo(self, 
+             "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+          @evDis.dispatch(:bundleForwarded, frag, link)
 	end
       rescue ProtocolError, SystemCallError, IOError => err
 	rerror(self, "Routetab::doForward #{err}")

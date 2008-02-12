@@ -89,15 +89,10 @@ class Storage < Monitor
       if (@bundles + @deleted).find {|b| b.bundleId == bundle.bundleId}
 	raise BundleAlreadyStored, bundle.bundleId
       end
-      
-      if (!$deletion)
-        @bundles.push(bundle)
-	@evDis.dispatch(:bundleStored, bundle)
-        enforceLimit
-      else
-	puts "deleting"
-        @evDis.dispatch(:bundleRemoved, bundle)
-      end
+    
+      @bundles.push(bundle)
+      @evDis.dispatch(:bundleStored, bundle)
+      enforceLimit
     end
   end
 
