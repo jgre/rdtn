@@ -18,6 +18,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "bundle"
+require "yaml"
 
 class BDummyLink
   def initialize#(&prc)
@@ -70,6 +71,24 @@ class TestBundle < Test::Unit::TestCase
     str    = Marshal.dump(bundle)
     b2     = Marshal.load(str)
     assert_equal(bundle.to_s, b2.to_s)
+    assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
+    assert_nil(b2.incomingLink)
+    assert(b2.custodyAccepted?)
+  end
+
+  def test_yaml_marshalling
+    bundle = Bundling::Bundle.new("test", "dtn://test", "dtn://test")
+    bundle.incomingLink = 42
+    bundle.custodyAccepted = true
+    bundle.forwardLog.addEntry(:incoming, :transmitted, "dtn://hugo")
+    str    = YAML.dump(bundle)
+    b2     = YAML.load(str)
+    b2.fixObject
+    assert_equal(bundle.to_s, b2.to_s)
+    assert_equal(bundle.payload, b2.payload)
+    b2.srcEid = "dtn://hugo"
+    assert_equal("dtn://hugo", b2.srcEid.to_s)
+    assert_equal("dtn://test", bundle.srcEid.to_s)
     assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
     assert_nil(b2.incomingLink)
     assert(b2.custodyAccepted?)

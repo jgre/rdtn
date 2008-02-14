@@ -99,6 +99,10 @@ module GenParser
     arr.each {|var, val| instance_variable_set(var, val)}
   end
 
+  def to_yaml_properties
+    instance_variables.find_all {|var| var != "@genParserFields"}
+  end
+
   def GenParser.decodeNum(sio, length)
     if not length
       raise TypeError, "Need to know the length of Numeric value"

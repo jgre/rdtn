@@ -738,6 +738,14 @@ module Bundling
       __setobj__(@blocks[0])
     end
 
+    def to_yaml_properties
+      %w{ @blocks @forwardLog @custodyAccepted }
+    end
+
+    def fixObject
+      __setobj__(@blocks[0])
+    end
+
     def deepCopy
       ret = Bundle.new
       ret.forwardLog = @forwardLog.clone
