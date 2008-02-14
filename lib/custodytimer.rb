@@ -5,14 +5,19 @@ require 'clientlib'
 
 class CustodyTimer
   
+  attr_accessor :interval
+  
   @monitor = nil
   
-  def registerEvents
-    @timer = @evDis.subscribe(:timerTick) do
-      @monitor.synchronize do
-        cBundles = @store.getBundlesMatching {|b| b.custodyAccepted? == true}
-        cBundles.each { |b| rdebug(self, "CT resending #{b.bundleId} has custody? #{b.custodyAccepted?}")}
-        cBundles.each { |b| @evDis.dispatch(:bundleToForward, b)}
+  def startTimer
+    @timer = Thread.new do
+      while (@running) do
+        sleep(@interval)
+        @monitor.synchronize do
+          cBundles = @store.getBundlesMatching {|b| b.custodyAccepted? == true}
+          cBundles.each { |b| rdebug(self, "CT resending #{b.bundleId} has custody? #{b.custodyAccepted?}")}
+          cBundles.each { |b| puts b } # TODO retransmit bundle here
+        end
       end
     end
   end
@@ -20,11 +25,14 @@ class CustodyTimer
   def initialize(config, evDis)
     @config = config
     @evDis  = evDis
-    @custodyBundles = []
+    
     @timer = nil
+    @running = true
+    
     @monitor = Monitor.new
     @store = @config.store
-    registerEvents
+    @interval = 10
+    startTimer
   end
   
   def remove(bundleId)
@@ -38,6 +46,7 @@ class CustodyTimer
   def stop
     # stop the timer
     rdebug(self, "Stopping CustodyTimer")
-    @evDis.unsubscribe(:timerTick, @timer)
+    @running = false
+    @timer.join
   end
 end

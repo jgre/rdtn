@@ -20,6 +20,7 @@ require "rdtnevent"
 require "bundle"
 require "administrative"
 require "time"
+require "custodytimer"
 
 module Bundling
 
@@ -188,10 +189,12 @@ module Bundling
     def processBundle(bundle)
       if bundle.requestCustody?
         rdebug(self, "Requested Custody from #{bundle.custodianEid} for #{bundle.bundleId}")
-        if ($custody)
+        if (@config.acceptCustody)
           bundle.custodyAccepted = true
-          rdebug(self, "Accepted Custody for #{bundle.bundleId}")
           
+          timer = CustodyTimer.new(@config, @evDis)
+          bundle.addCustodyTimer(timer)
+          rdebug(self, "Accepted Custody for #{bundle.bundleId}")
           
           # send custody signal and then update custodian
           sendCustodySignal(bundle, SUCCESS)
@@ -493,9 +496,8 @@ module Bundling
         # with the "reporting node accepted custody of bundle" flag set to 1.
         if (administrativeRecord.custodyAccepted?)
           rdebug(self, "RCV: custody acceptance status report from #{bundle.srcEid}")
-          custody = @config.custodyTimer
-          custody.remove(administrativeRecord.bundleId)
-          
+          bundle = @config.store.getBundle(administrativeRecord.bundleId)
+          bundle.removeCustodyTimers
         end
         
         # A "bundle forwarding status report" is a bundle status report with

@@ -568,6 +568,9 @@ module Bundling
 	@blocks.push(PayloadBlock.new(self, payload))
 	@blocks[-1].lastBlock = true
       end
+
+      @custTimerList = []
+      
     end
 
     def payload
@@ -727,11 +730,17 @@ module Bundling
 	return Bundle.reassemble(f1, Bundle.reassembleArray(rest))
       end
     end
-
-    def marshal_dump
+    
+    def marshal_dump      
       [@blocks, @forwardLog, @custodyAccepted]
     end
 
+    # def to_yaml_properties
+    #   puts "@blocks: #{@blocks[1]} end"
+    #   
+    #   %w{ @forwardLog }
+    # end
+    
     def marshal_load(arr)
       @blocks, @forwardLog, @custodyAccepted = arr
       #super(@blocks[0])
@@ -753,6 +762,14 @@ module Bundling
       ret.blocks = @blocks.map {|block| block.clone}
       ret.__setobj__(ret.blocks[0])
       return ret
+    end
+
+    def addCustodyTimer(timer)
+      @custTimerList.add(timer)
+    end
+    
+    def removeCustodyTimers
+       @custTimerList.each{|timer| timer.stop}     
     end
 
     attr_accessor :blocks

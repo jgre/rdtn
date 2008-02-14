@@ -178,7 +178,6 @@ module RdtnConfig
     end
 
     def acceptCustody(custody)
-      puts "#{custody} #{custody.class}"
       @settings.acceptCustody = custody
     end
     
@@ -228,7 +227,7 @@ module RdtnConfig
 
     attr_accessor :localEid, :store, :router, 
       :contactManager, :subscriptionHandler,
-      :sprayWaitCopies, :custodyTimer, :acceptCustody
+      :sprayWaitCopies, :acceptCustody
 
     def initialize(evDis)
       # FIXME no big hairy object
@@ -237,6 +236,7 @@ module RdtnConfig
       @store = nil
       @logLevels = []
       @defaultLogLevel = Logger::ERROR
+      @acceptCustody = false
     end
 
     def contactManager
@@ -252,10 +252,10 @@ module RdtnConfig
       return @subscriptionHandler
     end
     
-    def custodyTimer
-      @custodyTimer = CustodyTimer.new(self, @evDis) unless @custodyTimer
-      return @custodyTimer
-    end
+    # def custodyTimer
+    #   @custodyTimer = CustodyTimer.new(self, @evDis) unless @custodyTimer
+    #   return @custodyTimer
+    # end
 
     # Set the log level for for a given classname.
     # The default level is ERROR
