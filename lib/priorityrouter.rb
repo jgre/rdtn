@@ -55,7 +55,7 @@ class CopyCountFilter
   end
 
   def filterBundle?(bundle, neighbor = nil)
-    bundle.nCopies > 3
+    bundle.forwardLog.nCopies > 3
   end
 
 end
@@ -67,160 +67,76 @@ class PriorityRouterQueue < Router
   attr_accessor :link
 
   def initialize(config, evDis, contactManager, neighbor, filters, priorities)
+    rdebug(self, "Starting new PriorityRouterQueue for #{neighbor}")
     mon_initialize
     super(evDis)
-    @config = config
+    @config     = config
     @contactMgr = contactManager
-    @neighbor   = neighbor.eid.to_s if neighbor
+    @neighbor   = neighbor
     @store      = @config.store
     @filters    = filters
     @priorities = priorities
-    @curIndex   = 0
-
-    #if @config.localEid == "dtn://kasuari2/"
-    #  @nbundlesAdded = 0
-    #  @nbundlesActually = 0
-    #end
 
     @evLink = @evDis.subscribe(:linkClosed) do |l|
       if l == @link
 	synchronize do
 	  @link = nil
 	  @curIndex = 0
+	  unsubscribeEvents
 	end
-	#puts "(#{@config.localEid}) Received Close #{l} at #{RdtnTime.now.to_i}"
-      else
-	#puts "(#{@config.localEid}) Close but not for me #{l}, #{@link}"
       end
     end
-    # Avoid returning the bundle directly to its previous hop.
-    @bundles = {}
-    @store.each do |bundle|
-      if bundle and not @bundles.has_key?(bundle.bundleId) and not /dtn:subscribe\/.*/ =~ bundle.destEid.to_s
-	@bundles[bundle.bundleId] = bundle
-      #elsif bundle.incomingLink and bundle.incomingLink.remoteEid and @neighbor
-      #  if bundle.incomingLink.remoteEid.to_s == @neighbor then false
-      #  else true
-      #  end
-      #else true
-      end
-    end
+    @bundles = @store.to_a
     @evBundle = @evDis.subscribe(:bundleToForward) do |*args|
       addBundle(*args)
     end
-    @evDis.subscribe(:bundleForwarded) do |bndl, link|
-      if @link and @link == link
-	synchronize do
-	  #@bundles.delete_if {|bundle| bundle.bundleId == bndl.bundleId}
-	  @bundles[bndl.bundleId] = nil
-	end
-      end
-    end
-    @evDis.subscribe(:bundleRemoved) do |bndl|
-      synchronize do
-	@bundles[bndl.bundleId] = nil
-	#@bundles.delete_if {|bundle| bundle.bundleId == bndl.bundleId}
-      end
-    end
-
   end
 
   def updateList
-    #puts "(#{@config.localEid}) #{@bundles.length} Bundles in the queue"
-    #@bundles.delete_if do |b| 
-    #  RdtnTime.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 
-    #end
-    filtered, accepted = @bundles.values.compact.partition do |bundle|
-      @filters.any? do |filter| 
-	res = filter.filterBundle?(bundle, @neighbor)
-	#puts "(#{@config.localEid}) #{filter.class} removed bundle #{bundle.srcEid} -> #{bundle.destEid}" if res and filter.class != SubscribeBundleFilter
-	res
+    synchronize do
+      accepted = @bundles.reject do |bundle|
+	@filters.any? do |filter| 
+	  res = filter.filterBundle?(bundle, @neighbor)
+	  if res and filter.class != SubscribeBundleFilter
+	    rdebug(self, "#{filter.class} removed bundle #{bundle.srcEid} -> #{bundle.destEid}")
+	  end
+	  res
+	end
+      end
+      @bundles = accepted.sort do |b1, b2|
+	# Accumulate the comparision from all priority algorithms to priorize
+	# based on a bundle to bundle comparison.
+	accPrio = @priorities.inject(0) do |sum, prio| 
+	  sum+prio.orderBundles(b1,b2, @neighbor)
+	end
+	if accPrio == 0   then 0
+	elsif accPrio > 0 then 1
+	else                  -1
+	end
       end
     end
-    accepted.sort! do |b1, b2|
-      # Accumulate the comparision from all priority algorithms to priorize
-      # based on a bundle to bundle comparison.
-      accPrio = @priorities.inject(0) do |sum, prio| 
-	sum+prio.orderBundles(b1,b2, @neighbor)
-      end
-      if accPrio == 0   then 0
-      elsif accPrio > 0 then 1
-      else               -1
-      end
-    end
-    #@bundles  = filtered + accepted
-    #@curIndex = filtered.length
-    accepted
   end
 
   def forwardBundles
-    synchronize do
-      return nil unless @link
-      bundles = updateList
-
-      #@bundles.delete_if {|bundle| @prioAlg.filterBundle?(@bundle, @neighbor) }
-      #@bundles.sort! {|b1, b2| @prioAlg.orderBundles(@bundles, @neighbor) }
-
-      #until @curIndex >= bundles.length
-      bundles.each do |bundle|
-	#@curIndex += 1
-	#bundle = @bundles[@curIndex - 1]
-	break unless @link
-	#puts "Forwarding over #{@link} at #{RdtnTime.now.to_i}"
-	# FIXME Decrement this number when the bundle cannot be transmitted
-	bundle.nCopies += 1
-	doForward(bundle, [@link]) if bundle
+    return nil unless @link
+    updateList
+    until @bundles.empty?
+      synchronize do
+	bundle = @bundles.pop
+	rdebug(self, "PrioRouter: forwarding #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
+	doForward(bundle, [@link], :replicate) if bundle
       end
     end
   end
 
   def addBundle(bundle)
-    #if @config.localEid == "dtn://kasuari1/" and bundle.destEid.to_s == "dtn://channel1/"
-    #if @bundles.find {|b| b.bundleId == bundle.bundleId}
-      #if @config.localEid == "dtn://kasuari2/" and @neighbor == "dtn://kasuari1/" and not bundle.destEid == "dtn:subscribe/"
-      #  @nbundlesAdded += 1
-      #  puts "(#{@config.localEid}) Removing bundle for #{bundle.destEid} because its already queued"
-      ##puts "Adding bundle for #{bundle.destEid} (#{@nbundlesAdded})"
-      #end
-    #  return nil
-    #end
-    #puts "Neighbor #{@neighbor}"
-    #puts "AddBundle #{bundle.incomingLink}"
-    #puts "AddBundle #{bundle.incomingLink.remoteEid}" if bundle.incomingLink
-    if bundle.incomingLink and bundle.incomingLink.remoteEid and @neighbor
-      if bundle.incomingLink.remoteEid.to_s == @neighbor 
-	#if @config.localEid == "dtn://kasuari2/" and @neighbor == "dtn://kasuari1/" and not bundle.destEid == "dtn:subscribe/"
-	##if @config.localEid == "dtn://kasuari1/" and bundle.destEid.to_s == "dtn://channel1/"
-	#  puts "Removing bundle because its from #{bundle.incomingLink.remoteEid}"
-	#end
-	return nil 
-      end
-    elsif @link and bundle.incomingLink == @link 
-      #if @config.localEid == "dtn://kasuari2/" and @neighbor == "dtn://kasuari1/" and not bundle.destEid == "dtn:subscribe/"
-      ##if @config.localEid == "dtn://kasuari2/" and @neighbor == "dtn://kasuari1/"
-      #  puts "Removing bundle because came via #{bundle.incomingLink}"
-      #end
-
-      return nil
-    end
-    #if @config.localEid == "dtn://kasuari2/" and @neighbor == "dtn://kasuari1/" and not bundle.destEid == "dtn:subscribe/"
-    ##if @config.localEid == "dtn://kasuari1/" and bundle.destEid.to_s == "dtn://channel1/"
-    #  @nbundlesActually += 1
-    #  #puts "Okay, this is really new #{@nbundlesActually}"
-    #end
-    #wasEmpty = false
     synchronize do
-      #wasEmpty = @curIndex >= @bundles.length
-      #if bundle and not @bundles.has_key?(bundle.bundleId)
-      if bundle and not @bundles.has_key?(bundle.bundleId) and not /dtn:subscribe\/.*/ =~ bundle.destEid.to_s
-	@bundles[bundle.bundleId] = bundle
+      unless @bundles.find {|b| b.bundleId == bundle.bundleId}
+	@bundles.push(bundle)
       end
-      #@bundles.push(bundle)
     end
-    forwardBundles #if wasEmpty
+    forwardBundles
   end
-
-  private
 
   def unsubscribeEvents
     @evDis.unsubscribe(:bundleToForward, @evBundle)
@@ -235,31 +151,35 @@ class PriorityRouter < Router
 
   attr_accessor :filters, :priorities
 
-  def initialize(config, evDis, contactManager, subHandler = nil)
+  def initialize(config, evDis)
     mon_initialize
     super(evDis)
     @config = config
-    @contactManager = contactManager
+    @contactManager = @config.contactManager
     @filters    = []
     @priorities = []
     @routes     = []
-    @subHandler = subHandler
+    @subHandler = @config.subscriptionHandler
+    rdebug(self, "SubHandler (Prio): #{@subHandler}")
     @queues = Hash.new {|h,n| h[n] = PriorityRouterQueue.new(@config, @evDis,
 							     @contactManager, n,
 							     @filters, 
 							     @priorities)}
 
-    @evDis.subscribe(:neighborContact) do |neighbor, link|
+    @evContact = @evDis.subscribe(:neighborContact) do |neighbor, link|
       contact(neighbor, link)
     end
-    @evDis.subscribe(:routeAvailable) do |*args|
+    @evAvailable = @evDis.subscribe(:routeAvailable) do |*args|
       localRegistration(*args)
     end
-    @evDis.subscribe(:bundleToForward) do |*args|
+    @evToForward = @evDis.subscribe(:bundleToForward) do |*args|
       forward(*args)
     end
+    @evLinkClosed = @evDis.subscribe(:linkClosed) do |l|
+      @queues.delete(l.remoteEid)
+    end
     if @subHandler
-      @evDis.subscribe(:subscriptionsReceived) do |neighborEid|
+      @evSubRec = @evDis.subscribe(:subscriptionsReceived) do |neighborEid|
 	neighbor = @contactManager.findNeighborByEid(neighborEid)
 	if neighbor
 	  link = neighbor.curLink 
@@ -277,18 +197,30 @@ class PriorityRouter < Router
     end
   end
 
+  def stop
+    @evDis.unsubscribe(:neighborContact, @evContact)
+    @evDis.unsubscribe(:routeAvailable, @evAvailable)
+    @evDis.unsubscribe(:bundleToForward, @evToForward)
+    @evDis.unsubscribe(:linkClosed, @evLinkClosed)
+    @evDis.unsubscribe(:subscriptionsReceived, @evSubRec)
+    @queues.values.each {|q| q.unsubscribeEvents}
+  end
+
   def contact(neighbor, link)
+    rdebug(self, "SubHandler (Prio#cont): #{@subHandler}")
     if @subHandler
+      rdebug(self, "Process Queue, but with subHandler")
       doForward(@subHandler.generateSubscriptionBundle, [link])
     else
+      rdebug(self, "Process Queue")
       processQueue(neighbor, link)
     end
   end
 
   def processQueue(neighbor, link)
     #puts "(#{@config.localEid}) Setting link #{link} at #{RdtnTime.now.to_i}"
-    @queues[neighbor].link = link 
-    @queues[neighbor].forwardBundles
+    @queues[neighbor.eid.to_s].link = link 
+    @queues[neighbor.eid.to_s].forwardBundles
   end
 
   def localRegistration(rentry)
@@ -301,7 +233,7 @@ class PriorityRouter < Router
     store = @config.store
     if store
       bundles = store.getBundlesMatchingDest(rentry.destination)
-      bundles.each {|bundle| doForward(bundle, [rentry.link])}
+      bundles.each {|bundle| doForward(bundle, [rentry.link], :replicate)}
     end
   end
 
@@ -310,15 +242,27 @@ class PriorityRouter < Router
       @routes.find_all{|entry| entry.destination === bundle.destEid.to_s}
     end
     links = matches.map {|entry| entry.link(@contactManager)}
-    doForward(bundle, links)
+    doForward(bundle, links, :replicate)
   end
 
   def addPriority(prio)
-    @priorities.push(prio)
+    if prio.class == Symbol
+      prioAlg = PrioReg.instance.makePrio(prio, @config, @evDis,
+					  @subscriptionHandler)
+    else
+      prioAlg = prio
+    end
+    @priorities.push(prioAlg)
   end
 
   def addFilter(filter)
-    @filters.push(filter)
+    if filter.class == Symbol
+      filterAlg = PrioReg.instance.makeFilter(filter, @config, @evDis, 
+					      @settings.subscriptionHandler)
+    else
+      filterAlg = filter
+    end
+    @filters.push(filterAlg)
   end
 
 end
@@ -364,3 +308,4 @@ regPrio(:epidemicPriorities, EpidemicPriorities)
 regPrio(:bogus, BogusPrio)
 regFilter(:copyCountFilter, CopyCountFilter)
 
+regRouter(:priorityRouter, PriorityRouter)

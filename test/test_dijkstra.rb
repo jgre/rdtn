@@ -16,30 +16,32 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
+$:.unshift File.join(File.dirname(__FILE__), "..", "sim")
 $:.unshift File.join(File.dirname(__FILE__), "..", "apps", "stateval")
 
 require "test/unit"
+require "graph"
 require "dijkstra"
 
 class TestDijkstra < Test::Unit::TestCase
 
   def setup
-    @g = Graph.new
-    @g.edge(1, 2, 28, 30)
-    @g.edge(1, 3, 2, 10)
-    @g.edge(1, 5, 1, 6)
-    @g.edge(2, 4, 9, 50)
-    @g.edge(2, 6, 10, 50)
-    @g.edge(3, 6, 24, 50)
-    @g.edge(3, 8, 27, 50)
-    @g.edge(4, 5, 5, 50)
-    @g.edge(4, 7, 8, 50)
-    @g.edge(4, 8, 7, 50)
-    @g.edge(5, 2, 8, 9)
-    @g.edge(5, 6, 26, 50)
-    @g.edge(6, 7, 8, 50)
-    @g.edge(6, 8, 1, 50)
-    @g.edge(7, 8, 7, 50)
+    @g = Sim::Graph.new
+    @g.addEdge(1, 2, 28, 30)
+    @g.addEdge(1, 3, 2, 10)
+    @g.addEdge(1, 5, 1, 6)
+    @g.addEdge(2, 4, 9, 50)
+    @g.addEdge(2, 6, 10, 50)
+    @g.addEdge(3, 6, 24, 50)
+    @g.addEdge(3, 8, 27, 50)
+    @g.addEdge(4, 5, 5, 50)
+    @g.addEdge(4, 7, 8, 50)
+    @g.addEdge(4, 8, 7, 50)
+    @g.addEdge(5, 2, 8, 9)
+    @g.addEdge(5, 6, 26, 50)
+    @g.addEdge(6, 7, 8, 50)
+    @g.addEdge(6, 8, 1, 50)
+    @g.addEdge(7, 8, 7, 50)
 
     open("graph.dot", "w") {|f| @g.printGraphviz(f)}
 
@@ -78,21 +80,21 @@ class TestDijkstra < Test::Unit::TestCase
   end
 
   #def test_symmetry
-  #  @g.edge(2, 1, 28, 30)
-  #  @g.edge(3, 1, 2, 10)
-  #  @g.edge(5, 1, 1, 6)
-  #  @g.edge(4, 2, 9, 15)
-  #  @g.edge(6, 2, 10, 50)
-  #  @g.edge(6, 3, 24, 50)
-  #  @g.edge(8, 3, 27, 50)
-  #  @g.edge(5, 4, 5, 50)
-  #  @g.edge(7, 4, 8, 50)
-  #  @g.edge(8, 4, 7, 50)
-  #  @g.edge(2, 5, 8, 50)
-  #  @g.edge(6, 5, 26, 50)
-  #  @g.edge(7, 6, 8, 50)
-  #  @g.edge(8, 6, 1, 50)
-  #  @g.edge(8, 7, 7, 50)
+  #  @g.addEdge(2, 1, 28, 30)
+  #  @g.addEdge(3, 1, 2, 10)
+  #  @g.addEdge(5, 1, 1, 6)
+  #  @g.addEdge(4, 2, 9, 15)
+  #  @g.addEdge(6, 2, 10, 50)
+  #  @g.addEdge(6, 3, 24, 50)
+  #  @g.addEdge(8, 3, 27, 50)
+  #  @g.addEdge(5, 4, 5, 50)
+  #  @g.addEdge(7, 4, 8, 50)
+  #  @g.addEdge(8, 4, 7, 50)
+  #  @g.addEdge(2, 5, 8, 50)
+  #  @g.addEdge(6, 5, 26, 50)
+  #  @g.addEdge(7, 6, 8, 50)
+  #  @g.addEdge(8, 6, 1, 50)
+  #  @g.addEdge(8, 7, 7, 50)
 
   #  1.upto(8) do |node1|
   #    distVec1, path1 = dijkstra(@g, node1, 0)

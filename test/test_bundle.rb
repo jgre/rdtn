@@ -21,7 +21,11 @@ require "yaml"
 require "bundle"
 
 class BDummyLink
+
+  attr_reader :remoteEid
+
   def initialize#(&prc)
+    @remoteEid = "dtn://test.neighbor"
     #@prc = prc
   end
 
@@ -35,7 +39,7 @@ class TestBundle < Test::Unit::TestCase
   def setup
     @evDis  = EventDispatcher.new
     @config = RdtnConfig::Settings.new(@evDis)
-    @inBundle = "\004\020\000\000J\000\000\000\004\000\000\000\026\000\000\000\026\000\000\000(\r\213\274\f\000\000\000\001\000\000\016\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\010\003bla"
+    @inBundle = "\005\201\020=\000\004\000\026\000\026\000(\372\222\222)\005\234\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\b\003bla"
   end
 
   def teardown
@@ -46,7 +50,7 @@ class TestBundle < Test::Unit::TestCase
     bundle.parse(StringIO.new(@inBundle))
 
     assert(bundle.parserFinished?)
-    assert_equal(4, bundle.version)
+    assert_equal(5, bundle.version)
     assert_equal(-1, bundle.bytesToRead)
     #TODO check flags
     assert_equal("dtn://domain.dtn/test", bundle.destEid.to_s)
@@ -71,6 +75,7 @@ class TestBundle < Test::Unit::TestCase
     str    = Marshal.dump(bundle)
     b2     = Marshal.load(str)
     assert_equal(bundle.to_s, b2.to_s)
+    assert_equal(bundle.payload, b2.payload)
     assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
     assert_nil(b2.incomingLink)
     assert(b2.custodyAccepted?)

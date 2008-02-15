@@ -94,7 +94,8 @@ module Bundling
       @evDis = evDis
       @active = true
       @bundle = Bundle.new
-      @bundle.incomingLink = link
+      neighbor = link ? link.remoteEid : nil
+      @bundle.forwardLog.addEntry(:incoming, :transmitted, neighbor, link)
       @idleSince = nil
 
       @evDis.subscribe(:linkClosed) do |lnk|
@@ -187,71 +188,35 @@ module Bundling
 
     def defineFields(version)
       @version = version
-      if version == 4
-	defField(:procFlags, :length => 1, :decode => GenParser::NumDecoder,
-		 :handler => :procFlags=)
-	defField(:cosFlags, :length => 1, :decode => GenParser::NumDecoder,
-		 :handler => :cosFlags=)
-	defField(:srrFlags, :length => 1, :decode => GenParser::NumDecoder,
-		 :handler => :srrFlags=)
-      elsif version == 5
-	defField(:procFlags, :decode => GenParser::SdnvDecoder, 
-		 :handler => :procFlags=)
-      end
+      defField(:procFlags, :decode => GenParser::SdnvDecoder, 
+	       :handler => :procFlags=)
 
       defField(:blockLength, :decode => GenParser::SdnvDecoder,
 	       :handler => :blockLength=)
-      if version == 4
-	defField(:destSchemeOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :destSchemeOff=)
-	defField(:destSspOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :destSspOff=)
-	defField(:srcSchemeOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :srcSchemeOff=)
-	defField(:srcSspOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :srcSspOff=)
-	defField(:repToSchemeOff,:length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :repToSchemeOff=)
-	defField(:repToSspOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :repToSspOff=)
-	defField(:custSchemeOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :custSchemeOff=)
-	defField(:custSspOff, :length => 2, :decode => GenParser::NumDecoder,
-		 :handler => :custSspOff=)
-	defField(:creationTimestamp, :length => 4, 
-		 :decode => GenParser::NumDecoder, 
-		 :handler => :creationTimestamp=)
-	defField(:creationTimestampSeq, :length => 4, 
-		 :decode => GenParser::NumDecoder, 
-		 :handler => :creationTimestampSeq=)
-	defField(:lifetime, :length => 4, :decode => GenParser::NumDecoder,
-		 :handler => :lifetime=)
-      elsif version == 5
-	defField(:destSchemeOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :destSchemeOff=)
-	defField(:destSspOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :destSspOff=)
-	defField(:srcSchemeOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :srcSchemeOff=)
-	defField(:srcSspOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :srcSspOff=)
-	defField(:repToSchemeOff,:decode => GenParser::SdnvDecoder,
-		 :handler => :repToSchemeOff=)
-	defField(:repToSspOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :repToSspOff=)
-	defField(:custSchemeOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :custSchemeOff=)
-	defField(:custSspOff, :decode => GenParser::SdnvDecoder,
-		 :handler => :custSspOff=)
-	defField(:creationTimestamp, 
-		 :decode => GenParser::SdnvDecoder, 
-		 :handler => :creationTimestamp=)
-	defField(:creationTimestampSeq, 
-		 :decode => GenParser::SdnvDecoder, 
-		 :handler => :creationTimestampSeq=)
-	defField(:lifetime, :decode => GenParser::SdnvDecoder,
-		 :handler => :lifetime=)
-      end
+      defField(:destSchemeOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :destSchemeOff=)
+      defField(:destSspOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :destSspOff=)
+      defField(:srcSchemeOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :srcSchemeOff=)
+      defField(:srcSspOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :srcSspOff=)
+      defField(:repToSchemeOff,:decode => GenParser::SdnvDecoder,
+	       :handler => :repToSchemeOff=)
+      defField(:repToSspOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :repToSspOff=)
+      defField(:custSchemeOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :custSchemeOff=)
+      defField(:custSspOff, :decode => GenParser::SdnvDecoder,
+	       :handler => :custSspOff=)
+      defField(:creationTimestamp, 
+	       :decode => GenParser::SdnvDecoder, 
+	       :handler => :creationTimestamp=)
+      defField(:creationTimestampSeq, 
+	       :decode => GenParser::SdnvDecoder, 
+	       :handler => :creationTimestampSeq=)
+      defField(:lifetime, :decode => GenParser::SdnvDecoder,
+	       :handler => :lifetime=)
       defField(:dictLength, :decode => GenParser::SdnvDecoder,
 	       :handler => :dictLength=,
 	       :block => lambda {|len| defField(:dict, :length => len)})
@@ -352,114 +317,59 @@ module Bundling
     # 10 :expedited
     # 11 :undefined - for future use
     def priority
-      if @version == 4  
-	return :undefined if (@cosFlags & 0x3) != 0 
-	return :expedited if (@cosFlags & 0x2) != 0  
-	return :normal    if (@cosFlags & 0x1) != 0 
-	return :bulk  
-      elsif @version == 5  
-	return :expedited if (@procFlags & 0x100) != 0
-	return :normal    if (@procFlags & 0x80) != 0
-	return :bulk      if (@procFlags & 0x180) == 0  
-	return :undefined 
-      end   
+      return :expedited if (@procFlags & 0x100) != 0
+      return :normal    if (@procFlags & 0x80) != 0
+      return :bulk      if (@procFlags & 0x180) == 0  
+      return :undefined 
     end
 
     def priority=(priority)
-      if @version == 4  
-	@cosFlags & ~0x3 # this sets :bulk
-	@cosFlags = case priority
-		    when :expedited then @cosFlags | 0x2  
-		    when :normal    then @cosFlags | 0x1
-		    end
-      elsif @version == 5
-	@procFlags = @procFlags & 0xffe7f # this sets :bulk
-	@procFlags = case priority
-		     when :expedited then @procFlags | 0x100
-		     when :normal    then @procFlags | 0x80
-		     else                 @procFlags
-		     end
-      end
+      @procFlags = @procFlags & 0xffe7f # this sets :bulk
+      @procFlags = case priority
+		   when :expedited then @procFlags | 0x100
+		   when :normal    then @procFlags | 0x80
+		   else                 @procFlags
+		   end
     end   
 
     def receptionSrr=(set)
-      if @version == 4
-	@srrFlags = set ? @srrFlags | 0x1 : @srrFlags & ~0x1
-      elsif @version == 5
-	@procFlags = set ? @procFlags | 0x4000 : @procFlags ^ 0x4000
-      end
+      @procFlags = set ? @procFlags | 0x4000 : @procFlags ^ 0x4000
     end
 
     def receptionSrr?
-      if @version == 4
-	(@srrFlags & 0x1) == 1
-      elsif @version == 5
-	(@procFlags & 0x4000) != 0
-      end
+      (@procFlags & 0x4000) != 0
     end
 
     def custodyAcceptanceSrr=(set)
-      if @version == 4
-	@srrFlags = set ? @srrFlags | 0x2 : @srrFlags & ~0x2
-      elsif @version == 5
-	@procFlags = set ? @procFlags | 0x8000 : @procFlags ^ 0x8000
-      end
+      @procFlags = set ? @procFlags | 0x8000 : @procFlags ^ 0x8000
     end
 
     def custodyAcceptanceSrr?
-      if @version == 4
-	(@srrFlags & 0x2) == 1
-      elsif @version == 5
-	(@procFlags & 0x8000) != 0
-      end
+      (@procFlags & 0x8000) != 0
     end
 
     def forwardingSrr=(set)
-      if @version == 4
-	@srrFlags = set ? @srrFlags | 0x4 : @srrFlags & ~0x4
-      elsif @version == 5
-	@procFlags = set ? @procFlags | 0x10000 : @procFlags ^ 0x10000
-      end
+      @procFlags = set ? @procFlags | 0x10000 : @procFlags ^ 0x10000
     end
 
     def forwardingSrr?
-      if @version == 4
-	(@srrFlags & 0x4) == 1
-      elsif @version == 5
-	(@procFlags & 0x10000) != 0
-      end
+      (@procFlags & 0x10000) != 0
     end
 
     def deliverySrr=(set)
-      if @version == 4
-	@srrFlags = set ? @srrFlags | 0x8 : @srrFlags & ~0x8
-      elsif @version == 5
-	@procFlags = set ? @procFlags | 0x20000 : @procFlags ^ 0x20000
-      end
+      @procFlags = set ? @procFlags | 0x20000 : @procFlags ^ 0x20000
     end
 
     def deliverySrr?
-      if @version == 4
-	(@srrFlags & 0x8) == 1
-      elsif @version == 5
-	(@procFlags & 0x20000) != 0
-      end
+      (@procFlags & 0x20000) != 0
     end
 
     def deletionSrr=(set)
-      if @version == 4
-	@srrFlags = set ? @srrFlags | 0x10 : @srrFlags & ~0x10
-      elsif @version == 5
-	@procFlags = set ? @procFlags | 0x40000 : @procFlags ^ 0x40000
-      end
+      @procFlags = set ? @procFlags | 0x40000 : @procFlags ^ 0x40000
     end
 
     def deletionSrr?
-      if @version == 4
-	(@srrFlags & 0x10) == 1
-      elsif @version == 5
-	(@procFlags & 0x40000) != 0
-      end
+      (@procFlags & 0x40000) != 0
     end
 
     def lastBlock?
@@ -472,35 +382,18 @@ module Bundling
       data << @version
       pbb = ""
       dict = buildDict()
-      if @version == 4
-	data << @procFlags
-	data << @cosFlags
-	data << @srrFlags
-	pbb << [@destSchemeOff].pack('n')
-	pbb << [@destSspOff].pack('n')
-	pbb << [@srcSchemeOff].pack('n')
-	pbb << [@srcSspOff].pack('n')
-	pbb << [@repToSchemeOff].pack('n')
-	pbb << [@repToSspOff].pack('n')
-	pbb << [@custSchemeOff].pack('n')
-	pbb << [@custSspOff].pack('n')
-	pbb << [@creationTimestamp].pack('N')
-	pbb << [@creationTimestampSeq].pack('N')
-	pbb << [@lifetime].pack('N')
-      elsif @version == 5
-	data << Sdnv.encode(@procFlags)
-	pbb << Sdnv.encode(@destSchemeOff)
-	pbb << Sdnv.encode(@destSspOff)
-	pbb << Sdnv.encode(@srcSchemeOff)
-	pbb << Sdnv.encode(@srcSspOff)
-	pbb << Sdnv.encode(@repToSchemeOff)
-	pbb << Sdnv.encode(@repToSspOff)
-	pbb << Sdnv.encode(@custSchemeOff)
-	pbb << Sdnv.encode(@custSspOff)
-	pbb << Sdnv.encode(@creationTimestamp)
-	pbb << Sdnv.encode(@creationTimestampSeq)
-	pbb << Sdnv.encode(@lifetime)
-      end
+      data << Sdnv.encode(@procFlags)
+      pbb << Sdnv.encode(@destSchemeOff)
+      pbb << Sdnv.encode(@destSspOff)
+      pbb << Sdnv.encode(@srcSchemeOff)
+      pbb << Sdnv.encode(@srcSspOff)
+      pbb << Sdnv.encode(@repToSchemeOff)
+      pbb << Sdnv.encode(@repToSspOff)
+      pbb << Sdnv.encode(@custSchemeOff)
+      pbb << Sdnv.encode(@custSspOff)
+      pbb << Sdnv.encode(@creationTimestamp)
+      pbb << Sdnv.encode(@creationTimestampSeq)
+      pbb << Sdnv.encode(@lifetime)
       pbb << Sdnv.encode(dict.length)
       pbb << dict
 
@@ -548,18 +441,18 @@ module Bundling
 
     PAYLOAD_BLOCK = 1
 
-    attr_accessor :incomingLink, :nCopies
+    attr_accessor :incomingLink
     attr_reader   :forwardLog
 
-    SUPPORTED_VERSIONS = [4, 5]
+    SUPPORTED_VERSIONS = [5]
 
     def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		   custodianEid=nil)
       @blocks = [PrimaryBundleBlock.new(self, destEid, srcEid, 
 					reportToEid, custodianEid)]
       @custodyAccepted = false
+      @deleted         = false
       @forwardLog = Bundling::ForwardLog.new
-      @nCopies = 0
       if payload
 	@blocks.push(PayloadBlock.new(self, payload))
 	@blocks[-1].lastBlock = true
@@ -574,6 +467,15 @@ module Bundling
       @blocks[0].send(methodId, *args)
     end
     
+    def deleted?
+      @deleted
+    end
+
+    def delete
+      @deleted = true
+      # TODO: delete paylaod
+    end
+
     def payload
       block = findBlock(PayloadBlock)
       if block
@@ -646,7 +548,7 @@ module Bundling
       false
     end
 
-    def retentionContraints?
+    def retentionConstraints?
       custodyAccepted? or dispatchPending? or forwardPending? or reassemblyPending?
     end
 
@@ -746,7 +648,7 @@ module Bundling
 
     def deepCopy
       ret = Bundle.new
-      ret.forwardLog = @forwardLog.clone
+      ret.forwardLog = @forwardLog.deepCopy
       ret.custodyAccepted = @custodyAccepted
       ret.blocks = @blocks.map {|block| block.clone}
       return ret
@@ -820,13 +722,8 @@ module Bundling
       @flags   = 0
       @bundle  = bundle
 
-      if @bundle.version == 4
-	defField(:procFlags, :length => 1, :decode => GenParser::NumDecoder,
-		 :handler => :flags=)
-      elsif @bundle.version == 5
-	defField(:procFlags, :decode => GenParser::SdnvDecoder,
-		 :handler => :flags=)
-      end
+      defField(:procFlags, :decode => GenParser::SdnvDecoder,
+	       :handler => :flags=)
     end
 
     def replicateBlockForEveryFragment=(set)

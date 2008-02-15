@@ -26,8 +26,9 @@ require "bundleworkflow"
 class MockLink < Link
   attr_accessor :remoteEid
 
-  def initialize(config, evDis)
+  def initialize(config, evDis, eid)
     super(config, evDis)
+    @remoteEid = eid
     @bundles = []
   end
 
@@ -63,14 +64,12 @@ class TestRoutetab < Test::Unit::TestCase
   def setup
     @evDis  = EventDispatcher.new
     @config = RdtnConfig::Settings.new(@evDis)
-    @link1 = MockLink.new(@config, @evDis)
-    @link1.remoteEid = "dtn:oink"
-    @link2 = MockLink.new(@config, @evDis)
-    @link2.remoteEid = "dtn:grunt"
-    @link3 = MockLink.new(@config, @evDis)
-    @link3.remoteEid = "dtn:grunt3"
+    @link1 = MockLink.new(@config, @evDis, "dtn:oink")
+    @link2 = MockLink.new(@config, @evDis, "dtn:grunt")
+    @link3 = MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis, nil, "store")
     @contactManager = MockContactManager.new(@link1)
+    @routeTab = RoutingTable.new(@config, @evDis)
   end
 
   def teardown
@@ -81,7 +80,6 @@ class TestRoutetab < Test::Unit::TestCase
   end
 
   def test_forward
-    @routeTab = RoutingTable.new(@config, @evDis, @contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
     @routeTab.forward(bndl)
@@ -93,7 +91,6 @@ class TestRoutetab < Test::Unit::TestCase
 
     store = @config.store
     # Initialize routing table
-    @routeTab = RoutingTable.new(@config, @evDis, @contactManager)
     Bundling::BundleWorkflow.registerEvents(@config, @evDis)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     # Dispatch event so that the bundle is written to the store
@@ -105,18 +102,18 @@ class TestRoutetab < Test::Unit::TestCase
   end
 
   def test_multiple_destinations
-    @routeTab = RoutingTable.new(@config, @evDis, @contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link2))
     @routeTab.forward(bndl)
 
     assert(@link1.received?(bndl))
-    assert(@link2.received?(bndl))
+    # When we use a forwarding based scheme (like routetab), there may only be a
+    # single copy of the bundle.
+    assert((not @link2.received?(bndl)))
   end
 
   def test_exclusive
-    @routeTab = RoutingTable.new(@config, @evDis, @contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link2, true))
@@ -128,7 +125,6 @@ class TestRoutetab < Test::Unit::TestCase
   end
 
   def test_delete
-    @routeTab = RoutingTable.new(@config, @evDis, @contactManager)
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     bndl2 = Bundling::Bundle.new("test2", "dtn:rcv")
     @routeTab.addEntry(RoutingEntry.new(".*receiver", @link1))

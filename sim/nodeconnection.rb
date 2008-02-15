@@ -22,81 +22,81 @@ require 'memorycl'
 require 'bundle'
 require 'bundleworkflow'
 require 'stats'
+require 'daemon'
 
 module Sim
 
-  class Node
+  class Node < RdtnDaemon::Daemon
 
-    attr_reader   :id, :links
+    attr_reader   :id, :links, :memIf
     #attr_accessor :connections
 
-    def initialize(config, id, channels = [])
-      @config = config
-      @links = {}
+    def initialize(dirName, id, bytesPerSec=1024, configPath=nil, channels=[])
       @id    = id
+      super("dtn://kasuari#{@id}/")
       @nbundles = 0
+      @bytesPerSec = bytesPerSec
 
+      @config.store = Storage.new(@evDis)
       # Create logging environment for the node
-      subDirName = File.join(@config.dirName, "kasuari#{@id}")
+      subDirName = File.join(dirName, "kasuari#{@id}")
       Dir.mkdir(subDirName) unless File.exist?(subDirName)
-      # Start minimal RDTN instance for the node
-      @evDis = EventDispatcher.new
-      stats = Stats::StatGrabber.new(@evDis,
-        			     File.join(subDirName, "time.stat"),
-        			     File.join(subDirName, "out.stat"),  
-        			     File.join(subDirName, "in.stat"),
-        			     File.join(subDirName, "contact.stat"),
-        			     File.join(subDirName, "subscribe.stat"),
-        			     File.join(subDirName, "store.stat"))
-      @rdtnConfig = RdtnConfig::Settings.new(@evDis)
-      @rdtnConfig.localEid = "dtn://kasuari#{@id}/"
-      Bundling::BundleWorkflow.registerEvents(@rdtnConfig, @evDis)
-      RdtnConfig::Reader.load(@evDis, @config.configPath, @rdtnConfig)
+      @config.setStatDir(subDirName)
+      parseConfigFile if configPath
       if channels
-	channels.each {|chan| @rdtnConfig.subscriptionHandler.subscribe(chan)}
+	channels.each {|chan| register(chan) {}}
       end
+      @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
+		    :node=>self)
     end
 
-    def self.connect(node1, node2)
-      node1.addConnection(node2)
-      node2.addConnection(node1)
-      node1.startConnection(node2)
-      node2.startConnection(node1)
-    end
+    #def self.connect(node1, node2)
+    #  node1.addConnection(node2)
+    #  node2.addConnection(node1)
+    #  node1.startConnection(node2)
+    #  node2.startConnection(node1)
+    #end
 
-    def self.disconnect(node1, node2)
-      node1.closeConnection(node2)
-      node2.closeConnection(node1)
-    end
+    #def self.disconnect(node1, node2)
+    #  node1.closeConnection(node2)
+    #  node2.closeConnection(node1)
+    #end
 
     def process(nSec)
       @links.each_value {|link| link.process(nSec) if link}
     end
 
-    def addConnection(node2)
-      @links[node2.id] = MemoryLink.new(@id, @evDis, node2.id, 
-					@config.bytesPerSec)
+    def connect(node2)
+      rdebug(self, "Connecting #{@id} -> #{node2.id}")
+      addLink(:memory, "simlink#{node2.id}", :nodeId=>@id,
+	      :memIf=>node2.memIf, :bytesPerSec=>@bytesPerSec)
     end
 
-    def startConnection(node2)
-      if node2.links[@id]
-	@links[node2.id].peerLink = node2.links[@id]
-      else
-	raise RuntimeError, "(Core) Node#{@id} cannot start connection to node{node2.id}"
-      end
+    def disconnect(node2)
+      removeLink("simlink#{node2.id}")
     end
 
-    def closeConnection(node2)
-      @links[node2.id].close if @links[node2.id]
-      @links[node2.id] = nil
-    end
+    #def addConnection(node2)
+    #  @links[node2.id] = MemoryLink.new(@id, @evDis, node2.id, 
+    #    				@config.bytesPerSec)
+    #end
+
+    #def startConnection(node2)
+    #  if node2.links[@id]
+    #    @links[node2.id].peerLink = node2.links[@id]
+    #  else
+    #    raise RuntimeError, "(Core) Node#{@id} cannot start connection to node{node2.id}"
+    #  end
+    #end
+
+    #def closeConnection(node2)
+    #  @links[node2.id].close if @links[node2.id]
+    #  @links[node2.id] = nil
+    #end
 
     def createBundle(channel)
       payload = "a" * @config.bundleSize
-      b = Bundling::Bundle.new(payload, EID.new(channel), @rdtnConfig.localEid)
-      @evDis.dispatch(:bundleParsed, b)
-      @nbundles += 1
-      #puts "Node#{@id} created #{@nbundles} bundles"
+      sendDataTo(payload, channel)
     end
 
   end

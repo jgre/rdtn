@@ -18,33 +18,44 @@
 
 require "stringio"
 require "socket"
-require "clientapi"
 require "queue"
 require "rdtnevent"
 require "rdtnerror"
 require "bundle"
 require "cl"
-require "internaluri"
 require "queuedio"
 
 module AppIF
 
   class AppProxy < Link
 
+    attr_accessor :remoteEid, :registration
+
+    def initialize(config, evDis, &handler)
+      super(config, evDis)
+      @remoteEid = @config.localEid
+      @handler   = handler
+    end
+    
+    def sendBundle(bundle)
+      rdebug(self, "AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
+      @handler.call(bundle)
+    end
+
+  end
+
+  class AppLink < Link
+
     include QueuedSender
     include QueuedReceiver
 
-    attr_accessor :remoteEid, :registration
-
-    def initialize(config, evDis, sock = nil)
+    def initialize(config, evDis, daemon, sock)
       super(config, evDis)
+      @daemon = daemon
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
-      @remoteEid = ""
-      if sock
-	receiverThread { read }
-	rdebug(self, "AppProxy::initialize: watching new socket")
-      end
+      receiverThread { read }
+      rdebug(self, "AppLink::initialize: watching new socket")
     end
     
     def close(wait = nil)
@@ -55,67 +66,94 @@ module AppIF
     end
 
     def sendBundle(bundle)
-      rdebug(self, "AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
-      sendPDU(POST, {:uri => "rdtn:bundles/#{bundle.bundleId}/",
-      		     :bundle => bundle})
-    end
-
-    def sendEvent(uri, *args)
-      sendPDU(POST, {:uri => uri, :args => args})
+      sendPDU(:bundle, bundle)
     end
 
     private
     def read
       begin
-	doRead do |input|
-	  while not input.eof?
-	    wait = processData(input)
-	    break if wait
-	  end
-	end
+        doRead do |input|
+          while not input.eof?
+            wait = processData(input)
+            break if wait
+          end
+        end
       rescue SystemCallError    # lost TCP connection 
-	rerror(self, "AppProxy::read" + $!)
+        rerror(self, "AppProxy::read" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              
     end
 
+    def sendBundle(msgId, bundle)
+      @daemon.sendBundle(bundle)
+      [:ok, nil]
+    end
+
+    def sendDataTo(msgId, *args)
+      @daemon.sendDataTo(*args)
+      [:ok, nil]
+    end
+
+    def deleteBundle(msgId, bundleId)
+      @config.store.deleteBundle(bundleId)
+      [:ok, nil]
+    end
+    
+    def getBundlesMatchingDest(msgId, dest)
+      bundles = @config.store.getBundlesMatchingDest(dest)
+      [:bundles, bundles]
+    end
+
+    def applicationAck(msgId, bundleId)
+      bundle = @config.store.getBundle(bundleId)
+      @daemon.applicationAck(bundle)
+      [:ok, nil]
+    end
+
+    def register(msgId, eid)
+      @daemon.register(eid) do |bundle|
+	sendPDU(:bundles, msgId, [bundle])
+      end
+      [:ok, nil]
+    end
+
+    def unregister(msgId, eid)
+      @daemon.unregister(eid)
+      [:ok, nil]
+    end
+
     def processData(data)
       oldPos = data.pos
-      typeCode = data.getc
       begin
-	args=Marshal.load(data)
+        args=Marshal.load(data)
       rescue ArgumentError => err
-	data.pos = oldPos
-	#puts "Clientregcl error #{err}"
-	#raise if err.to_s != "marshal data too short"
-	return true
+        data.pos = oldPos
+        return true
       end
 
+      type  = args[0]
+      msgId = args[1]
+      rdebug(self, "AppLink #{@name} process: #{type}, MessageId: #{msgId}")
       begin
-	uri = args[:uri]
-	rdebug(self, "AppProxy #{@name} process: #{uri}")
-	ri = RequestInfo.new(typeCode, self)
-	responseCode, response = PatternReg.resolve(@config, @evDis, uri, ri, 
-						    @config.store,args)
-	sendPDU(responseCode, response)
-      rescue ProtocolError => err
-	rwarn(self, "AppProxy #{@name} error: #{err}")
-	sendPDU(STATUS, {:uri => uri, :status => 400, :message => err.to_s })
+	retType, ret = self.send(*args)
+      rescue => err
+        rwarn(self, "AppProxy #{@name} error: #{err}")
+	retType, ret = :error, err
+	raise
       end
-
+      sendPDU(retType, msgId, ret)
       return false
     end
 
-    def send(buf)
+    def sendBuf(buf)
       sendQueueAppend(buf)
       doSend
       #senderThread { doSend }
     end
 
-    def sendPDU(type, pdu)
-      buf="" + type.chr() + Marshal.dump(pdu)
-      send(buf)
+    def sendPDU(type, msgId, *pdu)
+      sendBuf(Marshal.dump([type, msgId, *pdu]))
     end
 
   end
@@ -128,6 +166,7 @@ module AppIF
       host = "localhost"
       port = RDTNAPPIFPORT
 
+      @daemon = options[:daemon]
       if options.has_key?(:host)
 	host = options[:host]
       end
@@ -155,7 +194,7 @@ module AppIF
     def whenAccept()
       while true
 	#FIXME deal with errors
-	@link= AppProxy.new(@config, @evDis, @s.accept())
+	@link= AppLink.new(@config, @evDis, @daemon, @s.accept())
 	rdebug(self, "created new AppProxy #{@link.object_id}")
       end
     end

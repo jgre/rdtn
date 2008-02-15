@@ -24,13 +24,16 @@ require "priorityrouter"
 require "bundleworkflow"
 require "storage"
 require "subscriptionhandler"
+require "daemon"
 
 class MockLink < Link
   attr_accessor :remoteEid, :bundle
 
-  def initialize(config, evDis)
+  def initialize(config, evDis, eid)
     super(config, evDis)
     @bundles = []
+    @remoteEid = eid
+    @evDis.dispatch(:linkOpen, self)
   end
 
   def sendBundle(bundle)
@@ -66,18 +69,17 @@ class TestPriorityRouter < Test::Unit::TestCase
   def setup
     @evDis  = EventDispatcher.new
     @config = RdtnConfig::Settings.new(@evDis)
-    @link1 = MockLink.new(@config, @evDis)
-    @link1.remoteEid = "dtn:oink"
-    @link2 = MockLink.new(@config, @evDis)
-    @link2.remoteEid = "dtn:grunt"
-    @link3 = MockLink.new(@config, @evDis)
-    @link3.remoteEid = "dtn:grunt3"
+    @config.contactManager
+    @config.localEid = "dtn://test.sender"
+    @link1 = MockLink.new(@config, @evDis, "dtn:oink")
+    @link2 = MockLink.new(@config, @evDis, "dtn:grunt")
+    @link3 = MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis)
-    @contactManager = MockContactManager.new(@link1)
-    @config.contactManager = @contactManager
+    #@contactManager = MockContactManager.new(@link1)
+    #@config.contactManager = @contactManager
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
     @config.subscriptionHandler = @subHandler
-    @routeTab = PriorityRouter.new(@config, @evDis, @contactManager)
+    @routeTab = PriorityRouter.new(@config, @evDis)
   end
 
   def teardown
@@ -94,7 +96,8 @@ class TestPriorityRouter < Test::Unit::TestCase
     @routeTab.priorities.push(SubscriptionHopCountPrio.new(@config, @evDis, @subHandler))
     @routeTab.priorities.push(PopularityPrio.new(@config, @evDis, @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    @evDis.dispatch(:neighborContact, nil, @link1)
+    @evDis.dispatch(:neighborContact, Neighbor.new(@link1.remoteEid), @link1)
+    @evDis.dispatch(:subscriptionsReceived, @link1.remoteEid)
 
     assert(@link1.received?(bndl))
     assert(@link1.received?(bndl2))
@@ -104,31 +107,36 @@ class TestPriorityRouter < Test::Unit::TestCase
     store = @config.store
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     store.storeBundle(bndl)
-    @routeTab = PriorityRouter.new(@config, @evDis, @contactManager, 
-				   @subHandler)
+    store.each(true) do |b|
+      rdebug(self, "Bundle #{b.bundleId}: #{b.srcEid} -> #{b.destEid}")
+    end
+
+    rdebug(self, "Test Store #{store.object_id}")
+    # Do not wait for the subscription bundle
+    @config.subscriptionHandler = nil
+    @routeTab = PriorityRouter.new(@config, @evDis)
     @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
 						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    @evDis.dispatch(:neighborContact, nil, @link1)
+    rdebug(self, "test_filter: dispatching :neighborContact")
+    @evDis.dispatch(:neighborContact, Neighbor.new("dtn://neighbor"), @link1)
 
-    assert(@link1.received?(bndl))
+    rdebug(self, "test_filter end")
+    assert((not @link1.received?(bndl)))
   end
 
   def test_local_registrations
-    Bundling::BundleWorkflow.registerEvents(@config, @evDis)
-    appIf = AppIF::AppInterface.new(@config, @evDis, "client0", :port => 12345)
-    client = RdtnClient.new("localhost", 12345)
     eid = "dtn://test/receiver"
+    daemon = RdtnDaemon::Daemon.new(eid)
+    daemon.config.router = @routeTab
+    daemon.config.store  = @config.store
     b=Bundling::Bundle.new("test", eid)
-    client2 = RdtnClient.new(client.host, client.port)
-    client2.sendBundle(b)
-    sleep(1)
     eventSent = false
-    client.register(eid) do |bundle|
+    daemon.sendBundle(b)
+    daemon.register(eid) do |bundle|
       eventSent = true
       assert_equal(b.payload.length, bundle.payload.length)
     end
-    sleep(1)
     assert(eventSent)
   end
 

@@ -17,8 +17,6 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
-require 'conf'
-
 module Sim
 
   class TimerEngine
@@ -28,27 +26,38 @@ module Sim
       @evDis  = evDis
     end
 
-    def run
-      timer = Time.now
-      gran = @config.granularity
-      puts "Gran #{gran}"
+    def run(duration, startTime = 0)
+      @t0 = Time.now - startTime
+      @timer = startTime
+      gran = @config["granularity"]
       thresh = 0.01 # Tolerance for timing inaccuracy for realtime emulation
-      loop do
-	# Blocks until all work for this clock tick is done
-	@evDis.dispatch(:simTimerTick, timer)
-	if @config.realTime
-	  sleepTime =  (timer + gran) - Time.now
-	  sleep(sleepTime) if sleepTime > 0
-	  newTime = Time.now
-	  if newTime > (timer + gran + thresh)
-	    puts "Timing deviation too great: T-1 = #{timer.to_f}, T = #{newTime.to_f}"
-	  end
-	  timer = newTime
-	else
-	  timer += gran
-	end
+      startTime.step(duration, gran) do |time|
+	@timer = time
+        @evDis.dispatch(:simTimerTick, @timer)
       end
+      #loop do
+      #  break if duration and @timer > duration
+      #  # Blocks until all work for this clock tick is done
+      #  @evDis.dispatch(:simTimerTick, @timer)
+      #  if @config["realTime"]
+      #    sleepTime =  (@timer + gran) - Time.now
+      #    sleep(sleepTime) if sleepTime > 0
+      #    newTime = Time.now
+      #    if newTime > (@timer + gran + thresh)
+      #      puts "Timing deviation too great: T-1 = #{timer.to_f}, T = #{newTime.to_f}"
+      #    end
+      #    @timer = newTime
+      #  else
+      #    puts "Time #{@timer} #{gran}"
+      #    @timer += gran
+      #  end
+      #end
     end
+
+    def time
+      @t0 + @timer
+    end
+
   end
 
 end # module

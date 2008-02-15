@@ -37,7 +37,7 @@ end
 class Storage < Monitor
 
   include Enumerable
-  attr_accessor :displacement
+  attr_accessor :displacement, :storageDir, :maxSize
 
   def initialize(evDis, maxSize = nil, dir = nil)
     super()
@@ -53,8 +53,10 @@ class Storage < Monitor
     #housekeeping
   end
 
-  def each(&handler)
-    synchronize { @bundles.each(&handler) }
+  def each(includeDeleted = false)
+    synchronize do
+      @bundles.each {|b| yield(b) if not b.deleted? or includeDeleted }
+    end
   end
 
   def allIds
@@ -68,14 +70,16 @@ class Storage < Monitor
   end
 
   def deleteBundle(bundleId)
+    deleteBundles {|b| b.bundleId == bundleId}
+  end
+
+  def deleteBundles(&handler)
     synchronize do 
-      @bundles.delete_if do |bundle| 
-      	if bundle.bundleId == bundleId
-      	  @curSize -= bundle.payloadLength
-      	  true
-      	else
-      	  false
-      	end
+      bundles = @bundles.find_all(&handler)
+      bundles.each do |bundle|
+	@curSize -= bundle.payloadLength
+	bundle.delete
+	@evDis.dispatch(:bundleRemoved, bundle)
       end
     end
   end
@@ -86,36 +90,36 @@ class Storage < Monitor
     end
     synchronize do
       @curSize += bundle.payloadLength
-      if (@bundles + @deleted).find {|b| b.bundleId == bundle.bundleId}
+      if dup = @bundles.find {|b| b.bundleId == bundle.bundleId}
+	dup.forwardLog.merge(bundle.forwardLog)
 	raise BundleAlreadyStored, bundle.bundleId
       end
-    
       @bundles.push(bundle)
       @evDis.dispatch(:bundleStored, bundle)
+      rdebug(self, "Stored bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
       enforceLimit
     end
   end
 
   def clear
     synchronize do
-      @bundles.clear
-      @curSize = 0
+      deleteBundles {|b| true}
     end
   end
 
-  def getBundleMatching(&handler)
-    synchronize { @bundles.find(&handler) }
+  def getBundleMatching
+    synchronize { @bundles.find {|b| yield(b) unless b.deleted?} }
   end
 
   def getBundleMatchingDest(destEid, includeDeleted = false)
     getBundleMatching(includeDeleted) {|bundle| bundle.destEid == destEid }
   end
 
-  def getBundlesMatching(includeDeleted = false, &handler)
+  def getBundlesMatching(includeDeleted = false)
     synchronize do 
-      ret = @bundles.find_all(&handler) 
-      ret += @deleted.find_all(&handler) if includeDeleted
-      ret
+      @bundles.find_all do |bundle|
+	yield(bundle) if (not bundle.deleted?) or includeDeleted
+      end
     end
   end
 
@@ -143,17 +147,11 @@ class Storage < Monitor
 
   private
   def enforceLimit
-    # FIXME remove expired bundles
-    exp, bundles = @bundles.partition do |bundle|
-      if bundle.expired?
-	@evDis.dispatch(:bundleRemoved, bundle)
-	true
-      else
-	false
-      end
+    deleteBundles do |bundle| 
+      ret = bundle.expired?
+      rdebug(self, "Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
+      ret
     end
-    @deleted.concat(exp)
-    @bundles = bundles
     #if @maxSize and @curSize > @maxSize
     #  @bundles.sort! do |b1, b2|
     #    # Accumulate the comparision from all priority algorithms to 
@@ -168,18 +166,18 @@ class Storage < Monitor
     #  end
     #end
     
-    while @maxSize and @curSize > @maxSize
-      #puts "Enforcing #{@maxSize} #{@curSize}"
-      
-      # TODO seek a replacement for the undeleted bundle
-      if (!@bundles.last.custodyAccepted?)
-        outBndl = @bundles.pop
-        if outBndl
-	  @deleted.push(outBndl)
-          @curSize -= outBndl.payloadLength
-	  @evDis.dispatch(:bundleRemoved, outBndl)
-        end
+    delCandidates = []
+    delSize       = 0
+    @bundles.reverse_each do |bundle|
+      break unless @maxSize and (@curSize - delSize) > @maxSize
+      unless bundle.deleted? or bundle.retentionConstraints?
+	rdebug(self, "Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
+	delCandidates.push(bundle.bundleId)
+	delSize += bundle.payloadLength
       end
+    end
+    unless delCandidates.empty?
+      deleteBundles {|bundle| delCandidates.include?(bundle.bundleId)}
     end
   end
 
@@ -189,20 +187,8 @@ class Storage < Monitor
 	RdtnTime.rsleep(10) #FIXME variable timer
 	@evDis.dispatch(:timerTick)
 	
-	# do i have custody for bundles?
-	@bundles.each do |b| 
-          # puts "#{b.bundleId} has custody? #{b.custodyAccepted?}"
-          # puts "Store: creationTimestamp = #{b.creationTimestamp}"
-          #                 puts "Store: creationTimestampSeq = #{b.creationTimestampSeq}"
-          #                 puts "Store: srcEid = #{b.srcEid}"
-          #                 puts "Store: fragmentOffset = #{b.fragmentOffset}"
-          #                 puts "Store: bundleId = #{b.bundleId}"     
-        end
-	        
 	synchronize do
-	  @bundles.delete_if do |b| 
-	    RdtnTime.now.to_i > (b.creationTimestamp.to_i + b.lifetime.to_i + Time.gm(2000).to_i) 
-	  end
+	  deleteBundles {|bundle| bundle.expired?}
 	end
       end
     end

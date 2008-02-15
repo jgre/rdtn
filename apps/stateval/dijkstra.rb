@@ -15,66 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-class Edge
-  attr_accessor :node1, :node2
-
-  def initialize(n1, n2, tStart, tEnd)
-    @node1  = n1
-    @node2  = n2
-    @tStart = tStart
-    @tEnd   = tEnd
-  end
-
-  def cost(time)
-    if time < @tStart
-      @tStart - time
-    elsif time <= @tEnd
-      0
-    else
-      nil
-    end
-  end
-
-end
-
-class Graph
-
-  def initialize
-    @nodes = []
-    @edges = Hash.new {|hash, node| hash[node] = []}
-  end
-
-  def node(node)
-    @nodes.push(node) unless @nodes.include?(node)
-  end
-
-  def edge(n1, n2, tStart, tEnd)
-    node(n1)
-    node(n2)
-    edge =  Edge.new(n1, n2, tStart, tEnd)
-    @edges[n1].push(edge)
-  end
-
-  def nodes
-    @nodes
-  end
-
-  def edges(n)
-    @edges[n]
-  end
-
-  def printGraphviz(file)
-    file.puts("digraph test {")
-    @edges.each_value do |edgeList|
-      edgeList.each do |edge|
-	file.puts("#{edge.node1} -> #{edge.node2} [label=#{edge.cost(0)}]")
-      end
-    end
-    file.puts("}")
-  end
-
-end
-
 def dijkstra(graph, src, startTime)
   dists = {}
   paths = Hash.new {|hash, key| hash[key] = []}

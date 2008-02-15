@@ -51,7 +51,7 @@ module Bundling
       evDis.subscribe(:bundleRemoved) do |bundle|
         if bundle
       	  #puts "BundleDeleted! #{bundle.srcEid}, #{bundle.destEid}" unless bundle.srcEid.to_s == RdtnConfig::Settings.instance.localEid
-      	  bwf = BundleWorkflow.new(bundle)
+      	  bwf = BundleWorkflow.new(config, evDis, bundle)
       	  bwf.processDeletion
       	end
       end

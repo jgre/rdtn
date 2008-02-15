@@ -27,6 +27,8 @@ require 'priorityrouter'
 require 'custodytimer'
 require 'subscriptionhandler'
 
+RDTNAPPIFPORT=7777
+
 module RdtnConfig
 
   class Reader
@@ -46,14 +48,14 @@ module RdtnConfig
     :alwayson
 
 
-    def initialize(settings, evDis)
-      @interfaces = {}
+    def initialize(settings, evDis, daemon)
       @settings = settings
       @evDis = evDis
+      @daemon = daemon
     end
 
-    def self.load(evDis, filename, settings = Settings.new)
-      conf = new(settings, evDis)
+    def self.load(evDis, filename, daemon, settings = Settings.new)
+      conf = new(settings, evDis, daemon)
       conf.instance_eval(File.read(filename), filename)
       settings
     end
@@ -83,35 +85,18 @@ module RdtnConfig
       end
     end
 
-
-    def self.hash_to_optString(hash={})
-      options = []
-      hash.each do |k, v|
-	case k
-	when :port then options << "-p #{v}" #TODO test 0 < int(v) < 65536
-	when :host then options << "-h #{v}" #TODO no blanks in string v
-	else
-	  raise ArgumentError, "Unknown hash key: #{k}."
-	end
-      end
-      return options.join(" ")
-    end
-
-
     def interface(action, cl, name, options={})
-      #options = RDTNConf::hash_to_optString(optionHash)
-
       case action
-      when :add    then addIf(cl, name, options)
-      when :remove then rmIf(cl, name, options)
+      when :add    then @daemon.addIf(cl, name, options)
+      when :remove then @daemon.rmIf(cl, name, options)
       else raise "syntax error: interface #{action}"
       end
     end
 
     def link(action, cl, name, options = {})
       case action
-      when :add    then addLink(cl, name, options)
-      when :remove then rmLink(cl, name, options)
+      when :add    then @daemon.addLink(cl, name, options)
+      when :remove then @daemon.rmLink(cl, name, options)
       else raise "syntax error: link #{action}"
       end
     end
@@ -119,14 +104,9 @@ module RdtnConfig
     def discovery(action, address, port, interval, announceIfs = [])
       case action
       when :add
-	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-	ipd = IPDiscovery.new(@settings, @evDis, address, port, interval, ifs)
-	ipd.start
+	@daemon.addDiscovery(address, port, interval, announceIfs)
       when :kasuari
-	ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-	ipd = KasuariDiscovery.new(@settings, @evDis, address, port, interval, 
-				   ifs)
-	ipd.start
+	@daemon.addKasuariDiscovery(address, port, interval, announceIfs)
       else raise "syntax error: link #{action}"
       end
     end
@@ -135,46 +115,37 @@ module RdtnConfig
       @settings.store = Storage.new(@evDis, limit, dir)
     end
 
+    def statDir(dir)
+      @settings.setStatDir(dir) unless @settings.stats
+    end
+
     def localEid(eid)
       @settings.localEid = EID.new(eid) unless @settings.localEid
     end
 
     def route(action, dest, link)
+      rwarn(self, "Configuration action 'route' is depricated. Use router.addRoute instead. #{caller(1)[0]}")
       case action
       when :add    then addRoute(dest, link)
-      when :remove then rmRoute(dest, link)
       else raise "syntax error: link #{action}"
       end
     end
 
-    def router(type)
-      case type
-      when :routingTable 
-	@settings.router = RoutingTable.new(@settings, @evDis,
-					    @settings.contactManager)
-      when :priorityRouter 
-	# FIXME generic code to create the objects needed for a router config
-	@settings.router = PriorityRouter.new(@settings, @evDis,
-	  @settings.contactManager, @settings.subscriptionHandler)
-      else raise "Unknown type of router #{type}"
-      end
+    def router(type = nil)
+      @daemon.router(type)
     end
 
     def addPriority(prio)
-      #FIXME
+      rwarn(self, "Configuration action 'addPriority' is depricated. Use router.addPriority instead. #{caller(1)[0]}")
       prioAlg = PrioReg.instance.makePrio(prio, @settings, @evDis, @settings.subscriptionHandler)
       @settings.router.addPriority(prioAlg)
       @settings.store.addPriority(prioAlg)
     end
 
     def addFilter(filter)
-      #FIXME
+      rwarn(self, "Configuration action 'addFilter' is depricated. Use router.addFilter instead. #{caller(1)[0]}")
       filterAlg = PrioReg.instance.makeFilter(filter, @settings, @evDis, @settings.subscriptionHandler)
       @settings.router.addFilter(filterAlg)
-    end
-
-    def sprayWaitCopies(nCopies)
-      @settings.sprayWaitCopies = nCopies
     end
 
     def acceptCustody(custody)
@@ -182,39 +153,6 @@ module RdtnConfig
     end
     
     private
-
-    def addIf(cl, name, options)
-      log(:debug, "adding interface #{name} for CL #{cl} with options: '#{options}'")
-
-      clreg = CLReg.instance()
-
-      ifClass = clreg.cl[cl]
-
-      if (ifClass)
-	interface = ifClass[0].new(@settings, @evDis, name, options)
-	@interfaces[name] = interface
-      else
-	log(:error, "no such convergence layer: #{cl}")
-      end
-
-    end
-
-
-    def addLink(cl, name, options)
-      log(:debug, "adding link #{name} for CL #{cl} with options: '#{options}'")
-
-      clreg = CLReg.instance()
-
-      ifClass = clreg.cl[cl]
-
-      if (ifClass)
-	link = ifClass[1].new(@settings, @evDis)
-	link.open(name, options)
-      else
-	log(:error, "no such convergence layer: #{cl}")
-      end
-
-    end
 
     def addRoute(dest, link)
       log(:debug, "adding route to #{dest} over link #{link}")
@@ -227,7 +165,7 @@ module RdtnConfig
 
     attr_accessor :localEid, :store, :router, 
       :contactManager, :subscriptionHandler,
-      :sprayWaitCopies, :acceptCustody
+      :sprayWaitCopies, :acceptCustody, :stats
 
     def initialize(evDis)
       # FIXME no big hairy object
@@ -239,16 +177,21 @@ module RdtnConfig
       @acceptCustody = false
     end
 
+    def localEid=(eid)
+      @localEid = eid ? EID.new(eid) : nil
+    end
+
     def contactManager
       @contactManager  = ContactManager.new(self, @evDis) unless @contactManager
       return @contactManager
     end
 
     def subscriptionHandler
-      unless @subscriptionHandler
-	@subscriptionHandler = SubscriptionHandler.new(self, @evDis,
-						       contactManager)
-      end
+      #unless @subscriptionHandler
+      #  @subscriptionHandler = SubscriptionHandler.new(self, @evDis,
+      #  					       contactManager)
+      #end
+      rdebug(self, "SubHandler #{@subscriptionHandler}")
       return @subscriptionHandler
     end
     
@@ -261,6 +204,23 @@ module RdtnConfig
     # The default level is ERROR
     def setLogLevel(pattern, level)
       $rdtnLogLevels[pattern] = level
+    end
+
+    def setStatDir(dir)
+      dir = File.expand_path(dir)
+      begin
+	Dir.mkdir(dir) unless File.exist?(dir)
+      rescue => ex
+	rwarn(self, "Could not create statistics handler: #{ex}")
+      else
+	@stats = Stats::StatGrabber.new(@evDis,
+					File.join(dir, "time.stat"),
+					File.join(dir, "out.stat"),  
+					File.join(dir, "in.stat"),
+					File.join(dir, "contact.stat"),
+					File.join(dir, "subscribe.stat"),
+					File.join(dir, "store.stat"))
+      end
     end
 
   end

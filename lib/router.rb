@@ -53,25 +53,52 @@ class Router
  
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
   # modified to optionally drop random bundles
-  def doForward(bundle, links)
+  def doForward(bundle, links, action = :forward)
     links.each do |link|
       begin
+	neighbor   = link.remoteEid
+	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : false
+	unless bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
+	  next
+	end
 	if defined?(link.maxBundleSize) and link.maxBundleSize
 	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
 	else
 	  fragments = [bundle]
 	end
-	fragments.each do |frag| 
-          link.sendBundle(frag) 
-          rinfo(self, 
-             "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-          @evDis.dispatch(:bundleForwarded, frag, link)
+	fragments.each do |frag|
+	  frag.forwardLog.addEntry(action, :inflight, neighbor, link)
+	  link.sendBundle(frag)
+	  rinfo(self, 
+	       "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	  @evDis.dispatch(:bundleForwarded, frag, link)
 	end
       rescue ProtocolError, SystemCallError, IOError => err
+	bundle.forwardLog.updateEntry(action,:transmissionError,neighbor,link)
 	rerror(self, "Routetab::doForward #{err}")
       end
     end
     return nil
   end
   
+end
+
+class RouterReg
+
+  include Singleton
+
+  attr_accessor :routers
+
+  def initialize
+    @routers = {}
+  end
+
+  def regRouter(name, klass)
+    @routers[name] = klass
+  end
+
+end
+
+def regRouter(name, klass)
+  RouterReg.instance.regRouter(name, klass)
 end

@@ -16,7 +16,6 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require "socket"
-require "clientapi"
 require "bundle"
 require "queue"
 require "rerun_thread"
@@ -36,6 +35,7 @@ class RdtnClient
     @threads = Queue.new
     @pendingRequests = Hash.new()
     @subscriptions = []
+    @lastTS = @lastSeqNo = 0
 
     connectBlock = lambda do |h, p| 
       sock = TCPSocket.new(h, p) 
@@ -66,87 +66,57 @@ class RdtnClient
   end
 
   def register(pattern, &handler)
-    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern})
-    @bundleHandler = handler
-    callBundleHandler = lambda do |args|
-      bundle = args[:bundle]
-      @bundleHandler.call(bundle)
+    sendRequest(:register, pattern) do |respType, bundles|
+      case respType
+      when :bundles
+	bundles.each {|b| handler.call(b)}
+	true
+      when :error
+	handleError(:register, pattern, bundles)
+	false
+      when :ok
+	true
+      end
     end
-    @subscriptions.push([/rdtn:bundles\/([\w-]+)\//, callBundleHandler])
   end
 
   def unregister(pattern)
-    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern})
-    @bundleHandler = lambda {}
+    sendRequest(:unregister, pattern)
   end
 
   def sendBundle(bundle)
-    sendRequest(POST, {:uri => "rdtn:bundles/", :bundle => bundle})
+    sendRequest(:sendBundle, bundle)
+  end
+
+  def sendDataTo(data, dest, senderTag = nil)
+    sendRequest(:sendDataTo, dest, senderTag)
   end
   
   def sendApplicationAcknowledgement(bundle)
-    # generate reception SR
-    bdsr = BundleStatusReport.new
-    bdsr.reasonCode = BundleStatusReport::REASON_NO_ADDTL_INFO
-    if (bundle.fragment?)
-      bdsr.fragment = true
-      bdsr.fragmentOffset = bundle.fragmentOffset
-      bdsr.fragmentLength = bundle.aduLength
-    end
-
-    bdsr.ackedByApp = true
-    bdsr.creationTimestamp = bundle.creationTimestamp
-    bdsr.creationTimestampSeq = bundle.creationTimestampSeq
-    bdsr.eidLength = bundle.srcEid.to_s.length
-    bdsr.srcEid = bundle.srcEid.to_s
-
-    b = Bundling::Bundle.new(bdsr.to_s)
-    if (bundle.reportToEid.to_s != "dtn:none")
-      b.destEid = bundle.reportToEid
-    else
-      b.destEid = bundle.srcEid
-    end
-
-    b.administrative = true
-    b.lifetime = bundle.lifetime
-
-    puts "SND: application acknowledgement status report to #{b.destEid}"
-    
-    sendBundle(b)
-  end
-
-  def addRoute(pattern, link)
-    sendRequest(POST, {:uri => "rdtn:routetab/", :target => pattern, 
-	    				     :link => link})
-  end
-
-  def delRoute(pattern, link)
-    sendRequest(DELETE, {:uri => "rdtn:routetab/", :target => pattern, 
-	    				       :link => link})
+    sendRequest(:applicationAcknowledgement, bundle.bundleId)
   end
 
   def busy?
     return (not @pendingRequests.empty?)
   end
 
-  def subscribeEvent(eventId, &handler)
-    uri = "rdtn:events/#{eventId.to_s}/"
-    sendRequest(POST, {:uri => uri})
-    callEventHandler = lambda do |args|
-      argList = args[:args]
-      handler.call(*argList)
-    end
-    @subscriptions.push([Regexp.new(uri), callEventHandler])
-  end
-
   def getBundlesMatchingDest(dest, &handler)
-    sendRequest(QUERY, {:uri => "rdtn:bundles/", :destEid => dest}) do |args|
-      handler.call(args[:bundle])
+    sendRequest(:getBundlesMatchingDest, dest) do |respType, bundles|
+      case respType
+      when :bundles
+	handler.call(bundles)
+	true
+      when :error
+	handleError(:getBundlesMatchingDest, dest, bundles)
+	false
+      when :ok
+	true
+      end
     end
   end
 
   def deleteBundle(bundleId)
-    sendRequest(DELETE, {:uri => "rdtn:bundles/#{bundleId}/"})
+    sendRequest(:deleteBundle, bundleId)
   end
 
   private
@@ -162,54 +132,56 @@ class RdtnClient
 
   def processData(data)
     oldPos = data.pos
-    typeCode = data.getc
     begin
       args=Marshal.load(data)
     rescue ArgumentError => err
       data.pos = oldPos
       return true
     end
-
-    handlePendingRequests(typeCode, args)
-    if typeCode == POST 
-      handlers = @subscriptions.find_all {|pattern, h|pattern === args[:uri]}
-      handlers.each {|p, handler| handler.call(args)}
+    type  = args[0]
+    msgId = args[1]
+    if @pendingRequests.has_key?(msgId)
+      again = @pendingRequests[msgId].call(type, *args[2..-1])
+      @pendingRequests.delete(msgId) unless again
     end
   end
 
-  def checkError(typeCode, args)
-    if typeCode == STATUS and args[:status] >= 400
-      rerror(self,
-	"An error occured for #{args[:uri]}: #{args[:message]}")
-      return true
+  def handleError(type, args, errorMessage)
+    rerror(self, "An error occured for #{type}: #{errorMessage}.")
+  end
+
+  def generateMessageId
+    ts = Time.now.to_f
+    if ts == @lastTS
+      @lastSeqNo += 1
+    else
+      @lastTS    = ts
+      @lastSeqNo = 0
     end
-    return false
+    @lastTS.to_s + @lastSeqNo.to_s
   end
 
-  def handlePendingRequests(typeCode, args)
-    if @pendingRequests.has_key?(args[:uri])
-      @pendingRequests[args[:uri]].call(typeCode, args)
-      @pendingRequests.delete(args[:uri])
+  def sendRequest(type, *args, &handler)
+    unless handler
+      handler = lambda do |respType, *respArgs|
+	handleError(type, args, respArgs) if respType == :error
+	false
+      end
     end
+    msgId = generateMessageId
+    @pendingRequests[msgId] = handler
+    sendPDU(type, msgId, *args)
   end
 
-  def sendRequest(typeCode, args, &handler)
-    handler = lambda {} if not handler
-    @pendingRequests[args[:uri]] = handler
-    sendPDU(typeCode, args)
-  end
-
-  def send(data)
+  def sendBuf(data)
     sendQueueAppend(data)
     doSend
     #@threads << spawnThread { doSend }
     Thread.pass
   end
 
-  def sendPDU(type, pdu)
-    buf="" + type.chr() + Marshal.dump(pdu)
-    #puts "Sending #{pdu.class}, #{buf.length}"
-    send(buf)
+  def sendPDU(type, msgId, *pdu)
+    sendBuf(Marshal.dump([type, msgId, *pdu]))
   end
 
 end

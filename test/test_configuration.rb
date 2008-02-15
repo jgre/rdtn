@@ -18,6 +18,7 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
+require "daemon"
 require "configuration"
 
 class TestConfiguration < Test::Unit::TestCase
@@ -25,8 +26,9 @@ class TestConfiguration < Test::Unit::TestCase
   CLs = [:tcp, :udp, :flute, :client]
 
   def setup
-    @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @daemon = RdtnDaemon::Daemon.new
+    @evDis  = @daemon.evDis
+    @config = @daemon.config
   end
 
   def teardown
@@ -36,7 +38,7 @@ class TestConfiguration < Test::Unit::TestCase
   end
 
   def test_add_interface
-    conf = RdtnConfig::Reader.new(@config, @evDis)
+    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
     CLs.each_with_index {|cl, i| conf.interface(:add, cl, "if#{i}")}
   end
 
@@ -44,7 +46,7 @@ class TestConfiguration < Test::Unit::TestCase
   end
 
   def test_add_link
-    conf = RdtnConfig::Reader.new(@config, @evDis)
+    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
     tcpOK = udpOK = fluteOK = false
     @evDis.subscribe(:linkCreated) do |link|
       case link.class.name
@@ -67,7 +69,7 @@ class TestConfiguration < Test::Unit::TestCase
     @evDis.subscribe(:routeAvailable) do |*args|
       eventSent = true
     end
-    conf = RdtnConfig::Reader.new(@config, @evDis)
+    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
     conf.route(:add, "test", "someLink")
     assert(eventSent)
   end

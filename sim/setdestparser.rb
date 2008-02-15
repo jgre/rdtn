@@ -17,10 +17,9 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
-require 'conf'
 require 'rdtnevent'
 require 'eventqueue'
-require 'singleton'
+require 'traceparser'
 
 module Sim
 
@@ -28,8 +27,7 @@ module Sim
 
     attr_accessor :id, :pos, :dest, :speed
 
-    def initialize(config, id)
-      @config   = config
+    def initialize(id)
       @id       = id
       @pos      = [0, 0]
       @dest     = [0, 0]
@@ -69,18 +67,18 @@ module Sim
       return "#{node1.id}-#{node2.id}"
     end
 
-    def initialize(config, node1, node2)
-      @config = config
-      @node1  = node1
-      @node2  = node2
-      @open   = false
-      @times  = []
+    def initialize(contactDistance, node1, node2)
+      @contactDistance = contactDistance
+      @node1           = node1
+      @node2           = node2
+      @open            = false
+      @times           = []
     end
 
     def calculateContact(time)
       diffVec = [@node1.pos[0] - @node2.pos[0], @node1.pos[1] - @node2.pos[1]]
       dist = Math.hypot(diffVec[0], diffVec[1])
-      if dist <= @config.contactDistance
+      if dist <= @contactDistance
 	#@contacts[node2.id] = [[$time, $time]] unless @contacts.has_key?(node2.id)
 	if @open
 	  @times[-1][1] = time
@@ -119,37 +117,34 @@ module Sim
 
   class SetdestParser
 
-    def initialize(config, evDis, options)
-      @config = config
-      
-      @traceFile = open(options[:tracefile]) if options.has_key?(:tracefile)
-      @eventdumpFile = options[:eventdump] if options.has_key?(:eventdump)
-      @offset    = nil
-      @diff      = nil
-      @nodes     = {}
-      @contacts  = {}
+    attr_reader :events
 
-      if @eventdumpFile and File.exist?(@eventdumpFile)
-	open(@eventdumpFile) {|f| @events = Marshal.load(f) }
-      else
-	@events    = EventQueue.new
-	preprocess
-      end
-      @events.register(@config, evDis)
+    def initialize(duration, granularity, options)
+      @duration    = duration
+      @granularity = granularity
+      @traceFile   = open(options[:tracefile]) if options.has_key?(:tracefile)
+      @contactDist = options[:contactDistance]
+      @offset      = nil
+      @diff        = nil
+      @nodes       = {}
+      @contacts    = {}
+
+      @events      = EventQueue.new
+      preprocess
     end
 
     private
 
     def preprocess
-      puts "Preprocessing trace file..."
+      rinfo(self, "Preprocessing trace file...")
       timer = 0.0
-      while timer < @config.duration
+      while timer < @duration
 	advanceTime(timer)
-	timer += @config.granularity
+	timer += @granularity
       end
       @traceFile.close
-      open(@eventdumpFile, 'w') {|f| Marshal.dump(@events, f)} if @eventdumpFile
-      puts "Preprocessing done."
+      #open(@eventdumpFile, 'w') {|f| Marshal.dump(@events, f)} if @eventdumpFile
+      rinfo(self, "Preprocessing done.")
     end
 
     def advanceTime(newTime)
@@ -162,10 +157,10 @@ module Sim
 	  @diff = parseLine(@traceFile.readline) unless @diff
 	  if @diff
 	    break if @diff[1] > newTime.to_f
-	    if @diff[1] < (newTime.to_f - @config.granularity)
-	      puts "Error: times are not ordered (#{@diff[1]} < #{newTime})"
+	    if @diff[1] < (newTime.to_f - @granularity)
+	      rerror(self, "Error: times are not ordered (#{@diff[1]} < #{newTime})")
 	    end
-	    puts "Line #{@traceFile.lineno}" if (@traceFile.lineno % 100) == 0
+	    rdebug(self, "Line #{@traceFile.lineno}") if (@traceFile.lineno % 100) == 0
 	    @nodes[@diff[0]].dest  = @diff[2]
 	    @nodes[@diff[0]].speed = @diff[3]
 	    @diff = nil
@@ -182,7 +177,7 @@ module Sim
 	  next if id1 >= id2
 	  contId = Contact.getId(node1, node2)
 	  unless @contacts[contId]
-	    @contacts[contId] = Contact.new(@config, node1, node2)
+	    @contacts[contId] = Contact.new(@contactDist, node1, node2)
 	  end
 	  evType = @contacts[contId].calculateContact(newTime)
 	  unless evType == :unchanged
@@ -202,7 +197,7 @@ module Sim
 	axis = $2
 	pos  = $3.to_f
 
-	@nodes[node] = SetdestNode.new(@config, node)
+	@nodes[node] = SetdestNode.new(node)
 	if    axis == "X" then @nodes[node].x = pos
 	elsif axis == "Y" then @nodes[node].y = pos
 	end

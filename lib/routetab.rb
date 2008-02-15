@@ -27,22 +27,28 @@ class RoutingTable < Router
 
   include MonitorMixin
 
-  def initialize(config, evDis, contactManager)
+  def initialize(config, evDis)
     super(evDis)
     mon_initialize
     @config         = config
     @routes         = []
-    @contactManager = contactManager
+    @contactManager = @config.contactManager
 
-    @evDis.subscribe(:routeAvailable) do |*args|
+    @evAvailable = @evDis.subscribe(:routeAvailable) do |*args|
       self.addEntry(*args)
     end
-    @evDis.subscribe(:routeLost) do |*args|
+    @evLost = @evDis.subscribe(:routeLost) do |*args|
       deleteEntry(*args)
     end
-    @evDis.subscribe(:bundleToForward) do |*args|
+    @evToForward = @evDis.subscribe(:bundleToForward) do |*args|
       forward(*args)
     end
+  end
+
+  def stop
+    @evDis.unsubscribe(:routeAvailable, @evAvailable)
+    @evDis.unsubscribe(:routeLost, @evLost)
+    @evDis.unsubscribe(:bundleToForward, @evToForward)
   end
 
   def print
@@ -62,6 +68,10 @@ class RoutingTable < Router
       bundles = store.getBundlesMatchingDest(routingEntry.destination)
       bundles.each {|bundle| doForward(bundle, [routingEntry.link])}
     end
+  end
+
+  def addRoute(dest, link)
+    addEntry(RoutingEntry.new(dest, link))
   end
 
   def deleteEntry(link, dest = nil)
@@ -102,3 +112,5 @@ class RoutingTable < Router
   end
 
 end
+
+regRouter(:routingTable, RoutingTable)

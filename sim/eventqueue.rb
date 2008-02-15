@@ -17,7 +17,6 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
-require 'conf'
 require 'rdtnevent'
 
 module Sim
@@ -26,30 +25,43 @@ module Sim
 
     attr_accessor :events, :deltaTime
 
-    def initialize(deltaTime = 0)
+    Struct.new("SimEvent", :time, :nodeId1, :nodeId2, :type)
+
+    def initialize(time0 = 0)
       @events = [] # [time, nodeId1, nodeId2, :simConnection|:simDisconnection]
-      @deltaTime = deltaTime
+      @time0  = 0  # All event before time0 will be ignored
     end
 
-    def register(config, evDis)
-      @eq = EventQueue.new
-      evDis.subscribe(:simTimerTick) do |t| 
-	# Set the offset to the fist clock tick, so that we start with time = 0
-	# for the parser
-	@offset = t.to_f unless @offset
-	while @events[0] and @events[0][0] <= (t.to_f - @offset)
+    def register(evDis)
+      @evTick = evDis.subscribe(:simTimerTick) do |t| 
+	while @events[0] and @events[0].time <= t.to_f
 	  ev = @events.shift
-	  evDis.dispatch(ev[3], ev[1], ev[2])
+	  #don't dispatch all events in the past when the timer is started
+	  #with an offset
+	  if ev.time >= @time0
+	    rdebug(self, "Dispatching #{ev}")
+	    evDis.dispatch(ev.type, ev.nodeId1, ev.nodeId2)
+	  end
 	end
       end
     end
 
+    def stop(evDis)
+      evDis.unsubscribe(:simTimerTick, @evTick) if @evTick
+    end
+
     def addEvent(time, nodeId1, nodeId2, type)
-      @events.push([time, nodeId1, nodeId2, type])
+      @events.push(Struct::SimEvent.new(time, nodeId1, nodeId2, type))
+      #@events.push([time, nodeId1, nodeId2, type])
     end
 
     def empty?
       @events.empty?
+    end
+
+    def sort
+      @events = @events.sort_by {|ev| ev.time}
+      self
     end
 
   end
