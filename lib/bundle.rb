@@ -24,7 +24,6 @@ require "rdtnevent"
 require "genparser"
 require "time"
 require "forwardlog"
-require "delegate"
 
 module Bundling
 
