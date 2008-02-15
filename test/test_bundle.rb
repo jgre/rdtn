@@ -17,8 +17,8 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
-require "bundle"
 require "yaml"
+require "bundle"
 
 class BDummyLink
   def initialize#(&prc)
@@ -78,12 +78,10 @@ class TestBundle < Test::Unit::TestCase
 
   def test_yaml_marshalling
     bundle = Bundling::Bundle.new("test", "dtn://test", "dtn://test")
-    bundle.incomingLink = 42
     bundle.custodyAccepted = true
     bundle.forwardLog.addEntry(:incoming, :transmitted, "dtn://hugo")
     str    = YAML.dump(bundle)
     b2     = YAML.load(str)
-    b2.fixObject
     assert_equal(bundle.to_s, b2.to_s)
     assert_equal(bundle.payload, b2.payload)
     b2.srcEid = "dtn://hugo"

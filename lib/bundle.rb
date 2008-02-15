@@ -545,7 +545,7 @@ module Bundling
   # Representation of a Bundle including the parser and serialization. Refer to
   # the bundles protocol specification for the semantics of the attributes.
 
-  class Bundle < DelegateClass(PrimaryBundleBlock)
+  class Bundle
 
     PAYLOAD_BLOCK = 1
 
@@ -560,9 +560,6 @@ module Bundling
 					reportToEid, custodianEid)]
       @custodyAccepted = false
       @forwardLog = Bundling::ForwardLog.new
-      # delegate calls for the header fields (eids, flags, etc.) to the 
-      # primary block object
-      super(@blocks[0])
       @nCopies = 0
       if payload
 	@blocks.push(PayloadBlock.new(self, payload))
@@ -573,6 +570,11 @@ module Bundling
       
     end
 
+    # Most method calls are redirected to the PrimaryBundleBlock
+    def method_missing(methodId, *args)
+      @blocks[0].send(methodId, *args)
+    end
+    
     def payload
       block = findBlock(PayloadBlock)
       if block
@@ -735,24 +737,12 @@ module Bundling
       [@blocks, @forwardLog, @custodyAccepted]
     end
 
-    # def to_yaml_properties
-    #   puts "@blocks: #{@blocks[1]} end"
-    #   
-    #   %w{ @forwardLog }
-    # end
-    
     def marshal_load(arr)
       @blocks, @forwardLog, @custodyAccepted = arr
-      #super(@blocks[0])
-      __setobj__(@blocks[0])
     end
 
     def to_yaml_properties
       %w{ @blocks @forwardLog @custodyAccepted }
-    end
-
-    def fixObject
-      __setobj__(@blocks[0])
     end
 
     def deepCopy
@@ -760,7 +750,6 @@ module Bundling
       ret.forwardLog = @forwardLog.clone
       ret.custodyAccepted = @custodyAccepted
       ret.blocks = @blocks.map {|block| block.clone}
-      ret.__setobj__(ret.blocks[0])
       return ret
     end
 

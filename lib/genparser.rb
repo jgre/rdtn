@@ -90,14 +90,9 @@ module GenParser
     end
   end
 
-  def to_yaml_properties
-    vars = instance_variables.find_all {|var| var != "@genParserFields"}
-    y = vars.map {|var| "#{var}"}
-  end
-
   def marshal_dump
     vars = instance_variables.find_all {|var| var != "@genParserFields"}
-    stuff = vars.map {|var| [var, instance_variable_get(var)]}
+    vars.map {|var| [var, instance_variable_get(var)]}
   end
 
   def marshal_load(arr)
