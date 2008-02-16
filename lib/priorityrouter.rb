@@ -160,7 +160,6 @@ class PriorityRouter < Router
     @priorities = []
     @routes     = []
     @subHandler = @config.subscriptionHandler
-    rdebug(self, "SubHandler (Prio): #{@subHandler}")
     @queues = Hash.new {|h,n| h[n] = PriorityRouterQueue.new(@config, @evDis,
 							     @contactManager, n,
 							     @filters, 
@@ -207,12 +206,9 @@ class PriorityRouter < Router
   end
 
   def contact(neighbor, link)
-    rdebug(self, "SubHandler (Prio#cont): #{@subHandler}")
     if @subHandler
-      rdebug(self, "Process Queue, but with subHandler")
       doForward(@subHandler.generateSubscriptionBundle, [link])
     else
-      rdebug(self, "Process Queue")
       processQueue(neighbor, link)
     end
   end

@@ -23,61 +23,60 @@ require "graph"
 require "core"
 require "fileutils"
 
-class TestSim < Test::Unit::TestCase
+class TestFlooding < Test::Unit::TestCase
 
   def setup
     @g = Sim::Graph.new
-    @g.edge 1=>2
-    @g.edge 2=>3, :start=>10, :end=>15
-    @g.edge 3=>4
-
     @dirName    = File.join(Dir.getwd, "test#{Time.now.to_i}")
     @sim        = Sim::SimCore.new(@dirName)
-    @sim.events = @g.events
-    @sim.createNodes(@g.nodes.length)
   end
 
   def teardown
     FileUtils.rm_rf(@dirName)
   end
 
-  def test_transmit
-    received = false
-    data     = "test"
-    t0       = Time.now.to_i
-    @sim.nodes[3].register do |bundle|
-      received = true
-      assert_equal(data, bundle.payload)
-      assert_equal("dtn://kasuari2/", bundle.srcEid.to_s)
-      assert_operator(t0+10, :<=, RdtnTime.now.to_i)
+  def simple_graph
+    @g.edge 1=>2
+    @g.edge 2=>3, :start=>1
+    @g.edge 2=>4, :start=>1
+    @g.edge 2=>6
+    @g.edge 4=>5
+    @g.edge 4=>6
+    @sim.events = @g.events
+    @sim.createNodes(@g.nodes.length)
+    @sim.nodes.each_value do |node|
+      node.router(:priorityRouter)
     end
-    @sim.at(1) do |t|
-      rdebug(self, "Sending bundle")
-      assert_equal(1, t)
-      @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
-    end
-    @sim.run
-    assert(received)
   end
 
-  def test_interruption
-    #$rdtnLogLevels[nil] = Logger::DEBUG
-    received = false
-    data     = "test"
-    t0       = Time.now.to_i
-    @sim.nodes[3].register do |bundle|
-      received = true
+  def test_simple_graph_broadcast
+    simple_graph
+    receivedBy = []
+    data       = "test"
+    eid        = "dtn:all"
+    @sim.nodes.each do |id, node|
+      node.register(eid) {|b| receivedBy.push(id)}
     end
-    @sim.at(1) do |t|
-      rdebug(self, "Sending bundle")
-      @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
+    @sim.nodes[1].sendDataTo(data, eid)
+    @sim.run
+    assert_equal(@sim.nodes.length, receivedBy.length)
+    assert_equal(receivedBy, receivedBy.uniq)
+  end
+
+  def test_simple_graph_unicast
+    simple_graph
+    receivedBy = []
+    data       = "test"
+    eid        = "dtn://kasuari6/"
+    @sim.nodes.each do |id, node|
+      node.register(eid) {|b| receivedBy.push(id)}
     end
-    @sim.run(9)
-    #$rdtnLogLevels[nil] = Logger::ERROR
-    assert_equal(t0+9, RdtnTime.now.to_i)
-    assert((not received))
-    @sim.run(nil, 10)
-    assert(received)
+    bundle = Bundling::Bundle.new(data, eid)
+    bundle.destinationIsSingleton = true
+    @sim.nodes[1].sendBundle(bundle)
+    @sim.run
+    @sim.nodes[1].config.setLogLevel(nil, Logger::ERROR)
+    assert_equal([1, 2, 6], receivedBy)
   end
 
 end

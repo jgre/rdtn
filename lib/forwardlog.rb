@@ -74,7 +74,7 @@ module Bundling
 	    false
 	  when :replicate
 	    ret=(entry.neighbor.to_s != neighbor.to_s and entry.link != link and
-	     (singletonReceiver == nil or entry.neighbor != singletonReceiver))
+	     (singletonReceiver==nil or entry.neighbor!=singletonReceiver.to_s))
 
 	    rdebug(self, "shouldAct? No, was already replicated to the right place.") unless ret
 	    ret

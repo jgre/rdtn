@@ -57,6 +57,7 @@ class Router
     links.each do |link|
       begin
 	neighbor   = link.remoteEid
+	rdebug(self, "Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
 	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : false
 	unless bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
 	  next
