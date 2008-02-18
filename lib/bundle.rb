@@ -458,7 +458,7 @@ module Bundling
 	@blocks[-1].lastBlock = true
       end
 
-      @custTimerList = []
+      @custodyTimer = nil
       
     end
 
@@ -654,12 +654,15 @@ module Bundling
       return ret
     end
 
-    def addCustodyTimer(timer)
-      @custTimerList.add(timer)
+    def setCustodyTimer(timer)
+      @custodyTimer = self
     end
     
-    def removeCustodyTimers
-       @custTimerList.each{|timer| timer.stop}     
+    def removeCustodyTimer
+      if (@custodyTimer) then
+        @custodyTimer.stop
+        @custodyTimer = nil
+      end
     end
 
     attr_accessor :blocks

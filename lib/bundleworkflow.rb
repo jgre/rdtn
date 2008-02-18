@@ -189,16 +189,17 @@ module Bundling
     def processBundle(bundle)
       if bundle.requestCustody?
         rdebug(self, "Requested Custody from #{bundle.custodianEid} for #{bundle.bundleId}")
-        if (@config.acceptCustody)
-          bundle.custodyAccepted = true
+        if (@config.acceptedCustody)
+          if (bundle.custodyAccepted? == false) then
+            bundle.custodyAccepted = true
           
-          timer = CustodyTimer.new(@config, @evDis)
-          bundle.addCustodyTimer(timer)
-          rdebug(self, "Accepted Custody for #{bundle.bundleId}")
+            timer = CustodyTimer.new(bundle, @evDis)
+            rdebug(self, "Accepted Custody for #{bundle.bundleId}")
           
-          # send custody signal and then update custodian
-          sendCustodySignal(bundle, SUCCESS)
-          bundle.custodianEid = @config.localEid
+            # send custody signal and then update custodian
+            sendCustodySignal(bundle, SUCCESS)
+            bundle.custodianEid = @config.localEid
+          end
         end
         # send succeeded custody signal if delivered
         h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
@@ -211,9 +212,8 @@ module Bundling
           
                 # prevent nasty loops
                 @evDis.unsubscribe(:bundleForwarded, h)          
-              end
+          end
         end
-        
       end
       self.state = :processed
     end
@@ -259,7 +259,6 @@ module Bundling
   
     
     def processBundle(bundle)
-  
       if (bundle.administrative?)
         # handle the administrative record
         handleAdminRecord(bundle)
@@ -497,7 +496,7 @@ module Bundling
         if (administrativeRecord.custodyAccepted?)
           rdebug(self, "RCV: custody acceptance status report from #{bundle.srcEid}")
           bundle = @config.store.getBundle(administrativeRecord.bundleId)
-          bundle.removeCustodyTimers
+          bundle.removeCustodyTimer
         end
         
         # A "bundle forwarding status report" is a bundle status report with
@@ -532,7 +531,8 @@ module Bundling
         # transfer succeeded" flag set to 1.
         if (administrativeRecord.transferSucceeded?)
           rdebug(self, "RCV: transfer succeeded from #{bundle.srcEid}")
-          @config.instance.custodyTimer.remove(administrativeRecord.bundleId)
+          bundle = @config.store.getBundle(administrativeRecord.bundleId)
+          bundle.removeCustodyTimer
           # see rfc 5050 Section 5.11
         end
   
