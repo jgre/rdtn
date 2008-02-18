@@ -10,9 +10,9 @@ Symbol			Parameters
 :linkClosed		Link
 :bundleParsed		Bundle
 :bundleToForward	Bundle
-:bundleForwarded	Bundle, Link
+:bundleForwarded	Bundle, Link, action
 :bundleStored		Bundle
 :bundleRemoved		Bundle
 :storeMe		Object
 :timerTick
-
+:transmissionError	Bundle, Link

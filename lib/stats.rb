@@ -87,7 +87,7 @@ module Stats
       @evDis.subscribe(:bundleToForward) do |bundle|
 	      writeBundleStat(:in, bundle, bundle.incomingLink)
       end
-      @evDis.subscribe(:bundleForwarded) do |bundle, link|
+      @evDis.subscribe(:bundleForwarded) do |bundle, link, action|
 	      writeBundleStat(:out, bundle, link)
       end
       @evDis.subscribe(:opportunityAvailable) do |tp, opts, eid|

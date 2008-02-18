@@ -72,7 +72,7 @@ class Router
 	  link.sendBundle(frag)
 	  rinfo(self, 
 	       "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	  @evDis.dispatch(:bundleForwarded, frag, link)
+	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
       rescue ProtocolError, SystemCallError, IOError => err
 	bundle.forwardLog.updateEntry(action,:transmissionError,neighbor,link)

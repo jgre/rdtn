@@ -43,6 +43,9 @@ class RoutingTable < Router
     @evToForward = @evDis.subscribe(:bundleToForward) do |*args|
       forward(*args)
     end
+    @evToForward = @evDis.subscribe(:transmissionError) do |bundle, link|
+      forward(bundle)
+    end
   end
 
   def stop

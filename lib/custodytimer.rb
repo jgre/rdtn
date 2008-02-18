@@ -14,11 +14,13 @@ class CustodyTimer
     @interval = interval
     @bundle.setCustodyTimer(self)
     
-    @h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
+    @h = @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
       if(bndl.bundleId == @bundle.bundleId) then
         @timer += Thread.new do
             sleep(@interval)
-            puts "should retransmit bundle #{@bundle} to #{link.remoteEid}"# retransmit bundle
+	    @bundle.forwardLog.updateEntry(action, :transmissionError,
+					   link.remoteEid, link)
+	    @evDis.dispatch(:transmissionError, @bundle, link)
         end
       end
     end

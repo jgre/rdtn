@@ -74,7 +74,7 @@ class TestSim < Test::Unit::TestCase
     end
     @sim.run(9)
     #$rdtnLogLevels[nil] = Logger::ERROR
-    assert_equal(t0+9, RdtnTime.now.to_i)
+    assert_operator(t0+9, :<=, RdtnTime.now.to_i)
     assert((not received))
     @sim.run(nil, 10)
     assert(received)

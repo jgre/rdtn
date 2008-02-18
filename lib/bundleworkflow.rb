@@ -202,7 +202,7 @@ module Bundling
           end
         end
         # send succeeded custody signal if delivered
-        h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
+        h = @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
           # was the bundle delivered to an app?
           if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
                 rdebug(self, "bundle with custody delivered on link: #{link}")
@@ -401,7 +401,7 @@ module Bundling
     end
   
     def sendForwardingSrr(bundle)
-      h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
+      h = @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
         
         # generate forwarding SR
         bdsr = BundleStatusReport.new
@@ -439,7 +439,7 @@ module Bundling
     end
     
     def sendDeliverySrr(bundle)
-      h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
+      h = @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
         # was the bundle delivered to an app?
         if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
           # generate delivery SR
@@ -549,7 +549,7 @@ module Bundling
   class Forwarder < TaskHandler
 
     def processBundle(bundle)
-      @evDis.subscribe(:bundleForwarded) do |bndl, link|
+      @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
 	self.state = :processed if bundle.bundleId == bndl.bundleId
       end
       @evDis.dispatch(:bundleToForward, bundle)
