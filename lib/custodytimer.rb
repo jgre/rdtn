@@ -15,13 +15,11 @@ class CustodyTimer
     @bundle.setCustodyTimer(self)
     
     @h = @evDis.subscribe(:bundleForwarded) do |bndl, link|
-      if(bndl == @bundle) then
-        thread += Thread.new do
+      if(bndl.bundleId == @bundle.bundleId) then
+        @timer += Thread.new do
             sleep(@interval)
             puts "should retransmit bundle #{@bundle} to #{link.remoteEid}"# retransmit bundle
         end
-        @timer += thread
-        thread.join
       end
     end
   end

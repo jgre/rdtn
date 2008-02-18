@@ -655,7 +655,7 @@ module Bundling
     end
 
     def setCustodyTimer(timer)
-      @custodyTimer = self
+      @custodyTimer = timer
     end
     
     def removeCustodyTimer
