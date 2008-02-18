@@ -181,7 +181,7 @@ module RdtnDaemon
 
     def addDiscovery(address, port, interval, announceIfs = [])
       ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-      ipd = IPDiscovery.new(@settings, @evDis, address, port, interval, ifs)
+      ipd = IPDiscovery.new(@config, @evDis, address, port, interval, ifs)
       ipd.start
       ipd
     end
@@ -192,7 +192,7 @@ module RdtnDaemon
 
     def addKasuariDiscovery(address, port, interval, announceIfs = [])
       ifs = announceIfs.map {|ifname| @interfaces[ifname]}
-      ipd = KasuariDiscovery.new(@settings, @evDis, address, port, interval, 
+      ipd = KasuariDiscovery.new(@config, @evDis, address, port, interval, 
 				 ifs)
       ipd.start
       ipd
