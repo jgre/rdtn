@@ -23,39 +23,6 @@ require "clientlib"
 require "bundleworkflow"
 require "daemon"
 
-class MockLink < Link
-  attr_accessor :remoteEid, :bundle
-
-  def initialize(config, evDis)
-    super
-    @bundles = []
-  end
-
-  def sendBundle(bundle)
-    @bundle = bundle
-    @bundles.push(bundle)
-  end
-
-  def close
-  end
-
-  def received?(bundle)
-    @bundles.any? {|b| b.to_s == bundle.to_s}
-  end
-
-end
-
-class MockContactManager
-
-  def initialize(link)
-    @link = link
-  end
-
-  def findLinkByName(name)
-    return @link
-  end
-end
-
 class TestAppLib < Test::Unit::TestCase
 
   def setup

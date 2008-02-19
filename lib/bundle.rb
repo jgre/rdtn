@@ -442,7 +442,7 @@ module Bundling
     PAYLOAD_BLOCK = 1
 
     attr_accessor :incomingLink
-    attr_reader   :forwardLog
+    attr_reader   :forwardLog, :blocks
 
     SUPPORTED_VERSIONS = [5]
 

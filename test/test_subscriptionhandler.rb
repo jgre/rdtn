@@ -22,28 +22,6 @@ require "subscriptionhandler"
 require "bundle"
 require "storage"
 
-class MockLink < Link
-  attr_accessor :remoteEid, :bundle, :bundles
-
-  def initialize(config, evDis)
-    @bundles = []
-    super(config, evDis)
-  end
-
-  def sendBundle(bundle)
-    @bundle = bundle
-    @bundles.push(bundle)
-  end
-
-  def close
-  end
-
-  def received?(bundle)
-    @bundles.any? {|b| b.to_s == bundle.to_s}
-  end
-
-end
-
 class MockClient
   attr_accessor :uri, :subscriptions
 
@@ -69,17 +47,6 @@ class MockClient
   end
 end
 
-class MockContactManager
-
-  def initialize(link)
-    @link = link
-  end
-
-  def findLinkByName(name)
-    return @link
-  end
-end
-
 class TestSubscriptionHandler < Test::Unit::TestCase
 
   Uris = ["dtn://test1/", "dtn://test2", "http://tzi.org"]
@@ -95,11 +62,6 @@ class TestSubscriptionHandler < Test::Unit::TestCase
   end
 
   def teardown
-    #RdtnConfig::Settings.instance.store.clear
-    #begin
-    #  File.delete("store")
-    #rescue
-    #end
   end
 
   def test_subscribe

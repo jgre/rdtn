@@ -26,41 +26,29 @@ require "storage"
 require "subscriptionhandler"
 require "daemon"
 
-class MockLink < Link
-  attr_accessor :remoteEid, :bundle
+module TestPrioRoute
+  class MockLink < Link
+    attr_accessor :remoteEid, :bundle
 
-  def initialize(config, evDis, eid)
-    super(config, evDis)
-    @bundles = []
-    @remoteEid = eid
-    @evDis.dispatch(:linkOpen, self)
-  end
+    def initialize(config, evDis, eid)
+      super(config, evDis)
+      @bundles = []
+      @remoteEid = eid
+      @evDis.dispatch(:linkOpen, self)
+    end
 
-  def sendBundle(bundle)
-    @bundle = bundle
-    @bundles.push(bundle)
-  end
+    def sendBundle(bundle)
+      @bundle = bundle
+      @bundles.push(bundle)
+    end
 
-  def close
-  end
+    def close
+    end
 
-  def received?(bundle)
-    @bundles.any? {|b| b.to_s == bundle.to_s}
-  end
+    def received?(bundle)
+      @bundles.any? {|b| b.to_s == bundle.to_s}
+    end
 
-end
-
-class MockStore
-end
-
-class MockContactManager
-
-  def initialize(link)
-    @link = link
-  end
-
-  def findLinkByName(name)
-    return @link
   end
 end
 
@@ -71,12 +59,10 @@ class TestPriorityRouter < Test::Unit::TestCase
     @config = RdtnConfig::Settings.new(@evDis)
     @config.contactManager
     @config.localEid = "dtn://test.sender"
-    @link1 = MockLink.new(@config, @evDis, "dtn:oink")
-    @link2 = MockLink.new(@config, @evDis, "dtn:grunt")
-    @link3 = MockLink.new(@config, @evDis, "dtn:grunt3")
+    @link1 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:oink")
+    @link2 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt")
+    @link3 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis)
-    #@contactManager = MockContactManager.new(@link1)
-    #@config.contactManager = @contactManager
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
     @config.subscriptionHandler = @subHandler
     @routeTab = PriorityRouter.new(@config, @evDis)

@@ -23,39 +23,38 @@ require "queue"
 require "routetab"
 require "bundleworkflow"
 
-class MockLink < Link
-  attr_accessor :remoteEid
+module TestRtab
+  class MockLink < Link
+    attr_accessor :remoteEid
 
-  def initialize(config, evDis, eid)
-    super(config, evDis)
-    @remoteEid = eid
-    @bundles = []
+    def initialize(config, evDis, eid)
+      super(config, evDis)
+      @remoteEid = eid
+      @bundles = []
+    end
+
+    def sendBundle(bundle)
+      @bundles.push(bundle)
+    end
+
+    def close
+    end
+
+    def received?(bundle)
+      @bundles.any? {|b| b.to_s == bundle.to_s}
+    end
+
   end
 
-  def sendBundle(bundle)
-    @bundles.push(bundle)
-  end
+  class MockContactManager
 
-  def close
-  end
+    def initialize(link)
+      @link = link
+    end
 
-  def received?(bundle)
-    @bundles.any? {|b| b.to_s == bundle.to_s}
-  end
-
-end
-
-class MockStore
-end
-
-class MockContactManager
-
-  def initialize(link)
-    @link = link
-  end
-
-  def findLinkByName(name)
-    return @link
+    def findLinkByName(name)
+      return @link
+    end
   end
 end
 
@@ -64,11 +63,11 @@ class TestRoutetab < Test::Unit::TestCase
   def setup
     @evDis  = EventDispatcher.new
     @config = RdtnConfig::Settings.new(@evDis)
-    @link1 = MockLink.new(@config, @evDis, "dtn:oink")
-    @link2 = MockLink.new(@config, @evDis, "dtn:grunt")
-    @link3 = MockLink.new(@config, @evDis, "dtn:grunt3")
+    @link1 = TestRtab::MockLink.new(@config, @evDis, "dtn:oink")
+    @link2 = TestRtab::MockLink.new(@config, @evDis, "dtn:grunt")
+    @link3 = TestRtab::MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis, nil, "store")
-    @contactManager = MockContactManager.new(@link1)
+    @contactManager = TestRtab::MockContactManager.new(@link1)
     @routeTab = RoutingTable.new(@config, @evDis)
   end
 
