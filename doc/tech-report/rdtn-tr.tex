@@ -1,0 +1,247 @@
+\documentclass{article}
+
+\usepackage[latin1]{inputenc}
+\usepackage{graphicx}
+\usepackage{times}
+
+\bibliographystyle{plain}
+
+\begin{document}
+
+\title{RDTN: A DTN Bundle Protcol Agent implemented in Ruby}
+
+\author{Janico Greifenberg \and Dirk Kutscher}
+
+\maketitle
+
+\begin{abstract}
+
+RDTN is a DTN bundle protocol agent (BPA) implementation written in Ruby. RDTN
+is light-weight and flexible so that it can be used in DTN application and
+protocol development as well as in research of DTN-related topics such as
+routing or convergence-layers. 
+
+RDTN provides a language-independent interface for client application, an
+interactive environment for tests and a simulation mode for running multiple
+instances of the RDTN code in a simulated network environment. RDTN implements
+the bundle protocol (RFC 5050), convergence-layer adapters for TCP, UDP, and
+FLUTE, and static and epidemic routing as well as the DTN Publish/Subscribe
+Protocol (DPSP).
+
+\end{abstract}
+
+\section{Introduction}\label{sec.intro}
+
+\section{Architecture}\label{sec.arch}
+
+EventDispatcher
+
+Threads
+
+\section{Convergence Layer Adapters}\label{sec.cl}
+
+\section{Contact Management}\label{sec.contact-mngt}
+
+\section{Routing}\label{sec.routing}
+
+\section{Persistent Storage}\label{sec.storage}
+
+\section{Application Interface}\label{sec.appif}
+
+The RDTN application interface allows applications to send and receive bundles,
+query the persisten storage, and send application acknowledgements. This
+interface can be accessed inside the RDTN daemon process, so that it can be used
+by the interactive mode \ref{sec.interactive} and by extensions
+\ref{sec.extending}, as well as from separate processes either on the same
+machine or on another one connected via a network.
+
+\subsection{Bundle Objects}\label{sec.bundle-obj}
+
+Applications can use the internal representation of bundles directly so that
+they can maniptulate all fields, flags, and extension blocks. Opening the
+internal representation to applications lets us avoid the overhead of mirroring
+functionality and interfaces from internal to public interfaces and it gives
+applications the ability to use parts of the bundle (e.g. extensions) that are
+not explicitly handled by RDTN.
+
+However, the small overhead and high flexibility of using the internal bundle
+objects comes with the risk of complicating application development by forcing
+developers to deal with an abundance of options and corner cases unecessary for
+typical use cases. Incorrect use of this interface which allows access to
+fundamental part of the protocol implementation may also cause invalid messages
+to be sent over the network.
+
+The comlexity of the interface it mitigated by using default values coveringthe
+typical use cases. Thus, application developers do not need to know the details
+of the bundle protocol to use the API. But it is still possible to leverage
+knowledge about the protocol and possibly extensions to implement more advanced
+functionality.
+
+RDTN bundle objects are implemented by {\tt Bundling::Bundle}. The objects
+contain a list of Bundle blocks the first of which is always the primary bundle
+block (implemented by {\tt Bundling::PrimaryBundleBlock}). The the of blocks
+also contains an arbitrary number of objects derived from {\tt Bundling::Block}
+which includes the payload block ({\tt Bundling::PayloadBlock}). Bundle objects
+have a flag indicating whether custody was accepted for the bundle, a list of
+custody timers, and a log of the forwarding operations of this bundle. The
+log is implemented by {\tt Bundling::ForwardLog} storing an entry for
+each time the bundle is received, transmitted, or a transmission error for the
+bundle is detected. An entry comprises of a timestamp, the action (i.e. if the
+bundle was received, replicated, or forwarded) the status (i.e. transmitted,
+in-flight, or transmission error), and a reference to
+the neighbor involved in the operation (i.e. the receiver or the sender
+depending on the action).
+
+{\bf TBD: the stuff about the forwardlog does not belong in this section}
+
+Bundle objects can be created optionally passing payload, source EID,
+destination EID, report-to EID, and custodian EID as parameters. Although the
+bundle class does not save most of the values such as source, destination, and
+payload itself but keeps them in the block classes, a bundle object responds
+directly to function calls by delegating them to the primary bundle block object
+(in the case of all fields and flags specified for that block in RFC 5050
+\cite{bundle-spec}) or to the payload block. Other blocks can be accessed
+through the list of blocks ({\tt Bundling::Bundle\#blocks}).
+
+\subsection{Sending Bundles}\label{sec.sending}
+
+RDTN provides two functions for sending bundles: {\tt sendBundle} and {\tt
+sendDataTo}. The first function takes a bundle object, performs sanity checks
+and passes it to the router as incoming bundle. The second function takes the
+payload, the destination EID, and optionally the source EID and creates a new
+bundle object which is passed to the router.
+
+For either function RDTN expands the source EID if it is not a valid URI. In
+that case the given string is taken as an application tag which is suffixed to
+the local EID. For example, when the local EID configured for RDTN is {\tt
+dtn://test.dtn/} and a sending function is called with the source EID {\tt app},
+then RDTN expands this identifier, so that the source EID of the new bundle is
+{\tt dtn://test.dtn/app}. If the source EID parameter is empty, the local EID is
+used to fill this field.
+
+\subsection{Receiving Bundles}\label{sec.receiving}
+
+An application has to {\em register} if it wants to receive bundles using the
+{\tt register}. A registration is always bound to an EID. Applications can
+register for any EID independent of the local EID of the RDTN instance.
+
+When a registration is added, RDTN passes all stored bundles matching the
+registered EID to the application. After that until the registration is
+cancelled, whenever RDTN receives a bundle matching the registered EID, the
+application gets the bundle.
+
+The call to {\tt register} is not followed directly by a response. The
+application gets the bundles asynchronously. For applications written in Ruby,
+the {\tt register}-function takes a block which is called for each received
+bundle matching the registration.
+
+When the application has received a bundle, it can generate an {\em application
+acknowledgement} that is sent to the bundle's source. Such a message can be
+generated using the {\tt applicationAck}-function.
+
+\subsection{Interactive Mode}\label{sec.interactive}
+
+While the default setup is to have the RDTN daemon and the applications run in
+different processes, having both run in one process is helpful for testing and
+debugging purposes. This is especially true, for interactively working with
+RDTN. 
+
+RDTN can be used interactively simply by loading the daemon as a module in
+Ruby's interactive interpreter irb. {\tt irb -r lib/daemon.rb}
+
+{\bf TBD: installation for RDTN so we get the paths right.}
+
+An interactive RDTN session with irb automatically creates a Daemon object (an
+instance of the class {\tt RdtnDaemon::Daemon}) which is assigned to the global
+variable {\tt \$daemon}. This object can be used to send bundles (see section
+\ref{sec.sending}, register for receiving bundles (see section
+\ref{sec.receiving}), and to manipulate the daemon's configuration. No
+configuration file is read when an interactive session is started. Instead the
+daemon uses a default configuration without convergence layer and with a static
+table based router. When a configuration file is needed, it can be loaded with
+using the {\tt parseConfigFile}-function. Routing configuration, convergence
+layers, storage settings, and discovery modules (see section
+\ref{sec.contact-mngt}) can be manipulated through the daemon object.
+
+An example session which sends a bundle to itself could look like this:
+
+\begin{verbatim}
+> $daemon.register("dtn://rdtn/test") do |b|
+*   puts "Received: #{b.payload} from #{b.srcEid}"
+> end
+=> [#<Proc:0xb7ba44a8@./lib/routetab.rb:37>]
+> $daemon.sendDataTo("Hello, rdtn!", "dtn://rdtn/test",
+*                    "dtn://rdtn/sender")
+Received: Hello, rdtn! from dtn://rdtn/sender
+\end{verbatim}
+
+\subsection{The RDTN Client Protocol}\label{sec.client-protocol}
+
+The RDTN client protocol allows applications running in processes separate from
+the daemon to use the application interface. We anticipate that most
+applications will run on the same device as the daemon, but the interface can be
+used over a network, as it is based on TCP. The application interface is,
+however, not intended to be used over a challenged network, so the connections
+are expected to be stable and have short round-trip times. A use case for
+distributed applications is a vehicular network, where an RDTN router is
+installed in a vehicle to handle communications in the challenged environment
+while the vehicle is moving. Other devices in the vehicle can run the
+applications which use the RDTN daemon.
+
+The client protocol is designed with three goals in mind: language-independence,
+strait-forward integration with the Ruby code of the daemon, and efficient
+handling of large binary payloads. 
+
+{\bf TBD: extend this part, when the YAML stuff is implemented.}
+
+The protocol has two categories of messages: Requests sent from client to the
+daemon that directly responds, and asynchronous messages from the daemon to the
+client. Asynchronous messages are solicited by a request from the client. The
+functions of the application interface described in sections \ref{sec.sending}
+and \ref{sec.receiving} are mapped to requests of the client protocol. In
+addition to these, the protocol provides requests to get a list of bundles from
+the persistent storage and to delete bundles.
+
+All messages of the client protocol have a message type, a message id, and a
+number of type-specific arguments. The message type of requests maps to the name
+of the corresponding function in Ruby's symbol notation (i.e. request
+corresponding to the function {\tt sendDataTo} has the type {\tt :sendDataTo}).
+A message from the daemon which contains bundles has the type {\tt
+:bundles}. And responses for requests that solicit asynchronous messages get
+responses with the types {\tt :ok} and {\tt :error} on success or failure
+respectively.
+
+The message id is created by the client and must be unique for all requests
+during a connection with the daemon. Responses have the same message id as the
+corresponding request. An asynchronous message has the same message id as the
+request that solicited it. E.g., the client registers for receiving bundles with
+a message type {\tt :register} and the message id {\tt 1}. The daemon responds
+with an {\tt :ok}-message which also has the message id {\tt 1}. When a bundle
+matching the registration arrives, the daemon sends a {\tt :bundles}-message,
+again with message id {\tt 1}.
+
+The arguments of the request are the same as for the functions. The {\tt
+:ok}-message has not arguments, {\tt :error} is accompanied by an error message,
+and messages of type {\tt :bundles} have a list of bundles as their arguments,
+even when there is only a single bundle.
+
+{\bf TBD: encoding}.
+
+The daemon-side of this protocol is implemented in the classes {\tt
+AppIF::AppInterface} and {\tt AppIF::AppLink}. The objects of the former class
+wait for incoming connections and create objects of the latter class when a
+client connects. {\tt AppIF::AppLink} instances handle the communication with
+one client each, relaying request between the client to the daemon's internal
+interface.
+
+\section{Configuration}\label{sec.config}
+
+\section{Simulations}\label{sec.sim}
+
+\section{Extending RDTN}\label{sec.extending}
+
+\section{Conclusions}\label{sec.conclusions}
+
+%\bibliography{bibtex/rn}
+
+\end{document}
