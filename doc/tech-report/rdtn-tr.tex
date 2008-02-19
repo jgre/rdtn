@@ -51,7 +51,7 @@ Threads
 \section{Application Interface}\label{sec.appif}
 
 The RDTN application interface allows applications to send and receive bundles,
-query the persisten storage, and send application acknowledgements. This
+query the persistent storage, and send application acknowledgements. This
 interface can be accessed inside the RDTN daemon process, so that it can be used
 by the interactive mode \ref{sec.interactive} and by extensions
 \ref{sec.extending}, as well as from separate processes either on the same
@@ -60,7 +60,7 @@ machine or on another one connected via a network.
 \subsection{Bundle Objects}\label{sec.bundle-obj}
 
 Applications can use the internal representation of bundles directly so that
-they can maniptulate all fields, flags, and extension blocks. Opening the
+they can manipulate all fields, flags, and extension blocks. Opening the
 internal representation to applications lets us avoid the overhead of mirroring
 functionality and interfaces from internal to public interfaces and it gives
 applications the ability to use parts of the bundle (e.g. extensions) that are
@@ -68,28 +68,29 @@ not explicitly handled by RDTN.
 
 However, the small overhead and high flexibility of using the internal bundle
 objects comes with the risk of complicating application development by forcing
-developers to deal with an abundance of options and corner cases unecessary for
+developers to deal with an abundance of options and corner cases unnecessary for
 typical use cases. Incorrect use of this interface which allows access to
-fundamental part of the protocol implementation may also cause invalid messages
+fundamental parts of the protocol implementation may also cause invalid messages
 to be sent over the network.
 
-The comlexity of the interface it mitigated by using default values coveringthe
+The complexity of the interface is mitigated by using default values covering the
 typical use cases. Thus, application developers do not need to know the details
 of the bundle protocol to use the API. But it is still possible to leverage
 knowledge about the protocol and possibly extensions to implement more advanced
 functionality.
 
 RDTN bundle objects are implemented by {\tt Bundling::Bundle}. The objects
-contain a list of Bundle blocks the first of which is always the primary bundle
-block (implemented by {\tt Bundling::PrimaryBundleBlock}). The the of blocks
-also contains an arbitrary number of objects derived from {\tt Bundling::Block}
+contain a list of Bundle blocks, the first of which is always the primary bundle
+block (implemented by {\tt Bundling::PrimaryBundleBlock}). The list of blocks
+also contains an arbitrary number of objects derived from {\tt Bundling::Block},
 which includes the payload block ({\tt Bundling::PayloadBlock}). Bundle objects
 have a flag indicating whether custody was accepted for the bundle, a list of
-custody timers, and a log of the forwarding operations of this bundle. The
-log is implemented by {\tt Bundling::ForwardLog} storing an entry for
+custody timers {\bf somewhat incorrect now}, and a log of the forwarding 
+operations of this bundle. The
+log is implemented by {\tt Bundling::ForwardLog}, storing an entry for
 each time the bundle is received, transmitted, or a transmission error for the
 bundle is detected. An entry comprises of a timestamp, the action (i.e. if the
-bundle was received, replicated, or forwarded) the status (i.e. transmitted,
+bundle was received, replicated, or forwarded), the status (i.e. transmitted,
 in-flight, or transmission error), and a reference to
 the neighbor involved in the operation (i.e. the receiver or the sender
 depending on the action).
@@ -124,13 +125,13 @@ used to fill this field.
 \subsection{Receiving Bundles}\label{sec.receiving}
 
 An application has to {\em register} if it wants to receive bundles using the
-{\tt register}. A registration is always bound to an EID. Applications can
-register for any EID independent of the local EID of the RDTN instance.
+{\tt register}-function. A registration is always bound to an EID. Applications 
+can register for any EID independent of the local EID of the RDTN instance.
 
 When a registration is added, RDTN passes all stored bundles matching the
-registered EID to the application. After that until the registration is
-cancelled, whenever RDTN receives a bundle matching the registered EID, the
-application gets the bundle.
+registered EID to the application. After that, whenever RDTN receives a bundle 
+matching the registered EID, the application gets the bundle until the 
+registration is cancelled.
 
 The call to {\tt register} is not followed directly by a response. The
 application gets the bundles asynchronously. For applications written in Ruby,
@@ -160,7 +161,7 @@ variable {\tt \$daemon}. This object can be used to send bundles (see section
 \ref{sec.receiving}), and to manipulate the daemon's configuration. No
 configuration file is read when an interactive session is started. Instead the
 daemon uses a default configuration without convergence layer and with a static
-table based router. When a configuration file is needed, it can be loaded with
+table based router. When a configuration file is needed, it can be loaded
 using the {\tt parseConfigFile}-function. Routing configuration, convergence
 layers, storage settings, and discovery modules (see section
 \ref{sec.contact-mngt}) can be manipulated through the daemon object.
@@ -191,7 +192,7 @@ while the vehicle is moving. Other devices in the vehicle can run the
 applications which use the RDTN daemon.
 
 The client protocol is designed with three goals in mind: language-independence,
-strait-forward integration with the Ruby code of the daemon, and efficient
+straight-forward integration with the Ruby code of the daemon, and efficient
 handling of large binary payloads. 
 
 {\bf TBD: extend this part, when the YAML stuff is implemented.}
@@ -223,7 +224,7 @@ matching the registration arrives, the daemon sends a {\tt :bundles}-message,
 again with message id {\tt 1}.
 
 The arguments of the request are the same as for the functions. The {\tt
-:ok}-message has not arguments, {\tt :error} is accompanied by an error message,
+:ok}-message has no arguments, {\tt :error} is accompanied by an error message,
 and messages of type {\tt :bundles} have a list of bundles as their arguments,
 even when there is only a single bundle.
 
@@ -233,7 +234,7 @@ The daemon-side of this protocol is implemented in the classes {\tt
 AppIF::AppInterface} and {\tt AppIF::AppLink}. The objects of the former class
 wait for incoming connections and create objects of the latter class when a
 client connects. {\tt AppIF::AppLink} instances handle the communication with
-one client each, relaying request between the client to the daemon's internal
+one client each, relaying requests between the client to the daemon's internal
 interface.
 
 \section{Configuration}\label{sec.config}
