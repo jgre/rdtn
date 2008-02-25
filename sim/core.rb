@@ -184,9 +184,10 @@ module Sim
       @te.run(dur, startTime)
     end
 
-    def createNodes(nnodes = nil)
-      nnodes = nnodes || @config["nnodes"]
-      1.upto(nnodes) do |n|
+    def createNodes(nodeNames = nil)
+      nodeNames = nodeNames || (1..@config["nnodes"]).to_a
+      nodeNames = (1..nodeNames).to_a if nodeNames.class == Fixnum
+      nodeNames.each do |n|
 	@nodes[n] = Node.new(@config["dirName"], n, @config["bytesPerSec"],
 			     @config["rdtnConfPath"])
       end

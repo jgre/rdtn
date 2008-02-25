@@ -11,8 +11,8 @@
 \title{RDTN: A DTN Bundle Protcol Agent implemented in Ruby}
 
 \author{Janico Greifenberg \and Dirk Kutscher}
-\date{$Date$\\
-$Rev$}
+\date{\$Date: 2008-02-19 11:56:03 +0100 (Tue, 19 Feb 2008) \$\\
+\$Rev: 535 \$}
 
 \maketitle
 
@@ -84,16 +84,14 @@ contain a list of Bundle blocks, the first of which is always the primary bundle
 block (implemented by {\tt Bundling::PrimaryBundleBlock}). The list of blocks
 also contains an arbitrary number of objects derived from {\tt Bundling::Block},
 which includes the payload block ({\tt Bundling::PayloadBlock}). Bundle objects
-have a flag indicating whether custody was accepted for the bundle, a list of
-custody timers {\bf somewhat incorrect now}, and a log of the forwarding 
-operations of this bundle. The
-log is implemented by {\tt Bundling::ForwardLog}, storing an entry for
-each time the bundle is received, transmitted, or a transmission error for the
-bundle is detected. An entry comprises of a timestamp, the action (i.e. if the
-bundle was received, replicated, or forwarded), the status (i.e. transmitted,
-in-flight, or transmission error), and a reference to
-the neighbor involved in the operation (i.e. the receiver or the sender
-depending on the action).
+have a flag indicating whether custody was accepted for the bundle, a custody
+timer, and a log of the forwarding operations of this bundle. The log is
+implemented by {\tt Bundling::ForwardLog}, storing an entry for each time the
+bundle is received, transmitted, or a transmission error for the bundle is
+detected. An entry comprises of a timestamp, the action (i.e. if the bundle was
+received, replicated, or forwarded), the status (i.e. transmitted, in-flight, or
+transmission error), and a reference to the neighbor involved in the operation
+(i.e. the receiver or the sender depending on the action).
 
 {\bf TBD: the stuff about the forwardlog does not belong in this section}
 
