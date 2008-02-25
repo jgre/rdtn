@@ -239,6 +239,94 @@ interface.
 
 \section{Simulations}\label{sec.sim}
 
+RDTN includes a module for discrete event simulation ({\bf TBD: cite}). This
+module allows us to evaluate the performance of distributed algorithms (e.g.
+routing schemes or DTN custody transfer) and to test their implementation. The
+simulation module can be used for the functionality included in RDTN
+directly as well as for extensions (see section \ref{sec.extending}).
+
+The central component of the simulation module is the node. Each node is an
+instance of the RDTN code, all running in the Ruby interpreter. Despite running
+in one process, the nodes are independent, because each uses its own {\tt
+EventDispatcher} (the mechanism which the RDTN components use to communicate
+with each other, described in section \ref{sec.arch}). The only communication
+between the simulated nodes is handled by convergence layers as it is for
+``real'' nodes connected over a network. The simulated convergence layer links
+are created and destroyed depending on the state of the simulated network.
+
+Nodes are implemented by the class {\tt Sim::Node} which is derived from {\tt
+RdtnDaemon::Daemon} the class for ``real'' nodes. Because of this derivation,
+the node automatically has the main components of an RDTN instance: an {\tt
+EventDispatcher}, a configuration object, persistent storage, and routing
+algorithms. In addition, simulation node objects have an interface for the
+simulation convergence layer so that other nodes can connect.
+
+Although the simulation could use a convergence layer that also works over a
+network such as the TCP or UDP convergence layers, we implemented a
+simulation-specific convergence layer that passes bundles from one node to
+anther by copying them in memory. This allows us to control the transmission
+behaviour (e.g. applying rate limits) and we can avoid finding available ports
+on the simulation host machine. The simulation convergence layer has
+the distinction between link and interface used by all convergence layers (see
+section \ref{sec.cl}) and is implemented in {\tt Sim::MemoryLink} and {\tt
+Sim::MemoryInterface}.
+
+Nodes and the links between them are managed by the simulation core implemented
+in {\tt Sim::Core}. The core is also responsible for configuring and starting a
+simulation run. The core has its own {\tt EventDispatcher} which is independent
+of the dispatchers used by the nodes. The simulated network is modeled by a
+sequence of connection and disconnection events. These events can come from
+different sources such as parsers for mobility traces or from graph objects that
+define nodes as vertices and links as edges.
+
+To run a simulation, the core starts a {\em timer engine} that sends clock ticks
+over the core's event dispatcher. The clock ticks trigger the connection and
+disconnection events that are also distributed by the dispatcher and to which
+the core reacts be creating or destroying convergence layer links between the
+nodes. The timer engine can optionally run in real-time mode so that ticks of
+the simulator clock correspond to a fixed period of time on the host machine's
+system clock. Otherwise, the events are processed as fast as possible so that
+the available capacity of the host CPU is the delimiting factor for the duration
+of the simulation. As a consequence, the time that passes on the system clock
+between two simulation clock tick is not necessarily constant.
+
+All time-dependent functions in RDTN (e.g. removing expired bundles) use the
+time of from the timer engine when run in simulation mode.  The time of the
+clock ticks is always counted from zero, so that connectivity events are always
+triggered at the same time in a simulation regardless of the system time.
+However, for the RDTN functions, the time is calculated depending on the start
+time of the simulation so that the values are in the same order of magnitude as
+the system time.\footnote{This is relevant for RDTN as a time value of zero in
+Ruby on Unix systems (the format RDTN uses internally) means the start of the
+year 1970, while for the DTN bundle protocol a time value of zero means the
+start of the year 2000 and negative values are not allowed, so that an internal
+time value of zero cannot be encoded in bundles.}
+
+In a simulation starting on 2-25-08 at 10:00, for example, the clock tick
+with the value $60$ sets the internal clock of all simulated nodes to 2-25-08
+10:01. Unless used in real-time mode, the simulation clock runs faster than the
+system clock, so that clock tick $60$ could happen at 10:00:10.
+
+The RDTN simulation module contains a parser for mobility traces in the format
+used as input for the ns2 network
+simulator.\footnote{http://www.isi.edu/nsnam/ns/} Parsers for other formats are
+planned as well and are easy to implement. All sources of connectivity events
+use a common target format implemented by {\tt Sim::EventQueue}. Objects of this
+class store a list of events, where an event is characterized by the time when
+the event happens, a pair of node identifiers, and the type of the event (i.e.
+connect or disconnect). The first node identifier refers to the node initiating
+a link to the node identified by the second one. When using the event queue for
+simulation, the events must be ordered by their time starting with the first
+event.
+
+While input from trace parsers is necessary to simulate realistic networks of
+any complexity, simpler scenarios are often useful in the first stages of
+developing and debugging an algorithm. Such networks can be modelled using
+objects of the class {\tt Sim::Graph}. A graph can be constructed by adding any
+number of edges. An edge is a bi-directional link between two nodes and has
+optionally a start and an end time. Graph objects can be used as event source
+for simulations.
+
 \section{Extending RDTN}\label{sec.extending}
 
 \section{Conclusions}\label{sec.conclusions}
