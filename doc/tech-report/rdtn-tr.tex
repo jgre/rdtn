@@ -89,13 +89,13 @@ dispatcher, executes the block, passing all the event's parameters.  The event
 dispatcher does not implement any threading behaviour itself, so that event
 handlers are executed in the thread in which the event was created.
 
-RDTN uses threads to be able to handle multiple task that can block, such as IO
+RDTN uses threads to be able to handle multiple tasks that can block, such as IO
 functions or timer triggered operations. Although multi-threading comes with the
 risk of concurrency problems, we decided against using the {\tt select}-call for
 IO multiplexing, because it is not portable. Neither did we want to use a higher
 level multiplexing mechanism to avoid having any dependencies besides the Ruby
 standard library. The threaded approach allows implementers of extensions to use
-any scheme for multiplexing they deem appropriate as long as its thread-save.
+any scheme for multiplexing they deem appropriate as long as it is thread-save.
 
 A new thread is started for each task that may block. These tasks include
 waiting for incoming connections and data in convergence layers, sending data,
@@ -316,7 +316,7 @@ between the simulated nodes is handled by convergence layers as it is for
 are created and destroyed depending on the state of the simulated network.
 
 Nodes are implemented by the class {\tt Sim::Node} which is derived from {\tt
-RdtnDaemon::Daemon} the class for ``real'' nodes. Because of this derivation,
+RdtnDaemon::Daemon}, the class for ``real'' nodes. Because of this derivation,
 the node automatically has the main components of an RDTN instance: an {\tt
 EventDispatcher}, a configuration object, persistent storage, and routing
 algorithms. In addition, simulation node objects have an interface for the
@@ -325,7 +325,7 @@ simulation convergence layer so that other nodes can connect.
 Although the simulation could use a convergence layer that also works over a
 network such as the TCP or UDP convergence layers, we implemented a
 simulation-specific convergence layer that passes bundles from one node to
-anther by copying them in memory. This allows us to control the transmission
+another by copying them in memory. This allows us to control the transmission
 behaviour (e.g. applying rate limits) and we can avoid finding available ports
 on the simulation host machine. The simulation convergence layer has
 the distinction between link and interface used by all convergence layers (see
