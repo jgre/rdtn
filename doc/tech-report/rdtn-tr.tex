@@ -36,9 +36,70 @@ Protocol (DPSP).
 
 \section{Architecture}\label{sec.arch}
 
-EventDispatcher
+We designed the RDTN architecture with the goal to create a platform for DTN
+research. That means, we want a simple implementation of the bundle protocol
+which can be easily and quickly extended for experiments of DTN-related research
+topics from convergence layers to applications. Another goal for RDTN is to make
+it usable, robust, and portable so that it can be used in field tests of DTNs
+with actual mobile devices.
 
-Threads
+RDTN is not supposed to be a reference implementation of the DTN bundle
+protocol, the aspect of extensibility and easy experimentation is more important
+in its design than the completeness of the protocol implementation.
+
+The fundamental design choice for RDTN is the choice of
+Ruby\footnote{http://www.ruby-lang.org} as implementation language. Ruby is a
+dynamic programming language that allows simple and concise solutions to a wide
+range of programming problems. As Ruby programs do not have to be compiled
+explicitly before running them, extensions can be added by simply loading
+additional code into an RDTN process. Thus, RDTN does not require a mechanism
+for attaching extension in external processes. The dynamic type system allows
+extensions a greater flexibility than a static system would.
+
+{\bf TBD Examples}
+
+Another central concept of RDTN's design is the loose coupling of its
+components. The term component in case refers to conceptual units of RDTN, e.g.
+routing, persistent storage, or convergence layers. A component may be realized
+in different classes that can be complementary (such as convergence layers for
+TCP and UDP) or exclusive (such as implementations of different routing
+protocols). When the state of a component changes in such a way that is relevant
+to other components (e.g. a convergence layer detects that the connection to
+another bundle router is broken), it creates an event that is broadcast to all
+interested in this incident (e.g. a lost link can be relevant for the contact
+management and routing components). The component sending an event does not need
+to know which components are interested in the event. A convergence layer, e.g.,
+does not need a reference to the routing algorithm currently used.
+
+Events are distributed between the components by an event dispatcher. This
+functionality is implemented in the class {\tt EventDispatcher}. An RDTN bundle
+router has one instance of this class and all components have a reference to it.
+The event dispatcher implements a simple mechanism for sending named events and
+subscribing to them.  This event mechanism allows extension to to notified of
+the state of any component without the component being aware of the extension.
+
+An event is identified by a Ruby symbol. The event dispatcher uses this
+identifier to map an event to all subscribing components. Events can have
+arbitrary arguments, which the dispatcher passes indiscriminately from source to
+sink.
+
+When a component subscribes to an event, it passes the event identifier and a
+Ruby block to the event dispatcher. Each time the event is triggered, the event
+dispatcher, executes the block, passing all the event's parameters.  The event
+dispatcher does not implement any threading behaviour itself, so that event
+handlers are executed in the thread in which the event was created.
+
+RDTN uses threads to be able to handle multiple task that can block, such as IO
+functions or timer triggered operations. Although multi-threading comes with the
+risk of concurrency problems, we decided against using the {\tt select}-call for
+IO multiplexing, because it is not portable. Neither did we want to use a higher
+level multiplexing mechanism to avoid having any dependencies besides the Ruby
+standard library. The threaded approach allows implementers of extensions to use
+any scheme for multiplexing they deem appropriate as long as its thread-save.
+
+A new thread is started for each task that may block. These tasks include
+waiting for incoming connections and data in convergence layers, sending data,
+and time-triggered functions, such as deleting expired bundles.
 
 \section{Convergence Layer Adapters}\label{sec.cl}
 
