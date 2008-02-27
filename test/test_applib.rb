@@ -63,6 +63,24 @@ class TestAppLib < Test::Unit::TestCase
     assert(eventSent)
   end
 
+  def test_send_data
+
+    bundleOrig="dtn://bla.fasel"
+
+    eventSent = false
+
+    @evDis.subscribe(:bundleParsed) do |bundle|
+      assert_equal(@bundleContent, bundle.payload)
+      assert_equal(bundleOrig, bundle.destEid.to_s)
+      assert_equal(@config.localEid.to_s, bundle.srcEid.to_s)
+      eventSent = true
+    end
+    @client.sendDataTo(@bundleContent, bundleOrig, @config.localEid)
+
+    sleep(1)
+    assert(eventSent)
+  end
+
   def test_receive_bundle
     eid = "dtn://test/receiver"
     eventSent = false

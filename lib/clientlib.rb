@@ -89,7 +89,7 @@ class RdtnClient
   end
 
   def sendDataTo(data, dest, senderTag = nil)
-    sendRequest(:sendDataTo, dest, senderTag)
+    sendRequest(:sendDataTo, data, dest, senderTag)
   end
   
   def sendApplicationAcknowledgement(bundle)
