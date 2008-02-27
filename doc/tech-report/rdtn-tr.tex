@@ -101,9 +101,71 @@ A new thread is started for each task that may block. These tasks include
 waiting for incoming connections and data in convergence layers, sending data,
 and time-triggered functions, such as deleting expired bundles.
 
-\section{Convergence Layer Adapters}\label{sec.cl}
+\section{Convergence Layers}\label{sec.cl}
+
+Convergence layers (CLs) define how the bundle protocol can be used over lower
+layer protocols. RDTN implements CLs for TCP \cite{tcp-cl}, UDP\footnote{The UDP
+convergence layer has no specification. Our current implementation simply sends
+bundles as UDP datagrams}, and FLUTE \cite{flute-cl}.
+
+Moreover, RDTN implements special CLs for simulations (see section
+\ref{sec.sim}) and for the application interface (see section \ref{sec.appif}).
+Having the application interface behave like a convergence layer, allows routing
+schemes to treat local receives in the same way as remote nodes.
+
+Convergence layers in RDTN have two parts: interfaces and links. Interfaces wait
+for peers to initiale communication. For CLs for connection-oriented protocols
+like TCP, the interface opens a listening socket and waits for incoming
+connections. For connection-less protocols (UDP and FLUTE) the interface is
+responsible for receiving bunlde data sent by peers.
+
+In connection-oriented CLs, links both send and receive bundle data over the
+bi-directional connection. When a connection-oriented interface accepts an
+incoming connection it creates a link object. Connection-less links send data to
+peers. Links for outgoing (regardless of whether or not the underlying protocol
+is connection-oriented) are created by configuration (see section
+\ref{sec.config}), from the interactive mode (see section
+\ref{sec.interactive}), or as a reaction to detecting a neighbor (see section
+\ref{sec.discovery}).
+
+RDTN has three types of links: always on links, on-demand links, and
+opportunistic links. The first two types can only be created from the
+configuration or from the interactive mode. Always on links are opened as soon
+as they are created and are only closed only in case of errors. On-demand links
+are not created before a routing algorithm tries to sent data over them and they
+are closed by the contact manager as soon as they are no longer needed.
+Opportunistic links are created when a connection-oriented interface accepts an
+incoming connection, or when the neighbor discovery detects an opportunity for
+establishing a link to a peer.
+
+The state of a link is signaled to other components using the event dispatcher
+described in section \ref{sec.arch}. When a link object is created it dispatches
+a {\tt :linkCreated} event informing the system of the link's existence. This
+event does not mean that the link is ready for communication, only when the {\tt
+:linkOpen} event is dispatched, data can be sent over that link. TCP links
+signal their opening, when the initial handshake specified in \cite{tcp-cl} is
+completed. The UDP and FLUTE CL dispatch this event, when a socket was created
+and the destination (host and port) has been specified.
+
+When a link or interface receives data, it dispatches the {\tt :bundleData}
+event, which contains a reference to the link itself and to a queue where the
+incoming data can be read. This event does not signal that the data of the
+bundle has be received completely, because convergence layers are not
+necessarily aware of the structure of the data the receive. Determining the
+boundaries of the bundle is the task of the bundle parser, the convergence layer
+only parses the data relevant to its own protocol. The bundle parser must be
+able to handle a bundle being received in chunks with multiple events sent by
+the CL.
+
+When a link is closed, it signals the {\tt :linkClosed} event to the rest of the
+system, so that no more data can be sent over this link. Links can be closed
+from the interactive mode (see section \ref{sec.interactive}) or in case of an
+error. Additionally, opportunistic and on-demand links are closed by the contact
+manager when their are no longer needed.
 
 \section{Contact Management}\label{sec.contact-mngt}
+
+\subsection{Neighbor Discovery}\label{sec.discovery}
 
 \section{Routing}\label{sec.routing}
 
