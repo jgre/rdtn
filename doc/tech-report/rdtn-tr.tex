@@ -101,6 +101,8 @@ A new thread is started for each task that may block. These tasks include
 waiting for incoming connections and data in convergence layers, sending data,
 and time-triggered functions, such as deleting expired bundles.
 
+\section{Bundle Processing}\label{sec.bundle-proc}
+
 \section{Convergence Layers}\label{sec.cl}
 
 Convergence layers (CLs) define how the bundle protocol can be used over lower
@@ -128,8 +130,8 @@ is connection-oriented) are created by configuration (see section
 \ref{sec.interactive}), or as a reaction to detecting a neighbor (see section
 \ref{sec.discovery}).
 
-RDTN has three types of links: always on links, on-demand links, and
-opportunistic links. The first two types can only be created from the
+RDTN has three opening policies for links: always on, on-demand, and
+opportunistic. The first two types can only be created from the
 configuration or from the interactive mode. Always on links are opened as soon
 as they are created and are only closed only in case of errors. On-demand links
 are not created before a routing algorithm tries to sent data over them and they
@@ -137,6 +139,10 @@ are closed by the contact manager as soon as they are no longer needed.
 Opportunistic links are created when a connection-oriented interface accepts an
 incoming connection, or when the neighbor discovery detects an opportunity for
 establishing a link to a peer.
+
+Links and interfaces all have a symbolic name, which can be used to identify an
+object in the configuration and the interactive mode. These names are only valid
+within a single RDTN process, they cannot be used after restaring RDTN.
 
 The state of a link is signaled to other components using the event dispatcher
 described in section \ref{sec.arch}. When a link object is created it dispatches
@@ -165,11 +171,212 @@ manager when their are no longer needed.
 
 \section{Contact Management}\label{sec.contact-mngt}
 
+The contact manager is the component in RDTN that tracks the currently available
+links and establishes new links or restarts old ones if there are contact
+opportunities. It also has the housekeeping function of closing links and
+interfaces that are no longer needed or stopped working. Contact management is
+implemented by the class {\tt ContactManager}.
+
+The contact manager maintains a list of all available links with their
+convergence layer type and their opening policy (on-demand, opportunistic, or
+always on as described in section \ref{sec.cl}). The contact manager also maps
+which links are connected to which neighbor nodes. Other components can use the
+contact management to resolve link names and remote EIDs to link objects. For
+example, routes can be configured by specifying the destination EID and either
+the name of a link over which the bundles for that destination should be
+forwarded, or the EID of an intermediate bundle router. When the routing
+component needs to use such a route, it asks the contact manager to return the
+appropriate link object.
+
+When the {\tt :linkCreated} is dispatched the ContactManager inserts a new Link
+object to its internal list.  On {\tt :linkClosed} the respective link object is
+removed from the internal list. The mapping between a link and its corresponding
+neighbor EID is created, when the contact manager receives the {\tt :linkOpen}
+event. That events also causes the contact manager to dispatch the {\tt
+:neighborContact} and {\tt :routeAvailable} events that are used by routing
+algorithms, to determine that a new neighbor is ready to receive bundles.
+
+\subsection{Contact Opportunities}
+
+Finding opportunities is the task of discovery mechanisms described in section
+\ref{sec.discovery}.  When a new opportunity is available, the Discovery module
+dispatches a {\tt :opportunityAvailable} event which the contact manager
+subscribes.
+
+An opportunity event contains the type of the convergence layer, the remote EID
+if it is available, and CL-specific parameters (hostname or IP address and a
+port number in the case of TCP and UDP).
+
+On the {\tt :opprtunityAvailable} event, the contact manager searches its
+internal structures for an existing link or interface that matches the
+parameters of the opportunity. If an existing one is found that is currently
+inactive, the contact manager tries to restart it. If no existing link or
+interface is available, a new one is created according to the parameters of the
+opportunity.
+
+\subsection{Housekeeping}
+
+The ContactManager regularly\footnote{The interval is configurable with a
+default value of five minutes.} queries all on-demand and opportunistic links if
+they are currently performing a task (sending or receiving). If not, the contact
+manager closes the links.  The housekeeping function runs in a separate thread
+that is started when the contact manager is initialized.
+
 \subsection{Neighbor Discovery}\label{sec.discovery}
+
+Neighbor Discovery has the purpose to detect other bundle routers and announce
+the presence of the local bundle router. If another router is found, the
+discovery module dispatches an event that allows RDTN to create a link.
+
+The initial version of neighbor discovery in RDTN uses UDP multicast to send and
+receive announcements. This is compatible with the neighbor discovery in the
+DTN2 reference
+implementation.\footnote{http://www.dtnrg.org/wiki/NeighborDiscovery} 
+
+{\bf TBD: Description of the Avahi stuff}
+
+The neighbor discovery module has two parts, the announcer and the receiver. The
+announcer part sends beacons for all configured interfaces in regular intervals,
+the receiver waits for incoming announcements from other bundle routers. When an
+announcement is received, the receiver part dispatches an event.
+
+Announcer and receiver each run in their own threads, the receiver blocks in
+reading from its socket and the announcer sleeps most of the time and
+only wakes up in certain intervals to send out the announcements.
+
+The discovery module can be configure from the RDTN config file with the
+following commands:
+
+\begin{verbatim}
+  discovery :address ADDR :port PORT :interval INTERVAL
+  discovery :announce INTERFACES
+\end{verbatim}
+
+The first command configures the multicast address and the port used by both
+announcer an receiver. It also configures the interval between the
+announcements.  The second command configures the interfaces that should be
+announced.  {\tt INTERFACES} is a list of strings which identify previously
+configured interfaces.
+
+When the receiver gets an announcement, it dispatches an {\tt
+:opportunityAvailable} event with the convergence layer type, the address and
+port of the remote interface, and the endpoint identifier of the remote bundle
+router.
+
+RDTN neighbor discovery uses the message format from the DTN2 reference
+implementation ({\tt DTN2/servlib/discovery/IPDiscovery.h}).
+
+\begin{verbatim}
+  u_int8_t cl_type;         // Type of CL offered
+  u_int8_t interval;        // 100ms units
+  u_int16_t length;         // total length of packet
+  u_int32_t inet_addr;      // IPv4 address of CL
+  u_int16_t inet_port;      // IPv4 port of CL
+  u_int16_t name_len;       // length of EID
+  char sender_name[0];      // DTN URI of beacon sender
+\end{verbatim}
 
 \section{Routing}\label{sec.routing}
 
+RDTN facilitates the development and evaluation of experimental routing
+algorithms by providing a basic forwarding logic which can be extended by
+routing implementations. The current version of RDTN included two concrete
+routing schemes: a static table-based router and an implementation of the DTN
+Publish/Subscribe protocol (DPSP) \cite{dtn-pubsub} which also supports epidemic
+routing \cite{epidemic}.
+
+The basic forwarding logic is implemented in the {\tt Router} class from which
+the concrete implementations are derived. Forwarding is implemented in the {\tt
+doForward} method which takes a bundle, a list of links, and an action type
+identifier as parameters. The forwarder ignores a link, if the neighbor node
+that is the remote end of that link has already seen the bundle. Whether a
+neighbor has seen a bundle is determined by inspecting the bundle's forward log
+to see, if the bundle was received from the link's peer of if it was forwarded
+to the peer before. As this mechanism works only on local forwarding data, it
+cannot detect routing loops involving more than two peers.  More general loop
+detection must be provided by the concrete routing schemes if it is required.
+
+The forwarder adds an entry to the forward log of the bundle that contains the
+status {\tt :inflight} and the action that the concrete routing scheme passed to
+the forwarding function. Then the {\tt sendBundle}-function of the link object
+is called. If an error occurs in this call, the new forward log entry is updated
+to an error status. The concrete router implementation has to decide how this
+state is handled. When the convergence layer does not raise an error, the
+forwarder dispatches the {\tt :bundleForwarded} event.
+
+\subsection{Static Routing Tables}\label{sec.static-routing}
+
+The default routing scheme of RDTN is a static table-based routing which is
+ideal for small deterministic scenarios, but it becomes unpractical when the
+scenarios become larger and more dynamic.
+
+Routes can be set when the router receives the {\tt :routeAvailable} event which
+is dispatched by the configuration file parser, by the interactive mode, and by
+the contact manager.  An entry in the routing table contains the destination
+which may be a regular expression matching multiple EIDs and either the name of
+a link or an EID. If the second part is a link, all bundles whose destination
+EID matches the destination part of the entry are forwarded over that link. If
+the second part of the entry is an EID, the matching bundles are forwarded to
+the neighbor with that EID. As this is recursive, there must be at least one
+destination that is mapped to a link and not to another EID, otherwise no bundle
+will ever be forwarded.
+
+The static router always uses the {\tt :forward} action, which means that it
+passes each bundle to at most one neighbor. It does not replicate bundles in the
+network.
+
+When the static router receives the {\tt :bundleToForward} event, it searches
+for a routing table entry that matches the bundle's destination and forwards it.
+On {\tt :routeAvailable} the router searches the persistent storage for bundles
+that match the new entry's destination and forwards the bundles that are found.
+
+\subsection{Priority-based Routing}\label{sec.prio-routing}
+
+A more flexible router that we have implemented in RDTN is the {\tt
+PriorityRouter} which implements an optimized flooding scheme. A set of
+priorities and filters as defined by the DTN Publish/Subscribe Protocol (DPSP)
+can be configured for this router. When no priorities or filters are used, the
+router falls back to epidemic routing.
+
+The priority-based router maintains a queue for each active contact. When DPSP
+is used, the first step after the router received the {\tt :neigborContact}
+event and created the queue, is to exchange a list of subscriptions as described
+in \cite{dtn-pubsub}. After that, the queue is filled with all bundles from the
+persistent storage. The queue is then run through all filters and the remaining
+bundles are sorted based on the priorities. When more than one priority is
+configured, the sorting uses a majority vote. That means, when comparing two
+bundles A and B, their relative priority is assessed by each configured priority
+algorithm. When more algorithms assign a higher value to A, then A get a higher
+total priority. When A is rated higher than B exactly as often as B is rated
+higher than A, their total priorities are equal.
+
+Next, the router forwards the bundles from the queued starting with the one with
+the highest priority by passing each bundle to the forwarding function of the
+basic router described above. The priority-based router uses the {\tt
+:replicate} action, so that multiple copies of a bundle can exist in a network.
+After the bundle was forwarded it is deleted from the queue. When a {\tt
+:bundleToForward} event is received, the new bundle is added to all active
+queues which are passed through the filters and sorted again before commencing
+to forward bundles.
+
+While the static router treats local registrations like links to remote peers,
+the priority-based router maintains a separate list of local links that get only
+those bundles that match the registration.
+
 \section{Persistent Storage}\label{sec.storage}
+
+Persistent storage is one of the main components of a DTN bundle router. RDTN
+implements its storage using the Ruby {\tt PStore}. The RDTN {\tt Storage}
+class is implemented as a singleton, so that only one store object exists in an
+instance of the RDTN daemon.
+
+Bundles are the most important objects the store needs to take care of, but
+it also makes persistent copies of routing state (e.g. routing
+tables or history of previous contacts) and link configurations.
+
+The storage object starts a thread on initialization that searches
+for expired bundles. Such bundles are deleted and the appropriate administrative
+records and custody signals are generated.
 
 \section{Application Interface}\label{sec.appif}
 
