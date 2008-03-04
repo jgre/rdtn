@@ -136,9 +136,11 @@ class IPDiscovery < Monitor
     @aliveTimer  = interval * 2
     housekeeping
     @evDis.subscribe(:linkClosed) do |link|
-      @recvdAnns.delete_if do |ann| 
-        #puts "Discovery #{ann.inetAddr == link.host and ann.inetPort == link.port}"
-        ann.inetAddr == link.host and ann.inetPort == link.port
+      if link.instance_of?(TCPCL::TCPLink) or link.instance_of?(UDPCL::UDPLink) 
+        @recvdAnns.delete_if do |ann|
+          #puts "Discovery #{ann.inetAddr.to_s == link.host.to_s and ann.inetPort.to_s == link.port.to_s}"
+          ann.inetAddr.to_s == link.host.to_s and ann.inetPort.to_s == link.port.to_s
+        end
       end
     end
     @platform = Platform.new
