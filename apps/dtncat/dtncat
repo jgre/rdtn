@@ -29,6 +29,7 @@ dest = ""
 eid = "/dtncat"
 duration = 0
 loopInterval = nil
+port = 7777
 
 opts = OptionParser.new do |opts|
   opts.on("-d", "--dest EID", "destination EID") do |d|
@@ -42,6 +43,9 @@ opts = OptionParser.new do |opts|
   end
   opts.on("-D", "--duration SECONDS", Integer) do |val|
     duration = val
+  end
+  opts.on("-p", "--daemon_port PORT", Integer) do |val|
+    port = val
   end
 end
 
@@ -59,10 +63,10 @@ payload=plFile.read
 plFile.close
 puts "Payload length: #{payload.length}"
 
-client = RdtnClient.new
+client = RdtnClient.new("localhost", port)
 client.register(eid) {|bundle| puts "Bundle received #{bundle.payload}" }
 
-b = Bundling::Bundle.new(payload, dest)
+b = Bundling::Bundle.new(payload, dest, eid)
 rdebug(self, "sending bundle")
 client.sendBundle(b)
 
