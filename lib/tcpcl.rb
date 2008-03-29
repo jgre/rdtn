@@ -433,11 +433,11 @@ module TCPCL
       while not bndQ.eof?
 	buf = ""
 	flags = 0
-	flags = 0x2 if @sendQueue.pos == 0
+	flags = 0x2 if bndQ.pos == 0
 
 	data = bndQ.read(@segmentLength)
 
-	if @sendQueue.eof?
+	if bndQ.eof?
 	  flags = flags | 0x1
 	end 
 
