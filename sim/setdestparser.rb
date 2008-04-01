@@ -122,8 +122,8 @@ module Sim
     def initialize(duration, granularity, options)
       @duration    = duration
       @granularity = granularity
-      @traceFile   = open(options[:tracefile]) if options.has_key?(:tracefile)
-      @contactDist = options[:contactDistance]
+      @traceFile   = open(options["tracefile"]) if options.has_key?("tracefile")
+      @contactDist = options["contactDistance"] || 250
       @offset      = nil
       @diff        = nil
       @nodes       = {}
@@ -136,7 +136,7 @@ module Sim
     private
 
     def preprocess
-      rinfo(self, "Preprocessing trace file...")
+      puts "Preprocessing trace file..."
       timer = 0.0
       while timer < @duration
 	advanceTime(timer)
@@ -144,7 +144,7 @@ module Sim
       end
       @traceFile.close
       #open(@eventdumpFile, 'w') {|f| Marshal.dump(@events, f)} if @eventdumpFile
-      rinfo(self, "Preprocessing done.")
+      puts "Preprocessing done."
     end
 
     def advanceTime(newTime)

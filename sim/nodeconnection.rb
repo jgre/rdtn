@@ -31,8 +31,9 @@ module Sim
     attr_reader   :id, :links, :memIf
     #attr_accessor :connections
 
-    def initialize(dirName, id, bytesPerSec=1024, configPath=nil, channels=[])
-      @id    = id
+    def initialize(dirName, id, sim, bytesPerSec=1024, configPath=nil)
+      @id       = id
+      @sim      = sim
       super("dtn://kasuari#{@id}/")
       @nbundles = 0
       @bytesPerSec = bytesPerSec
@@ -42,12 +43,11 @@ module Sim
       subDirName = File.join(dirName, "kasuari#{@id}")
       Dir.mkdir(subDirName) unless File.exist?(subDirName)
       @config.setStatDir(subDirName)
-      parseConfigFile if configPath
-      if channels
-	channels.each {|chan| register(chan) {}}
-      end
+      parseConfigFile(configPath) if configPath
       @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
-		    :node=>self)
+		    :node=>self, :sim=>@sim)
+      #@config.subscriptionHandler = SubscriptionHandler.new(@config, @evDis,
+      #						    @config.contactManager)
     end
 
     #def self.connect(node1, node2)
@@ -69,7 +69,8 @@ module Sim
     def connect(node2)
       rdebug(self, "Connecting #{@id} -> #{node2.id}")
       addLink(:memory, "simlink#{node2.id}", :nodeId=>@id,
-	      :memIf=>node2.memIf, :bytesPerSec=>@bytesPerSec)
+	      :memIf=>node2.memIf, :bytesPerSec=>@bytesPerSec,
+	      :sim=>@sim)
     end
 
     def disconnect(node2)
@@ -94,9 +95,12 @@ module Sim
     #  @links[node2.id] = nil
     #end
 
-    def createBundle(channel)
-      payload = "a" * @config.bundleSize
-      sendDataTo(payload, channel)
+    def createBundle(channel, size)
+      payload = "a" * size
+      #sendDataTo(payload, channel)
+      bundle = Bundling::Bundle.new(payload, channel, @config.localEid)
+      bundle.lifetime = 86400
+      sendBundle(bundle)
     end
 
   end

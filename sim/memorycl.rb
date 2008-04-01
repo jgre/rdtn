@@ -29,13 +29,14 @@ module Sim
     attr_reader   :nodeId
 
     def initialize(config, evDis, nodeId = nil, dest = nil, peerLink = nil,
-		   bytesPerSec = 1024)
+		   bytesPerSec = 1024, sim = nil)
       super(config, evDis)
       @nodeId      = nodeId
       @dest        = dest
       @remoteEid   = "dtn://kasuari#{@dest}/" if dest
       @peerLink    = peerLink
       @bytesPerSec = bytesPerSec
+      @sim         = sim
       @bytesToSend = 0
       @queue       = []
       @evDis.dispatch(:linkOpen, self) if @peerLink
@@ -45,6 +46,7 @@ module Sim
       @name        = name if name
       @nodeId      = options[:nodeId]
       @memIf       = options[:memIf]
+      @sim         = options[:sim]
       @dest        = @memIf.nodeId
       @peerLink    = @memIf.acceptConnection(self)
       @remoteEid   = "dtn://kasuari#{@dest}/"
@@ -63,29 +65,32 @@ module Sim
 
     def sendBundle(bundle)
       if @peerLink
+	if @queue.empty?
+	  @sim.after((bundle.payload.length / @bytesPerSec).ceil) do |time|
+	    process
+	    false
+	  end
+	end
 	@queue.push(bundle)
       else
 	raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
       end
     end
 
-    def process(nSec)
-      #puts "process bps #{@bytesPerSec}"
-      @bytesToSend += nSec * @bytesPerSec
-      until @queue.empty?
-	break if @queue[0].payload.length > @bytesToSend
-	if @peerLink
-	  bundle = @queue.shift
-	  @evDis.dispatch(:bundleForwarded, bundle, self)
-	  @peerLink.receiveBundle(bundle, self)
-	  @bytesToSend -= bundle.payload.length
-	else
-	  raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
+    def process
+      if @peerLink
+	bundle = @queue.shift
+	@evDis.dispatch(:bundleForwarded, bundle, self)
+	@peerLink.receiveBundle(bundle, self)
+	unless @queue.empty?
+	  @sim.after((@queue[0].payload.length / @bytesPerSec).ceil) do |time|
+	    process
+	    false
+	  end
 	end
+      else
+	raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
       end
-      # We can only "save" send contingent if there is something to transmitt
-      # right now
-      @bytesToSend = 0 if @queue.empty?
     end
 
     def receiveBundle(bundle, link)
@@ -103,6 +108,7 @@ module Sim
     def initialize(config, evDis, name, options)
       @config      = config
       @evDis       = evDis
+      @sim         = options[:sim]
       @nodeId      = options[:nodeId]
       @bytesPerSec = options[:bytesPerSec]
       @node        = options[:node]
@@ -110,7 +116,7 @@ module Sim
 
     def acceptConnection(peerLink)
       link = MemoryLink.new(@config, @evDis, @nodeId, peerLink.nodeId, peerLink,
-			    @bytesPerSec)
+			    @bytesPerSec, @sim)
       @node.links[peerLink.nodeId] = link
       link
     end

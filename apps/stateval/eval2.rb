@@ -299,6 +299,11 @@ class NetworkModel
     totalCC / nodes.length.to_f
   end
 
+  def averageDegree
+    sum = nodes.inject(0) {|sum, node| sum + neighbors(node, nil).length}
+    sum / nodes.length.to_f
+  end
+
   private
 
   def networkAnalysis
@@ -356,8 +361,12 @@ class RdtnStatParser
     eachSubdir do |filename, node|
       if File.exist?(File.join(filename, "contact.stat"))
 	open(File.join(filename, "contact.stat")) {|f| parseContactStat(node,f)}
-	open(File.join(filename, "out.stat"))     {|f| parseIOStat(node,:out,f)}
-	open(File.join(filename, "in.stat"))      {|f| parseIOStat(node,:in,f)}
+	if File.exist?(File.join(filename, "out.stat"))
+	  open(File.join(filename, "out.stat")) {|f| parseIOStat(node,:out,f)}
+	end
+	if File.exist?(File.join(filename, "in.stat"))
+	  open(File.join(filename, "in.stat"))  {|f| parseIOStat(node,:in,f)}
+	end
       end
     end
   end
@@ -458,6 +467,10 @@ class SummaryReport
     file.puts("#{@model.transmissionsPerBundle} transmissions per bundle")
     file.puts("#{@model.averageDelay} seconds avarage delay")
     file.puts("#{@model.numberOfControlBundles} subscription bundles (#{@model.controlOverhead} bytes)")
+    file.puts
+    file.puts("#{@model.totalClusteringCoefficient} clustering coefficient")
+    file.puts("#{@model.averageDegree} average degree")
+    file.puts("#{@model.averageTheoreticalHopCount} average theoretical hop count")
   end
 
   def printContacts(dirName)
@@ -753,15 +766,27 @@ class ContactHistory
   #end
 
   def numberOfContacts
-    @contacts[nil].length
+    if @contacts[@nodeId1].empty?
+      @contacts[nil].length
+    else
+      @contacts[@nodeId1].length
+    end
   end
 
   def totalContactDuration
-    @contacts[nil].inject(0) { |sum, cont| sum + cont.duration }
+    if @contacts[@nodeId1].empty?
+      @contacts[nil].inject(0) { |sum, cont| sum + cont.duration }
+    else
+      @contacts[@nodeId1].inject(0) { |sum, cont| sum + cont.duration }
+    end
   end
 
   def contacts
-    @contacts[nil]
+    if @contacts[@nodeId1].empty?
+      @contacts[nil]
+    else
+      @contacts[@nodeId1]
+    end
   end
 
 end

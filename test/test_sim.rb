@@ -55,6 +55,7 @@ class TestSim < Test::Unit::TestCase
       rdebug(self, "Sending bundle")
       assert_equal(1, t)
       @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
+      false
     end
     @sim.run
     assert(received)

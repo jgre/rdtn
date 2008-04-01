@@ -21,20 +21,26 @@ module Sim
 
   class TimerEngine
 
+    attr_reader :timer
+
     def initialize(config, evDis)
       @config = config
       @evDis  = evDis
     end
 
-    def run(duration, startTime = 0)
+    def run(duration, eventQueue, startTime = 0)
       @t0 = Time.now - startTime
       @timer = startTime
-      gran = @config["granularity"]
-      thresh = 0.01 # Tolerance for timing inaccuracy for realtime emulation
-      startTime.step(duration, gran) do |time|
-	@timer = time
-        @evDis.dispatch(:simTimerTick, @timer)
+      until eventQueue.empty? or @timer >= duration
+	@timer = eventQueue.nextEvent(@evDis)
       end
+
+      #gran = @config["granularity"]
+      #thresh = 0.01 # Tolerance for timing inaccuracy for realtime emulation
+      #startTime.step(duration, gran) do |time|
+      #  @timer = time
+      #  @evDis.dispatch(:simTimerTick, @timer)
+      #end
       #loop do
       #  break if duration and @timer > duration
       #  # Blocks until all work for this clock tick is done

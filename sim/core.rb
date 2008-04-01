@@ -22,6 +22,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'rdtnevent'
 require 'nodeconnection'
 require 'setdestparser'
+require 'mitparser'
 require 'optparse'
 require 'timerengine'
 require 'yaml'
@@ -45,6 +46,7 @@ module Sim
       @evDis = EventDispatcher.new
       # id -> NodeConnection
       @nodes = {}
+      @timerEventId = 0
       #@config = Sim::Config.new(@evDis)
       @config = DEFAULT_CONF 
       @config["dirName"] = dirName
@@ -60,59 +62,26 @@ module Sim
       @events = nil
       @te = TimerEngine.new(@config, @evDis)
 
-      #@channels = (1..@config.nchannels).to_a.map {|i| "dtn://channel#{i}/"}
-      #@senders = {}
-      #@channels.each_with_index {|ch, i| @senders[i+1] = ch}
-      ##FIXME make this configurable (pareto distribution)
-      #@receivers = {
-      #    6  => ["dtn://channel1/", "dtn://channel2/"],
-      #    7  => ["dtn://channel2/", "dtn://channel3/", "dtn://channel4/"],
-      #    8  => ["dtn://channel4/", "dtn://channel5/", "dtn://channel1/"],
-      #    9  => ["dtn://channel4/", "dtn://channel5/", "dtn://channel1/"],
-      #    10 => ["dtn://channel5/", "dtn://channel1/"]
-      #}
-      @evDis.subscribe(:simTimerTick) do |time|
-	#if (time.to_i-startTime.to_i) % @config.bundleInterval == 0
-	#  
-	#  @senders.each do |id, channel| 
-	#    @nodes[id].createBundle(channel) if @nodes[id]
-	#  end
-
-	#  #puts "Running for #{time-startTime} seconds (#{(time-startTime).to_f/@config.duration * 100}%), #{endTime-time} seconds left."
-	#end
-	@nodes.each_value {|node| node.process(@config["granularity"])}
-      end
       @evDis.subscribe(:simConnection) do |nodeId1, nodeId2|
-	rdebug(self, "SimConnection #{nodeId1}, #{nodeId2}")
+	#rdebug(self, "SimConnection #{nodeId1}, #{nodeId2}")
 	@nConnect += 1
 	node1 = @nodes[nodeId1]
 	node2 = @nodes[nodeId2]
 	node1.connect(node2) if node1 and node2
-	#if node1 and node2
-	#  Node.connect(node1, node2)
-	#end
       end
       @evDis.subscribe(:simDisconnection) do |nodeId1,nodeId2|
 	@nDisconnect += 1
 	node1 = @nodes[nodeId1]
 	node2 = @nodes[nodeId2]
 	node1.disconnect(node2) if node1 and node2
-	#puts "#{@config.time-startTime}, #{nodeId1}, #{nodeId2}, simDisconnection"
-	#@eq.addEvent(Time.now.to_f, nodeId1, nodeId2, :simDisconnection)
-	#puts "#{@eq.events.length} Core Events"
-	#open("#{@config.dirName}/eventCoreDump", "w") {|f| Marshal.dump(@eq, f)}
-	  #puts "Core: Disconnect #{nodeId1} #{nodeId2}"
-	  #Node.disconnect(node1, node2)
-	#end
-
       end
     end
 
     def parseConfigFile(configFile = nil)
       configFile = configFile || @configFileName
-      @config.merge!(open(configFileName) {|f| YAML.load(f)})
+      @config.merge!(open(configFile) {|f| YAML.load(f)})
       @config.merge!(@owConf)
-      if @config["eventdump"]
+      if @config["eventdump"] and File.exist?(@config["eventdump"])
 	loadEventdump(@config["eventdump"])
       elsif @config["traceParser"]
 	traceParser(@config["traceParser"])
@@ -160,47 +129,53 @@ module Sim
     end
 
     def events=(events)
-      @events.stop(@evDis) if @events
+      #@events.stop(@evDis) if @events
       @events = events
-      @events.register(@evDis)
+      #@events.register(@evDis)
     end
 
-    def at(time = nil)
-      ev = @evDis.subscribe(:simTimerTick) do |t|
-	if time.nil? or t >= time
-	  repeat = yield(t)
-	  @evDis.unsubscribe(:simTimerTick, ev) unless repeat and time.nil?
+    def at(time)
+      @timerEventId += 1
+      sym = "timerEvent#@timerEventId".to_sym
+      @events.addEventSorted(time, nil, nil, sym)
+      ev = @evDis.subscribe(sym) do |t|
+	repeat = yield(t)
+	if repeat
+	  @events.addEventSorted(t + time, nil, nil, sym)
+	else
+	  @evDis.unsubscribe(sym, ev)
 	end
       end
+      sym
+    end
+
+    def after(time)
+      at(@te.timer + time) {|t| yield(t)}
     end
 
     def run(duration = nil, startTime = 0)
       dur = duration || @config["duration"]
-      endTime = startTime + dur
+      @endTime = startTime + dur
       rinfo(self, "Starting simulation with #{@config["nnodes"]} simulation nodes starting at time #{startTime}. Duration: #{dur} seconds.")
 
       RdtnTime.timerFunc = lambda {@te.time}
 
-      @te.run(dur, startTime)
+      #at(60) do |time|
+	#puts "Running for #{time} seconds (#{(time).to_f/@config["duration"] * 100}%), #{@endTime-time} seconds left."
+#	  true
+#      end
+      @te.run(dur, @events, startTime)
     end
 
     def createNodes(nodeNames = nil)
       nodeNames = nodeNames || (1..@config["nnodes"]).to_a
       nodeNames = (1..nodeNames).to_a if nodeNames.class == Fixnum
       nodeNames.each do |n|
-	@nodes[n] = Node.new(@config["dirName"], n, @config["bytesPerSec"],
+	@nodes[n] = Node.new(@config["dirName"], n, self,
+			     @config["bytesPerSec"],
 			     @config["rdtnConfPath"])
       end
     end
-
-    #private
-
-    #def shutdown
-    #  rinfo(self, "Shutdown")
-    #  rinfo(self, "#{@nConnect} connetct events")
-    #  rinfo(self, "#{@nDisconnect} disconnetct events")
-    #  exit(0)
-    #end
 
   end
 
@@ -209,7 +184,11 @@ end # module sim
 if $0 == __FILE__
   dirName = File.join(Dir.getwd, 
 			  "experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-  Sim::SimCore.new(dirName).run
+  sim = Sim::SimCore.new(dirName)
+  sim.parseOptions
+  sim.parseConfigFile
+  sim.createNodes
+  sim.run
 elsif $0 == "irb"
   dirName = File.join(Dir.getwd, 
 			  "irb-experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
