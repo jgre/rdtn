@@ -69,17 +69,18 @@ class Storage < Monitor
     getBundleMatching {|bundle| bundle.bundleId == bundleId}
   end
 
-  def deleteBundle(bundleId)
-    deleteBundles {|b| b.bundleId == bundleId}
+  def deleteBundle(bundleId, purge = false)
+    deleteBundles(purge) {|b| b.bundleId == bundleId}
   end
 
-  def deleteBundles(&handler)
+  def deleteBundles(purge = false, &handler)
     synchronize do 
       bundles = @bundles.find_all(&handler)
       bundles.each do |bundle|
 	@curSize -= bundle.payloadLength
 	bundle.delete
 	@evDis.dispatch(:bundleRemoved, bundle)
+	@bundles.delete(bundle) if purge
       end
     end
   end
@@ -103,7 +104,7 @@ class Storage < Monitor
 
   def clear
     synchronize do
-      deleteBundles {|b| true}
+      deleteBundles(true) {|b| true}
     end
   end
 
@@ -147,7 +148,7 @@ class Storage < Monitor
 
   private
   def enforceLimit
-    deleteBundles do |bundle| 
+    deleteBundles(true) do |bundle| 
       ret = bundle.expired?
       rdebug(self, "Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
       ret
@@ -188,7 +189,7 @@ class Storage < Monitor
 	@evDis.dispatch(:timerTick)
 	
 	synchronize do
-	  deleteBundles {|bundle| bundle.expired?}
+	  deleteBundles(true) {|bundle| bundle.expired?}
 	end
       end
     end
