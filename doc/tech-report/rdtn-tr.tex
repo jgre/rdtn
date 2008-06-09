@@ -101,8 +101,6 @@ A new thread is started for each task that may block. These tasks include
 waiting for incoming connections and data in convergence layers, sending data,
 and time-triggered functions, such as deleting expired bundles.
 
-\section{Bundle Processing}\label{sec.bundle-proc}
-
 \section{Convergence Layers}\label{sec.cl}
 
 Convergence layers (CLs) define how the bundle protocol can be used over lower
@@ -169,6 +167,142 @@ from the interactive mode (see section \ref{sec.interactive}) or in case of an
 error. Additionally, opportunistic and on-demand links are closed by the contact
 manager when their are no longer needed.
 
+\section{Bundle Processing}\label{sec.bundle-proc}
+
+RDTN bundle objects are implemented by {\tt Bundling::Bundle}. The objects
+contain a list of Bundle blocks, the first of which is always the primary bundle
+block (implemented by {\tt Bundling::PrimaryBundleBlock}). The list of blocks
+also contains an arbitrary number of objects derived from {\tt Bundling::Block},
+which includes the payload block ({\tt Bundling::PayloadBlock}). The blocks
+contain all the data that is passed over the network between bundle agents. 
+
+In addition to the protocol data in the blocks the bundle class holds
+information for the internal processing of bundles which is not passed to other
+nodes.  Bundle objects have a flag indicating whether custody was accepted for
+the bundle, a custody timer, and a log of the forwarding operations performed on
+this bundle.
+
+{\bf TBD: deletion, mention workflow}
+
+\subsection{Bundle Blocks}\label{sec.bundle-blocks}
+
+The primary bundle block contains the basic information needed to route bundles
+to their destinations, such as the source and destination endpoint identifiers,
+bundle lifetime, and processing control flags. As these values are often
+accessed by RDTN components, the Bundle class provides a convenience short-cut
+for accessing the fields of the primary bundle block. So instead of retrieving
+the destination EID of a bundle by calling
+
+{\tt bundle.blocks[0].srcEid}\\
+the value can be accessed by calling
+
+{\tt bundle.srcEid}.
+
+Likewise, the Bundle class implements a method payload which retrieves the data
+from the payload block without requiring the calling code to find the block
+itself.
+
+All blocks except for the primary block, follow a canonical format defined in
+section 4.5.2 of RFC 5050 \cite{bundle-spec}. Parsing this format and the common
+processing flags are implemented as subclasses of Bundling::Block.
+Bundling::PayloadBlock is a subclass of Block implementing the container format
+for the application data transported by the bundles.
+
+All further block-types are optional and commonly named {\em extension bundle
+blocks}. RDTN implements the MetadataBlock specified in \cite{metadata-block}.
+Additional blocks can be implemented as extensions to RDTN as described in
+section \ref{sec.extending}.
+
+\subsection{The Forwarding Log}\label{sec.forward-log}
+
+Each bundle in RDTN has exactly one forwarding log. The forwarding log holds
+information to keep track of when bundles are received and sent by an RDTN node.
+It is implemented by {\tt Bundling::ForwardLog}, storing an entry for each time
+the bundle is received, transmitted, or a transmission error for the bundle is
+detected. An entry comprises of a timestamp, the action performed on the bundle,
+the status of the action, and a reference
+to the neighbor involved in the operation (i.e. the receiver or the sender
+depending on the action).
+
+The action is one of the following:
+\begin{description}
+
+\item[received] The bundle was received from another bundle protocol agent or
+the local application interface (see section \ref{sec.appif}). An entry with
+this action is always the first entry in a forwarding log.
+
+\item[replicated] The bundle was sent to another bundle protocol agent, and the
+local node keeps the bundle and can send further replicas to other nodes. This
+action is used by routing schemes in which multiple copies of a bundle traverse
+the network to increase the chances for successful delivery to the destination.
+
+\item[forwarded] The bundle was sent to another bundle protocol agent, and the
+local node will not send any further copies to other nodes. This action is
+employed in routing schemes that allow only a single copy of the bundle in the
+network.
+
+\end{description}
+
+The status of an action may be:
+\begin{description}
+
+\item[in-flight] The action has been started, but the RDTN instance has not
+received any indication of the action's success. An entry with this status gets
+updated when RDTN determines success or failure of the action.
+
+\item[transmitted] The action was successfully completed. How success is
+determined depends on the configuration. If a convergence layer is used that
+provides acknowledgments, it can function as an indicator of success. Otherwise
+RDTN waits for bundle status reports before setting this status.
+
+In some configurations (i.e. when status reports are disabled and the
+convergence layer does not provide acknowledgements) bundles remain in the
+in-flight status indefinitely. In such configurations only routing protocols
+that do not depend on explicit success indications should be used.
+
+\item[transmission error] The action failed. The bundle will be kept and can be
+re-transmitted, even if the action is forward.
+
+\end{description}
+
+\subsection{Bundle Workflow}\label{sec.workflow}
+
+After a bundle is received by a convergence layer, it is taken through a
+{\em workflow} for processing steps that are managed by an object of the class
+Bundling::BundleWorkflow. The workflow object is notified of new data from the
+CLs by the event dispatcher initiating one workflow per bundle.
+
+As the convergence layers only deliver the raw data, the first step in the
+workflow is to {\bf parse} the bundle data. After that, the bundle is {\bf
+stored} in persistent memory. If the incoming bundle is a fragment of a larger
+bundle and other pieces of that bundle are available, the parts are {\bf
+reassembled}. {\bf Custody signals} and other {\bf administrative records} are
+handled next if necessary. The final step is to notify the routing
+implementation via the event dispatcher that the bundle is {\bf ready to be
+forwarded}.
+
+\subsection{Fragmentation and Reassembly}\label{sec.frag}
+
+A bundle can be fragmented to accommodate transmissions of payloads that are too
+large to be reliably transmitted over a single contact. RDTN allows bundles to
+be broken into an arbitrary number of fragments, each of which is itself a valid
+bundle. 
+
+When a bundle is a fragment, there is a flag set in the primary bundle block and
+the primary block contains a field that holds the number of bytes of the
+original payload that comes before the data in the fragment's payload -- the
+{\em fragment offset}. Apart from the fragment flag and offset fields, the
+primary bundle block of the fragment is identical to that of the original
+bundle. A bundle may be broken into fragments, even if it is already a fragment.
+The fragment offset is calculated relative to the original fragment offset, so
+that the offsets in all fragments are unambiguous.
+
+RDTN can only reassemble to consecutive fragments, there must not be a gab
+between the end of the first fragment and the beginning of the second one to
+reassemble them. It is, however possible to reassemble only a part of the
+fragments of a bundle, so that the complete bundle can be recreated in several
+steps, even on different hosts.
+
 \section{Contact Management}\label{sec.contact-mngt}
 
 The contact manager is the component in RDTN that tracks the currently available
@@ -198,9 +332,9 @@ algorithms, to determine that a new neighbor is ready to receive bundles.
 
 \subsection{Contact Opportunities}
 
-Finding opportunities is the task of discovery mechanisms described in section
-\ref{sec.discovery}.  When a new opportunity is available, the Discovery module
-dispatches a {\tt :opportunityAvailable} event which the contact manager
+Finding opportunities is the task of the discovery mechanisms described in
+section \ref{sec.discovery}.  When a new opportunity is available, the Discovery
+module dispatches a {\tt :opportunityAvailable} event which the contact manager
 subscribes.
 
 An opportunity event contains the type of the convergence layer, the remote EID
@@ -244,7 +378,7 @@ Announcer and receiver each run in their own threads, the receiver blocks in
 reading from its socket and the announcer sleeps most of the time and
 only wakes up in certain intervals to send out the announcements.
 
-The discovery module can be configure from the RDTN config file with the
+The discovery module can be configured from the RDTN config file with the
 following commands:
 
 \begin{verbatim}
@@ -280,7 +414,7 @@ implementation ({\tt DTN2/servlib/discovery/IPDiscovery.h}).
 
 RDTN facilitates the development and evaluation of experimental routing
 algorithms by providing a basic forwarding logic which can be extended by
-routing implementations. The current version of RDTN included two concrete
+routing implementations. The current version of RDTN includes two concrete
 routing schemes: a static table-based router and an implementation of the DTN
 Publish/Subscribe protocol (DPSP) \cite{dtn-pubsub} which also supports epidemic
 routing \cite{epidemic}.
@@ -291,7 +425,7 @@ doForward} method which takes a bundle, a list of links, and an action type
 identifier as parameters. The forwarder ignores a link, if the neighbor node
 that is the remote end of that link has already seen the bundle. Whether a
 neighbor has seen a bundle is determined by inspecting the bundle's forward log
-to see, if the bundle was received from the link's peer of if it was forwarded
+to see, if the bundle was received from the link's peer if it was forwarded
 to the peer before. As this mechanism works only on local forwarding data, it
 cannot detect routing loops involving more than two peers.  More general loop
 detection must be provided by the concrete routing schemes if it is required.
@@ -307,7 +441,7 @@ forwarder dispatches the {\tt :bundleForwarded} event.
 \subsection{Static Routing Tables}\label{sec.static-routing}
 
 The default routing scheme of RDTN is a static table-based routing which is
-ideal for small deterministic scenarios, but it becomes unpractical when the
+ideal for small deterministic scenarios, but it becomes impractical when the
 scenarios become larger and more dynamic.
 
 Routes can be set when the router receives the {\tt :routeAvailable} event which
@@ -346,7 +480,7 @@ persistent storage. The queue is then run through all filters and the remaining
 bundles are sorted based on the priorities. When more than one priority is
 configured, the sorting uses a majority vote. That means, when comparing two
 bundles A and B, their relative priority is assessed by each configured priority
-algorithm. When more algorithms assign a higher value to A, then A get a higher
+algorithm. When more algorithms assign a higher value to A, then A gets a higher
 total priority. When A is rated higher than B exactly as often as B is rated
 higher than A, their total priorities are equal.
 
@@ -365,11 +499,7 @@ those bundles that match the registration.
 
 \section{Persistent Storage}\label{sec.storage}
 
-Persistent storage is one of the main components of a DTN bundle router. RDTN
-implements its storage using the Ruby {\tt PStore}. The RDTN {\tt Storage}
-class is implemented as a singleton, so that only one store object exists in an
-instance of the RDTN daemon.
-
+RDTN implements its persisten storage using the Ruby {\tt PStore}.
 Bundles are the most important objects the store needs to take care of, but
 it also makes persistent copies of routing state (e.g. routing
 tables or history of previous contacts) and link configurations.
@@ -383,9 +513,9 @@ records and custody signals are generated.
 The RDTN application interface allows applications to send and receive bundles,
 query the persistent storage, and send application acknowledgements. This
 interface can be accessed inside the RDTN daemon process, so that it can be used
-by the interactive mode \ref{sec.interactive} and by extensions
-\ref{sec.extending}, as well as from separate processes either on the same
-machine or on another one connected via a network.
+by the interactive mode (see section \ref{sec.interactive}) and by extensions
+(see section \ref{sec.extending}), as well as from separate processes either on
+the same machine or on another one connected via a network.
 
 \subsection{Bundle Objects}\label{sec.bundle-obj}
 
@@ -409,31 +539,6 @@ of the bundle protocol to use the API. But it is still possible to leverage
 knowledge about the protocol and possibly extensions to implement more advanced
 functionality.
 
-RDTN bundle objects are implemented by {\tt Bundling::Bundle}. The objects
-contain a list of Bundle blocks, the first of which is always the primary bundle
-block (implemented by {\tt Bundling::PrimaryBundleBlock}). The list of blocks
-also contains an arbitrary number of objects derived from {\tt Bundling::Block},
-which includes the payload block ({\tt Bundling::PayloadBlock}). Bundle objects
-have a flag indicating whether custody was accepted for the bundle, a custody
-timer, and a log of the forwarding operations of this bundle. The log is
-implemented by {\tt Bundling::ForwardLog}, storing an entry for each time the
-bundle is received, transmitted, or a transmission error for the bundle is
-detected. An entry comprises of a timestamp, the action (i.e. if the bundle was
-received, replicated, or forwarded), the status (i.e. transmitted, in-flight, or
-transmission error), and a reference to the neighbor involved in the operation
-(i.e. the receiver or the sender depending on the action).
-
-{\bf TBD: the stuff about the forwardlog does not belong in this section}
-
-Bundle objects can be created optionally passing payload, source EID,
-destination EID, report-to EID, and custodian EID as parameters. Although the
-bundle class does not save most of the values such as source, destination, and
-payload itself but keeps them in the block classes, a bundle object responds
-directly to function calls by delegating them to the primary bundle block object
-(in the case of all fields and flags specified for that block in RFC 5050
-\cite{bundle-spec}) or to the payload block. Other blocks can be accessed
-through the list of blocks ({\tt Bundling::Bundle\#blocks}).
-
 \subsection{Sending Bundles}\label{sec.sending}
 
 RDTN provides two functions for sending bundles: {\tt sendBundle} and {\tt
@@ -452,9 +557,10 @@ used to fill this field.
 
 \subsection{Receiving Bundles}\label{sec.receiving}
 
-An application has to {\em register} if it wants to receive bundles using the
-{\tt register}-function. A registration is always bound to an EID. Applications 
-can register for any EID independent of the local EID of the RDTN instance.
+An application has to {\em register} itself with RDTN if it wants to receive bundles using
+the {\tt register}-function. A registration is always bound to an EID.
+Applications can register for any EID independent of the local EID of the RDTN
+instance.
 
 When a registration is added, RDTN passes all stored bundles matching the
 registered EID to the application. After that, whenever RDTN receives a bundle 
