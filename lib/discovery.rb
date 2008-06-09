@@ -22,7 +22,7 @@ require 'rerun_thread'
 require 'genparser'
 require 'ipaddr'
 require 'platform.rb'
-require 'time'
+require 'rdtntime'
 
 class Announcement
 

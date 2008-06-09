@@ -19,7 +19,7 @@ require "rdtnerror"
 require "rdtnevent"
 require "bundle"
 require "administrative"
-require "time"
+require "rdtntime"
 require "custodytimer"
 
 module Bundling

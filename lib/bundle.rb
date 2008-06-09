@@ -22,7 +22,7 @@ require "queue"
 require "eidscheme"
 require "rdtnevent"
 require "genparser"
-require "time"
+require "rdtntime"
 require "forwardlog"
 
 module Bundling

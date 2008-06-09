@@ -20,7 +20,7 @@ require "bundle"
 require "cl"
 require "eidscheme"
 require "monitor"
-require "time"
+require "rdtntime"
 
 class Neighbor
 

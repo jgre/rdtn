@@ -21,7 +21,7 @@ require "eidscheme"
 require "genparser"
 require "queue"
 require "clientregcl"
-require "time"
+require "rdtntime"
 
 class Subscription
 
