@@ -10,9 +10,7 @@
 
 \title{RDTN: A DTN Bundle Protcol Agent implemented in Ruby}
 
-\author{Janico Greifenberg \and Dirk Kutscher}
-\date{\$Date: 2008-02-19 11:56:03 +0100 (Tue, 19 Feb 2008) \$\\
-\$Rev: 535 \$}
+\author{Janico Greifenberg}
 
 \maketitle
 
@@ -34,14 +32,12 @@ Protocol (DPSP).
 
 \section{Introduction}\label{sec.intro}
 
-\section{Architecture}\label{sec.arch}
-
-We designed the RDTN architecture with the goal to create a platform for DTN
-research. That means, we want a simple implementation of the bundle protocol
-which can be easily and quickly extended for experiments of DTN-related research
-topics from convergence layers to applications. Another goal for RDTN is to make
-it usable, robust, and portable so that it can be used in field tests of DTNs
-with actual mobile devices.
+We designed RDTN with the goal to create a platform for DTN research.  We want a
+simple implementation of the bundle protocol which can be easily and quickly
+extended for experiments of DTN-related research topics from convergence layers
+to applications. Another goal for RDTN is to make it usable, robust, and
+portable so that it can be used in field tests of DTNs with actual mobile
+devices.
 
 RDTN is not supposed to be a reference implementation of the DTN bundle
 protocol, the aspect of extensibility and easy experimentation is more important
@@ -56,20 +52,49 @@ additional code into an RDTN process. Thus, RDTN does not require a mechanism
 for attaching extension in external processes. The dynamic type system allows
 extensions a greater flexibility than a static system would.
 
-{\bf TBD Examples}
-
-Another central concept of RDTN's design is the loose coupling of its
-components. The term component in case refers to conceptual units of RDTN, e.g.
-routing, persistent storage, or convergence layers. A component may be realized
-in different classes that can be complementary (such as convergence layers for
-TCP and UDP) or exclusive (such as implementations of different routing
-protocols). When the state of a component changes in such a way that is relevant
-to other components (e.g. a convergence layer detects that the connection to
-another bundle router is broken), it creates an event that is broadcast to all
+Another central concept of RDTN is the loose coupling of its components. The
+term component in case refers to conceptual units of RDTN, e.g.  routing,
+persistent storage, or convergence layers. A component may be realized in
+different classes that can be complementary (such as convergence layers for TCP
+and UDP) or exclusive (such as implementations of different routing protocols).
+When the state of a component changes in such a way that is relevant to other
+components (e.g. a convergence layer detects that the connection to another
+bundle router is broken), it creates an event that is broadcast to all
 interested in this incident (e.g. a lost link can be relevant for the contact
 management and routing components). The component sending an event does not need
 to know which components are interested in the event. A convergence layer, e.g.,
 does not need a reference to the routing algorithm currently used.
+
+This document provides a detailed description of how RDTN implements the bundle
+protocol and complementary tasks such as routing. We also describe possible uses
+of RDTN, but this text is not meant to serve as a manual for the use of RDTN.
+
+The following two sections cover global aspects of RDTN: section \ref{sec.arch}
+discusses the architectural choices of RDTN and the roll of the different
+components and section \ref{sec.genparser} describes the generic parser that is
+employed in RDTN wherever data from the network needs to be parsed.
+
+Sections \ref{sec.cl} through \ref{sec.config} describe each of the components
+of RDTN.  The implementation of convergence layers that DTN bundle protocol
+agents use to transmit bundles over lower layer protocols is described in
+section \ref{sec.cl}. Section \ref{sec.bundle-proc} covers the implementation of
+bundle objects and the processing steps bundles are subjected to. The contact
+management mechanisms used in RDTN to determine which other DTN nodes are
+available is documented in section \ref{sec.contact-mngt}. The routing schemes
+that are available and how further schemes can be implemented is described in
+section \ref{sec.routing}. Section \ref{sec.storage} discusses the component for
+persistent storage. The interface between RDTN and applications using it is the
+subject of \ref{sec.appif}. Section \ref{sec.config} briefly discusses how RDTN
+handles its configuration.
+
+The last part of this document discusses the use of RDTN as a research platform.
+Section \ref{sec.sim} explains the discrete event simulator integrated in RDTN
+and in section \ref{sec.extending} we describe how RDTN can be extended with
+routing protocols, storage schemes, convergence layers etc. Section
+\ref{sec.conclusions} concludes this technical report and highlights directions
+for future work.
+
+\section{Architecture}\label{sec.arch}
 
 Events are distributed between the components by an event dispatcher. This
 functionality is implemented in the class {\tt EventDispatcher}. An RDTN bundle
@@ -101,12 +126,14 @@ A new thread is started for each task that may block. These tasks include
 waiting for incoming connections and data in convergence layers, sending data,
 and time-triggered functions, such as deleting expired bundles.
 
+\section{Generic Parser}\label{sec.genparser}
+
 \section{Convergence Layers}\label{sec.cl}
 
 Convergence layers (CLs) define how the bundle protocol can be used over lower
-layer protocols. RDTN implements CLs for TCP \cite{tcp-cl}, UDP\footnote{The UDP
+layer protocols. RDTN implements CLs for TCP \cite{dtn-tcp-cl}, UDP\footnote{The UDP
 convergence layer has no specification. Our current implementation simply sends
-bundles as UDP datagrams}, and FLUTE \cite{flute-cl}.
+bundles as UDP datagrams}, and FLUTE \cite{uni-dtn}.
 
 Moreover, RDTN implements special CLs for simulations (see section
 \ref{sec.sim}) and for the application interface (see section \ref{sec.appif}).
@@ -147,7 +174,7 @@ described in section \ref{sec.arch}. When a link object is created it dispatches
 a {\tt :linkCreated} event informing the system of the link's existence. This
 event does not mean that the link is ready for communication, only when the {\tt
 :linkOpen} event is dispatched, data can be sent over that link. TCP links
-signal their opening, when the initial handshake specified in \cite{tcp-cl} is
+signal their opening, when the initial handshake specified in \cite{dtn-tcp-cl} is
 completed. The UDP and FLUTE CL dispatch this event, when a socket was created
 and the destination (host and port) has been specified.
 
@@ -798,6 +825,45 @@ for simulations.
 
 \section{Conclusions}\label{sec.conclusions}
 
-%\bibliography{bibtex/rn}
+In this technical report we presented RDTN and explained its design, its
+components, and how it can be used as a research platform. The flexible,
+light-wieght architecture and the use of a dynamic programming language allows
+for rapid development for extensions that implement proposed research protocols.
+The integrated simulator allows researches to test their proposal quickly and
+adapt them accordingly. It is even possible to use a testing framework such as
+the Ruby's unit tests, to continually verify the functionality of the
+extensions.
+
+As future work, we are planning to work on running RDTN on mobile devices such
+as cell phones and embedded routers, implementing reactive fragmentation of
+bundles and the bundle security specification \cite{bundle-security}, and to
+improve the performance of RDTN.
+
+Porting RDTN to mobile devices requires us to find a Ruby interpreter that runs
+on these. As many operating systems for cell phones provide a Java Virtual
+Machine, JRuby\footnote{http://www.jruby.org/} an implementation of the Ruby
+lagnuage in Java is a likely candidate for this project. However, the different
+implementations of Ruby are not entirely compatible yet and currently RDTN only
+works with version 1.8 of the reference implementation which is often referred
+to as {\em MRI}.
+
+Reactive fragmentation of bundles allows a bundle protocol agent to split a
+bundle into fragments after a transmission broke off and only a part of a bundle
+reached the other node. Without fragmentation the whole bundle would need to be
+re-transmitted on the opportunity. With reactive fragmentation only the 
+part that was not transmitted needs to be sent, thus saving bandwidth.
+
+As RDTN is essentially a research platform, simple solutions were preferred over
+optimizations during the initial development. However, in the future we will
+work on improving RDTN's performance so that it can be used even on slow mobile
+devices.
+
+Although RDTN is still under development, it is already usable for research
+purposes and has been used for evaluations in research papers.  In \cite{nsdr07}
+we evaluated the effectiveness of a unidirectional convergence layer implemented
+for RDTN and in \cite{dtn-pubsub} we used RDTN to implement and simulate our DTN
+Publish/Subscribe routing scheme.
+
+\bibliography{rn}
 
 \end{document}
