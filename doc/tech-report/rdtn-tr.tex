@@ -182,16 +182,22 @@ nodes.  Bundle objects have a flag indicating whether custody was accepted for
 the bundle, a custody timer, and a log of the forwarding operations performed on
 this bundle.
 
-{\bf TBD: deletion, mention workflow}
+The bundle and block classes implement parsing from and serialization to the
+wire format of bundles specified in RFC 5050 \cite{bundle-spec}. Parsing is
+implemented using the generic parser described in section \ref{sec.genparser}.
+The order of processing steps from receiving and parsing to forwarding is
+determined by the {\em bundle workflow} (see section \ref{sec.workflow}).
 
 \subsection{Bundle Blocks}\label{sec.bundle-blocks}
 
-The primary bundle block contains the basic information needed to route bundles
-to their destinations, such as the source and destination endpoint identifiers,
-bundle lifetime, and processing control flags. As these values are often
-accessed by RDTN components, the Bundle class provides a convenience short-cut
-for accessing the fields of the primary bundle block. So instead of retrieving
-the destination EID of a bundle by calling
+As the bundle is mainly a collection of blocks, the largest part of the
+implementation is located in the block classes. The primary bundle block
+contains the basic information needed to route bundles to their destinations,
+such as the source and destination endpoint identifiers, bundle lifetime, and
+processing control flags. As these values are often accessed by RDTN components,
+the Bundle class provides a convenience short-cut for accessing the fields of
+the primary bundle block. So instead of retrieving the destination EID of a
+bundle by calling
 
 {\tt bundle.blocks[0].srcEid}\\
 the value can be accessed by calling
@@ -273,13 +279,22 @@ Bundling::BundleWorkflow. The workflow object is notified of new data from the
 CLs by the event dispatcher initiating one workflow per bundle.
 
 As the convergence layers only deliver the raw data, the first step in the
-workflow is to {\bf parse} the bundle data. After that, the bundle is {\bf
-stored} in persistent memory. If the incoming bundle is a fragment of a larger
-bundle and other pieces of that bundle are available, the parts are {\bf
-reassembled}. {\bf Custody signals} and other {\bf administrative records} are
-handled next if necessary. The final step is to notify the routing
-implementation via the event dispatcher that the bundle is {\bf ready to be
-forwarded}.
+workflow is to {\bf parse} the bundle data.  When parsing a stream of input
+data, the code in the bundle class detects the type of the block at the current
+position in the stream and delegates the parsing process the appropriate block
+class. The block parser reads the data for a single block and hands back control
+to the bundle class updating the current position in the stream to point to the
+next byte after the block. This process continues until the last block has been
+parsed (a flag in the block data indicates which block is the last one) or an
+error occurs. If a bundle was not completely transmitted the parsing process is
+suspended until the rest of the data is delivered by the convergence layer.
+
+After that, the bundle is {\bf stored} in persistent memory. If the incoming
+bundle is a fragment of a larger bundle and other pieces of that bundle are
+available, the parts are {\bf reassembled}. {\bf Custody signals} and other {\bf
+administrative records} are handled next if necessary. The final step is to
+notify the routing implementation via the event dispatcher that the bundle is
+{\bf ready to be forwarded}.
 
 \subsection{Fragmentation and Reassembly}\label{sec.frag}
 
@@ -508,6 +523,8 @@ The storage object starts a thread on initialization that searches
 for expired bundles. Such bundles are deleted and the appropriate administrative
 records and custody signals are generated.
 
+{\bf deletion}
+
 \section{Application Interface}\label{sec.appif}
 
 The RDTN application interface allows applications to send and receive bundles,
@@ -672,6 +689,20 @@ one client each, relaying requests between the client to the daemon's internal
 interface.
 
 \section{Configuration}\label{sec.config}
+
+An settings for an RDTN node can made a configuration-file using Ruby commands
+similar to those available in the interactive mode. By default, this file is
+located in the lib subdirectory of the RDTN path, but different locations for
+the configuration may be specified on the command line.
+
+Internally, RDTN stores its configuration in an object of the class
+RdtnConfig::Settings which is passed to all components in the node that require
+access to the values. The settings can be accessed either through the
+configuration file or through the daemon object in interactive mode (see section
+\ref{sec.interactive}). The configuration file is loaded into the Ruby
+interpreter in the context of the RdtnConfig::Reader class, where values for
+storage, discovery, routing, links and interfaces are passed to the settings
+object or initializing the appropriate objects (e.g. convergence layers).
 
 \section{Simulations}\label{sec.sim}
 
