@@ -128,12 +128,107 @@ and time-triggered functions, such as deleting expired bundles.
 
 \section{Generic Parser}\label{sec.genparser}
 
+Components in RDTN need to deal with data read from the network and parse it
+according to definitions of the protocols used. The bundle processing needs to
+parse the bundle format, convergence layers need to parse the wrappers that
+adapt the bundle protocol to underlying protocols, and routing schemes need to
+parse the routing information exchanged between nodes.
+
+As implementing parsers for the various protocols involves similar recurring
+tasks, such as extracting character strings or numbers in binary format and
+converting them to a Ruby data type, we chose to provide a generic solution for
+these tasks that can be used by all RDTN components. The generic parser is
+integrated into the components in a concise way so that
+the implementation is easier to understand without confusing readers of the code
+with simple yet lengthy extraction logic. 
+
+The generic parser is not, however, applicable to implementing any protocol
+imaginable. It is designed to provide the functionality needed by RDTN only.
+When new requirements arise in future extensions, the concept of the generic
+parser is powerful enough so the code can be extended to accommodate the new
+tasks.
+
+The generic parser allows classes implementing a protocol to declare the fields
+they extract from an input stream. For example, a class implementing a trivial
+protocol with a one-byte version number, a one-byte field for flags, a two-byte
+length field, and content, contains the following definitions:
+
+\begin{verbatim}
+class Trivial
+
+  include GenParser
+
+  field :version,    :length => 1, :decode => GenParser::NumDecoder
+  field :flags,      :length => 1, :decode => GenParser::NumDecoder
+  field :contentLen, :length => 2, :decode => GenParser::NumDecoder
+  field :content,    :length => :contentLen
+
+end
+\end{verbatim}
+
+The {\tt include}-statement simply declares that this class uses the generic
+parser which is implemented as a Ruby Mixin. This Mixin adds the {\tt parse}
+instance method to the class, which is passed the input data as parameter and
+the {\tt field} class method that is used for declaring fields.
+
+ The field declarations have a symbolic name that must be unique in the class,
+the length in bytes, and a decoder which transforms the input bytes of the
+fields to the format that will be used for further processing.  The order in
+which the fields are declared is significant, as the parser observes this order
+when traversing the input.  The {\tt NumDecoder} in this example takes a number
+of bytes equal to the declared length and converts them to integers. When no
+decoder is given, the data is left untouched. Apart from the default decoders
+included in RDTN, new behaviour can be implemented as Ruby {\tt lambda} objects
+and passed to the field declarations.
+
+By default, the generic parser assigns the decoded content of a field to an
+instance variable named after the field. Customized behaviour can be implemented
+by giving a block or the name of an instance method to be called with the
+decoded content. If we wanted, for example, a special processing for the flags
+in the protocol above, the code can be modified as follows:
+
+\begin{verbatim}
+  field :flags, :length  => 1, :decode => GenParser::NumDecoder,
+                :handler => :splitFlags
+  
+  def splitFlags(flags)
+    @flag1 = (flags & 1) != 0
+    @flag2 = (flags & 2) != 0
+  end
+\end{verbatim}
+
+Implementations can declare conditions that must be satisfied for the parser to
+accept the input. When we the parser for out example protocol to accept only
+data with a version greater than 2, we update the declaration for the version
+field:
+
+\begin{verbatim}
+  field :version, :length => 1, :decode => GenParser::NumDecoder,
+                  :condition => lambda {|v| v > 2}
+\end{verbatim}
+
+Conditions are lambda objects that are called with the decoded content of the
+field and should return a boolean value.
+
+Internally, a field declaration generates an instance method for parsing the
+field. This method is called by the parser with the input stream positioned
+where the previous parser functions stopped. Field declarations also create
+attribute accessors so that the fields become public attributes of the class.
+
+When data is received over a network, applications often do not get it in the
+units of their protocols. This may be caused either by jitter or by the
+operating system passing chunks that do not necessarily coincide with
+application data units. To deal with such cases the generic parser indicates the
+incompleteness of the input to the calling code by raising an exception. When
+more data is received, the parser can be resumed taking the rest of the input.
+
 \section{Convergence Layers}\label{sec.cl}
 
 Convergence layers (CLs) define how the bundle protocol can be used over lower
 layer protocols. RDTN implements CLs for TCP \cite{dtn-tcp-cl}, UDP\footnote{The UDP
 convergence layer has no specification. Our current implementation simply sends
-bundles as UDP datagrams}, and FLUTE \cite{uni-dtn}.
+bundles as UDP datagrams which is compatible with the behaviour of the DTN
+reference implementation.}, and FLUTE \cite{uni-dtn}.
 
 Moreover, RDTN implements special CLs for simulations (see section
 \ref{sec.sim}) and for the application interface (see section \ref{sec.appif}).
