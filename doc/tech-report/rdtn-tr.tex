@@ -918,6 +918,108 @@ for simulations.
 
 \section{Extending RDTN}\label{sec.extending}
 
+As a research platform, RDTN's extensibility is at least as important as the
+functionality currently integrated. The loosely coupled design and the dynamic
+implementation language facilitate fast development of additional functionality.
+
+Extensions do not have to be specially compiled and loaded into RDTN as would be
+the case with many other languages. Instead, the extension -- which must be
+written in Ruby -- get loaded like any other code file.
+
+In order to interact with the RDTN core-functionality, extensions use two
+mechanisms: the event dispatcher and component registries. The event dispatcher
+(see section \ref{sec.arch}) can be used to receive notifications of changes of
+the state of other components and to send such notification when the extension
+changes its state. Component registries store information about the available
+classes that provide certain tasks, such as convergence layers, extension bundle
+blocks, or routing algorithms. Component registries are used to resolve settings
+in the configuration. When, e.g., the configuration parser encounters the
+instruction to use a routing algorithm, the registry for routers is queries for
+the corresponding implementation. Component registries are also used to find
+implementations for handling incoming data from other nodes. For example, when
+an extension block is found in a bundle, the bundle parser asks the registry of
+bundle blocks for the class implementing the type of the received block.
+
+Although there is no technical restriction of the functions for which extensions
+are used, we anticipate that extensions will implement convergence layers,
+extension bundle block, routing mechanisms, and processing steps for the bundle
+workflow. In the following we describe what requirements extensions for each of
+these functions have to satisfy.
+
+\subsection{Convergence Layers}\label{sec.ext.cls}
+
+As described in section \ref{sec.cl}, a convergence layer implementation
+consists of an interface and a link. This separation should also be observed by
+convergence layers implemented as extensions. The interface class and the link
+class must be registered with the {\tt CLReg} with a symbolic name for the
+convergence layer that can be used in the configuration and in the interactive
+mode (see section \ref{sec.interactive}).
+
+The link class should be derived from {\tt Link} and the interface class should
+be a subclass of {\tt Interface}.  The link class must implement {\tt open} and
+{\tt close} methods with start and stop the operation of the link. Interfaces
+should start working when they are created and must implement a {\tt close}
+method to be called when the interface should stop accepting connections and
+incoming data.
+
+Links should use the event dispatcher to notify the other components when it is
+crated, ready to communicate, or when it has received data as described in
+section \ref{sec.cl}.
+
+\subsection{Extension Bundle Blocks}\label{sec.ext.blocks}
+
+RFC 5050 \cite{bundle-spec} specifies that the different kinds bundle blocks are
+identified by an unambiguous {\em block type}. When the bundle parser in RDTN
+encounters a block, it queries the component registry for the class implementing
+the block type of the current block, instantiates that class, and lets the new
+block object parse the block.
+
+To allow that process to work with extension blocks, the implementation must
+provide a class for the block and register it with the {\tt BundleBlockReg}
+registry as the implementation of its block type. The block class must implement
+a {\tt parse} method to read the block. Furthermore, it must provide a
+serialization mechanism to write out the block's wire format when the bundle is
+prepared to be sent over the network. The serialization is called by the {\tt
+to\_s} method.
+
+\subsection{Routing Algorithms}\label{sec.ext.routing}
+
+A class implementing a routing scheme should be registered with {\tt RouterReg}
+so that it can be configured using a symbolic name. In order to keep track of
+available nodes, the router should subscribe to the {\tt :routeAvailable}, {\tt
+:neighborContact}, and {\tt :linkClosed} events. As the router must also notice
+when bundles are ready to be sent, it should also subscribe to the {\tt
+:bundleToForward} event sent by the bundle processing workflow.
+
+The classes implementing a router should inherit from the {\tt Router} class
+provided by the RDTN core, as it implements the basic forwarding behaviour in
+the method {\tt doForward}. The forwarding method takes a bundle object, a list
+of links, and the action to be performed -- forwarding or replication as
+described in section \ref{sec.forward-log}. The forwarded checks for each link,
+if it is still available and if the bundle has not already been sent to the
+neighbor (determined by the bundle's forwarding log). If the bundle is larger
+than the link can transmit in one action, the forwarder applies fragmentation to
+the bundle to accommodate the size constraints. Finally, when all checks have
+passed, the {\tt sendBundle} method of the link is called and an entry is added
+to the forwarding log.
+
+As an extension can rely on the forwarding method from the core, it only needs
+to determine when to send a bundle to another node.
+
+\subsection{Workflow Tasks}\label{sec.ext.workflow}
+
+When an extension wants to add processing steps to the bundle workflow (see
+section \ref{sec.workflow}, it has to implement a {\em task}. Tasks should be
+subclasses of {\tt TaskHandler} and provide two methods: {\tt processBundle} and
+{\tt processDeletion}. The former is called for new bundles that are going
+through the consecutive processing steps. The second method deals with the
+deletion of bundles. The order in which the tasks process the deletions is
+the reverse of the original processing order.
+
+Workflow tasks are registered with the {\tt WorkflowTaskReg} and assigned a
+priority. The processing order the determined by the priority starting with the
+smallest number.
+
 \section{Conclusions}\label{sec.conclusions}
 
 In this technical report we presented RDTN and explained its design, its
