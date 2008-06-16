@@ -1,10 +1,12 @@
-\documentclass{article}
+\documentclass[a4paper]{article}
 
 \usepackage[latin1]{inputenc}
 \usepackage{graphicx}
 \usepackage{times}
 
 \bibliographystyle{plain}
+
+\hyphenation{opportunityAvailable}
 
 \begin{document}
 
@@ -21,7 +23,7 @@ is light-weight and flexible so that it can be used in DTN application and
 protocol development as well as in research of DTN-related topics such as
 routing or convergence-layers. 
 
-RDTN provides a language-independent interface for client application, an
+RDTN provides a language-independent interface for client applications, an
 interactive environment for tests and a simulation mode for running multiple
 instances of the RDTN code in a simulated network environment. RDTN implements
 the bundle protocol (RFC 5050), convergence-layer adapters for TCP, UDP, and
@@ -32,87 +34,93 @@ Protocol (DPSP).
 
 \section{Introduction}\label{sec.intro}
 
-We designed RDTN with the goal to create a platform for DTN research.  We want a
+RDTN was designed with the goal to create a platform for DTN research. It is a
 simple implementation of the bundle protocol which can be easily and quickly
 extended for experiments of DTN-related research topics from convergence layers
 to applications. Another goal for RDTN is to make it usable, robust, and
-portable so that it can be used in field tests of DTNs with actual mobile
+portable so that it can be used in field tests of DTNs with mobile
 devices.
 
-RDTN is not supposed to be a reference implementation of the DTN bundle
+RDTN is no reference implementation of the DTN bundle
 protocol, the aspect of extensibility and easy experimentation is more important
 in its design than the completeness of the protocol implementation.
 
-The fundamental design choice for RDTN is the choice of
-Ruby\footnote{http://www.ruby-lang.org} as implementation language. Ruby is a
-dynamic programming language that allows simple and concise solutions to a wide
-range of programming problems. As Ruby programs do not have to be compiled
-explicitly before running them, extensions can be added by simply loading
-additional code into an RDTN process. Thus, RDTN does not require a mechanism
-for attaching extension in external processes. The dynamic type system allows
-extensions a greater flexibility than a static system would.
+We chose Ruby\footnote{http://www.ruby-lang.org} as implementation language,
+because this dynamic programming language allows simple and concise solutions to
+a wide range of programming problems. As Ruby programs do not have to be
+compiled explicitly before running them, extensions can be added by simply
+loading additional code into an RDTN process. Thus, RDTN does not require a
+mechanism for attaching extension in external processes. The dynamic type system
+allows extensions a greater flexibility than a static system would.
 
-Another central concept of RDTN is the loose coupling of its components. The
-term component in case refers to conceptual units of RDTN, e.g.  routing,
-persistent storage, or convergence layers. A component may be realized in
-different classes that can be complementary (such as convergence layers for TCP
-and UDP) or exclusive (such as implementations of different routing protocols).
-When the state of a component changes in such a way that is relevant to other
-components (e.g. a convergence layer detects that the connection to another
-bundle router is broken), it creates an event that is broadcast to all
-interested in this incident (e.g. a lost link can be relevant for the contact
-management and routing components). The component sending an event does not need
-to know which components are interested in the event. A convergence layer, e.g.,
-does not need a reference to the routing algorithm currently used.
+An instance of RDTN together with the applications using it, constitutes a DTN
+{\em node}. Nodes can run on a single machine, in simulators, or even
+distributed in a vehicular network.
 
-This document provides a detailed description of how RDTN implements the bundle
-protocol and complementary tasks such as routing. We also describe possible uses
-of RDTN, but this text is not meant to serve as a manual for the use of RDTN.
+A node is structured into conceptual {\em components}: or convergence layers,
+bundle handling, contact management, routing, and persistent storage.  Although
+the components need to communicate with each other and share state, they are
+loosely coupled. When the state of a component changes in such a way that is
+relevant to other components (e.g. a convergence layer detects that the
+connection to another bundle router is broken), it creates an event that is
+broadcast to all interested components in this incident (e.g. a lost link can be
+relevant for the contact management and routing components).
+
+This technical report provides a detailed description of how RDTN implements the
+bundle protocol and complementary tasks such as routing. We also describe
+possible uses of RDTN, but this text is not meant to serve as a manual for the
+use of RDTN.
 
 The following two sections cover global aspects of RDTN: section \ref{sec.arch}
-discusses the architectural choices of RDTN and the roll of the different
-components and section \ref{sec.genparser} describes the generic parser that is
-employed in RDTN wherever data from the network needs to be parsed.
+discusses the architectural choices of RDTN and section \ref{sec.genparser}
+describes the generic parser that is employed in RDTN wherever data from the
+network needs to be parsed.
 
 Sections \ref{sec.cl} through \ref{sec.config} describe each of the components
-of RDTN.  The implementation of convergence layers that DTN bundle protocol
-agents use to transmit bundles over lower layer protocols is described in
-section \ref{sec.cl}. Section \ref{sec.bundle-proc} covers the implementation of
-bundle objects and the processing steps bundles are subjected to. The contact
-management mechanisms used in RDTN to determine which other DTN nodes are
-available is documented in section \ref{sec.contact-mngt}. The routing schemes
-that are available and how further schemes can be implemented is described in
-section \ref{sec.routing}. Section \ref{sec.storage} discusses the component for
-persistent storage. The interface between RDTN and applications using it is the
-subject of \ref{sec.appif}. Section \ref{sec.config} briefly discusses how RDTN
-handles its configuration.
+of RDTN.  The implementation of {\em convergence layers} -- adaptors that DTN
+bundle protocol agents use to transmit bundles over lower layer protocols -- is
+described in section \ref{sec.cl}. Section \ref{sec.bundle-proc} covers the
+implementation of bundle objects and the processing steps bundles are subjected
+to. The contact management mechanisms used in RDTN to determine which other DTN
+nodes are available is documented in section \ref{sec.contact-mngt}. The routing
+schemes that are available are
+described in section \ref{sec.routing}. Section \ref{sec.storage} discusses the
+component for persistent storage. The interface between RDTN and applications
+using it is the subject of \ref{sec.appif}. Section \ref{sec.config} briefly
+discusses how RDTN handles its configuration.
 
 The last part of this document discusses the use of RDTN as a research platform.
 Section \ref{sec.sim} explains the discrete event simulator integrated in RDTN
 and in section \ref{sec.extending} we describe how RDTN can be extended with
-routing protocols, storage schemes, convergence layers etc. Section
+routing protocols, storage schemes, convergence layers, etc. Section
 \ref{sec.conclusions} concludes this technical report and highlights directions
 for future work.
 
 \section{Architecture}\label{sec.arch}
 
-Events are distributed between the components by an event dispatcher. This
-functionality is implemented in the class {\tt EventDispatcher}. An RDTN bundle
-router has one instance of this class and all components have a reference to it.
-The event dispatcher implements a simple mechanism for sending named events and
-subscribing to them.  This event mechanism allows extension to to notified of
-the state of any component without the component being aware of the extension.
+To explain the architecture of RDTN, we first describe its internal
+communication mechanism, the {\em event dispatcher}, and then look at the
+top-level functional processes RDTN deals with: receiving and routing a bundle,
+and encountering another DTN node.
 
-An event is identified by a Ruby symbol. The event dispatcher uses this
+To facilitate the loose coupling in RDTN, events are distributed between the
+components by an event dispatcher. An RDTN node has one instance of this class
+and all components have a reference to it.  The event dispatcher implements a
+simple mechanism for sending named events and subscribing to them.  This event
+mechanism allows extension to to notified of the state of any component without
+the component being aware of the extension.
+
+An event is identified by a symbolic name. The event dispatcher uses this
 identifier to map an event to all subscribing components. Events can have
 arbitrary arguments, which the dispatcher passes indiscriminately from source to
 sink.
 
 When a component subscribes to an event, it passes the event identifier and a
-Ruby block to the event dispatcher. Each time the event is triggered, the event
-dispatcher, executes the block, passing all the event's parameters.  The event
-dispatcher does not implement any threading behaviour itself, so that event
-handlers are executed in the thread in which the event was created.
+Ruby block -- i.e. a closure -- to the event dispatcher. Each time the event is
+triggered, the event dispatcher, executes the block, passing all the event's
+parameters.  The event dispatcher does not implement any threading behaviour
+itself, so that event handlers are executed in the thread in which the event was
+created.
 
 RDTN uses threads to be able to handle multiple tasks that can block, such as IO
 functions or timer triggered operations. Although multi-threading comes with the
@@ -122,13 +130,54 @@ level multiplexing mechanism to avoid having any dependencies besides the Ruby
 standard library. The threaded approach allows implementers of extensions to use
 any scheme for multiplexing they deem appropriate as long as it is thread-save.
 
-A new thread is started for each task that may block. These tasks include
-waiting for incoming connections and data in convergence layers, sending data,
-and time-triggered functions, such as deleting expired bundles.
+A new thread is started for each task that may incur long waiting periods. These
+tasks include waiting for incoming connections and data in convergence layers,
+sending data, and time-triggered functions, such as deleting expired bundles.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[height=7cm]{bundle-architecture.pdf}\\
+\caption{\label{fig.bundle-arch} Architecture for Bundle Handling}
+\end{center}
+\end{figure}
+
+Figure \ref{fig.bundle-arch} illustrates the first top-level process for RDTN:
+bundle handling. Incoming data from the network is received by a {\em
+convergence layer} component which extracts the bundle data and passes it on
+over the event dispatcher. Next, the {\em bundle workflow} component runs the
+data through a parser, lets the {\em persistent storage} save a copy of the
+bundle and performs additional processing steps explained in section
+\ref{sec.workflow}.
+
+After that the {\em routing} component get the bundle so
+that it can decide whether to pass the bundle to an application or if it should
+be forwarded to another node. In the latter case, the bundle is passed to a
+convergence layer (not necessarily the one over which is was received) for
+transmitting it over the network.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[height=7cm]{contact-architecture.pdf}\\
+\caption{\label{fig.contact-arch} Architecture for Contact Management}
+\end{center}
+\end{figure}
+
+Figure \ref{fig.contact-arch} shows how RDTN deals with contacts to neighboring
+DTN nodes. New contacts can be detected either directly by the convergence
+layers or be the {\em neighbor discovery} component. A convergence layer detects
+a contact when another node initiates the communication by sending data or by
+establishing a connection.  Neighbor discovery actively searches the current
+network environment for other nodes (see section \ref{sec.discovery}).
+
+When a convergence layer or the discovery component detect a new node, they
+dispatch an event that is handled by the {\em contact manager} that maintains a
+list of all available contacts. The information about the contact is passed on
+to the routing component so that it can consider the new node a receiver of
+bundles.
 
 \section{Generic Parser}\label{sec.genparser}
 
-Components in RDTN need to deal with data read from the network and parse it
+Several components in RDTN need to deal with data read from the network and parse it
 according to definitions of the protocols used. The bundle processing needs to
 parse the bundle format, convergence layers need to parse the wrappers that
 adapt the bundle protocol to underlying protocols, and routing schemes need to
@@ -150,17 +199,28 @@ tasks.
 
 The generic parser allows classes implementing a protocol to declare the fields
 they extract from an input stream. For example, a class implementing a trivial
-protocol with a one-byte version number, a one-byte field for flags, a two-byte
-length field, and content, contains the following definitions:
+protocol shown in figure \ref{fig.example-format} with a one-byte version
+number, a one-byte field for flags, a two-byte length field, and content,
+contains the following definitions:
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\columnwidth]{example-format.pdf}\\
+\caption{\label{fig.example-format} Format of the example protocol}
+\end{center}
+\end{figure}
 
 \begin{verbatim}
 class Trivial
 
   include GenParser
 
-  field :version,    :length => 1, :decode => GenParser::NumDecoder
-  field :flags,      :length => 1, :decode => GenParser::NumDecoder
-  field :contentLen, :length => 2, :decode => GenParser::NumDecoder
+  field :version,    :length => 1,
+                     :decode => GenParser::NumDecoder
+  field :flags,      :length => 1,
+                     :decode => GenParser::NumDecoder
+  field :contentLen, :length => 2,
+                     :decode => GenParser::NumDecoder
   field :content,    :length => :contentLen
 
 end
@@ -168,7 +228,7 @@ end
 
 The {\tt include}-statement simply declares that this class uses the generic
 parser which is implemented as a Ruby Mixin. This Mixin adds the {\tt parse}
-instance method to the class, which is passed the input data as parameter and
+instance method to the class, which gets the input data as parameter and
 the {\tt field} class method that is used for declaring fields.
 
  The field declarations have a symbolic name that must be unique in the class,
@@ -176,10 +236,10 @@ the length in bytes, and a decoder which transforms the input bytes of the
 fields to the format that will be used for further processing.  The order in
 which the fields are declared is significant, as the parser observes this order
 when traversing the input.  The {\tt NumDecoder} in this example takes a number
-of bytes equal to the declared length and converts them to integers. When no
+of bytes equal to the declared length and converts them to an integer. When no
 decoder is given, the data is left untouched. Apart from the default decoders
 included in RDTN, new behaviour can be implemented as Ruby {\tt lambda} objects
-and passed to the field declarations.
+(another way to define closures in Ruby) and passed to the field declarations.
 
 By default, the generic parser assigns the decoded content of a field to an
 instance variable named after the field. Customized behaviour can be implemented
@@ -188,7 +248,8 @@ decoded content. If we wanted, for example, a special processing for the flags
 in the protocol above, the code can be modified as follows:
 
 \begin{verbatim}
-  field :flags, :length  => 1, :decode => GenParser::NumDecoder,
+  field :flags, :length  => 1,
+                :decode => GenParser::NumDecoder,
                 :handler => :splitFlags
   
   def splitFlags(flags)
@@ -198,61 +259,58 @@ in the protocol above, the code can be modified as follows:
 \end{verbatim}
 
 Implementations can declare conditions that must be satisfied for the parser to
-accept the input. When we the parser for out example protocol to accept only
-data with a version greater than 2, we update the declaration for the version
-field:
+accept the input. Conditions are closures that are called with the decoded
+content of the field and should return a boolean value.  When we want the parser
+for out example protocol to accept only data with a version greater than 2, we
+update the declaration for the version field:
 
 \begin{verbatim}
-  field :version, :length => 1, :decode => GenParser::NumDecoder,
+  field :version, :length => 1,
+                  :decode => GenParser::NumDecoder,
                   :condition => lambda {|v| v > 2}
 \end{verbatim}
-
-Conditions are lambda objects that are called with the decoded content of the
-field and should return a boolean value.
 
 Internally, a field declaration generates an instance method for parsing the
 field. This method is called by the parser with the input stream positioned
 where the previous parser functions stopped. Field declarations also create
 attribute accessors so that the fields become public attributes of the class.
 
-When data is received over a network, applications often do not get it in the
-units of their protocols. This may be caused either by jitter or by the
-operating system passing chunks that do not necessarily coincide with
-application data units. To deal with such cases the generic parser indicates the
-incompleteness of the input to the calling code by raising an exception. When
-more data is received, the parser can be resumed taking the rest of the input.
+When data is received over a network, the application code often does not
+receive it in the units of its protocol. This may be caused either by jitter or
+by the operating system passing chunks that do not necessarily coincide with
+application data units. To deal with such cases, the generic parser indicates
+the incompleteness of the input to the calling code by raising an exception.
+When more data is received, the parser can be resumed taking the rest of the
+input.
 
 \section{Convergence Layers}\label{sec.cl}
 
 Convergence layers (CLs) define how the bundle protocol can be used over lower
-layer protocols. RDTN implements CLs for TCP \cite{dtn-tcp-cl}, UDP\footnote{The UDP
-convergence layer has no specification. Our current implementation simply sends
-bundles as UDP datagrams which is compatible with the behaviour of the DTN
-reference implementation.}, and FLUTE \cite{uni-dtn}.
-
-Moreover, RDTN implements special CLs for simulations (see section
-\ref{sec.sim}) and for the application interface (see section \ref{sec.appif}).
-Having the application interface behave like a convergence layer, allows routing
-schemes to treat local receives in the same way as remote nodes.
+layer protocols. RDTN implements CLs for TCP \cite{dtn-tcp-cl}, UDP\footnote{The
+UDP convergence layer has no specification. Our current implementation simply
+sends bundles as UDP datagrams which is compatible with the behaviour of the DTN
+reference implementation.}, and FLUTE \cite{uni-dtn}.  Moreover, RDTN implements
+special CLs for simulations (see section \ref{sec.sim}) and for the application
+interface (see section \ref{sec.appif}).
 
 Convergence layers in RDTN have two parts: interfaces and links. Interfaces wait
-for peers to initiale communication. For CLs for connection-oriented protocols
+for peers to initiate communication. For CLs for connection-oriented protocols
 like TCP, the interface opens a listening socket and waits for incoming
 connections. For connection-less protocols (UDP and FLUTE) the interface is
-responsible for receiving bunlde data sent by peers.
+responsible for receiving bundle data sent by peers.
 
 In connection-oriented CLs, links both send and receive bundle data over the
 bi-directional connection. When a connection-oriented interface accepts an
 incoming connection it creates a link object. Connection-less links send data to
-peers. Links for outgoing (regardless of whether or not the underlying protocol
-is connection-oriented) are created by configuration (see section
-\ref{sec.config}), from the interactive mode (see section
+peers. Links for outgoing transmissions (regardless of whether or not the
+underlying protocol is connection-oriented) are created by the configuration
+(see section \ref{sec.config}), from the interactive mode (see section
 \ref{sec.interactive}), or as a reaction to detecting a neighbor (see section
 \ref{sec.discovery}).
 
-RDTN has three opening policies for links: always on, on-demand, and
+RDTN has three opening policies for links: permanent, on-demand, and
 opportunistic. The first two types can only be created from the
-configuration or from the interactive mode. Always on links are opened as soon
+configuration or from the interactive mode. Permanent links are opened as soon
 as they are created and are only closed only in case of errors. On-demand links
 are not created before a routing algorithm tries to sent data over them and they
 are closed by the contact manager as soon as they are no longer needed.
@@ -277,26 +335,29 @@ When a link or interface receives data, it dispatches the {\tt :bundleData}
 event, which contains a reference to the link itself and to a queue where the
 incoming data can be read. This event does not signal that the data of the
 bundle has be received completely, because convergence layers are not
-necessarily aware of the structure of the data the receive. Determining the
+necessarily aware of the structure of the data they receive. Determining the
 boundaries of the bundle is the task of the bundle parser, the convergence layer
-only parses the data relevant to its own protocol. The bundle parser must be
-able to handle a bundle being received in chunks with multiple events sent by
+only parses the data relevant to its own protocol. The bundle parser can
+handle a bundle being received in chunks with multiple events sent by
 the CL.
 
 When a link is closed, it signals the {\tt :linkClosed} event to the rest of the
 system, so that no more data can be sent over this link. Links can be closed
 from the interactive mode (see section \ref{sec.interactive}) or in case of an
 error. Additionally, opportunistic and on-demand links are closed by the contact
-manager when their are no longer needed.
+manager when they are no longer needed.
 
 \section{Bundle Processing}\label{sec.bundle-proc}
 
-RDTN bundle objects are implemented by {\tt Bundle}. The objects
-contain a list of Bundle blocks, the first of which is always the primary bundle
-block (implemented by {\tt PrimaryBundleBlock}). The list of blocks
-also contains an arbitrary number of objects derived from {\tt Block},
-which includes the payload block ({\tt PayloadBlock}). The blocks
-contain all the data that is passed over the network between bundle agents. 
+As all application data RDTN daels with is encapsulated in {\em bundles} for
+transmission, bundle objects are the central data type in RDTN. RFC 5050
+\cite{bundle-spec} specifies that bundles are structured into {\em bundle
+blocks} so that RDTN's {\tt Bundle} objects primarily contain a list of block
+objects. The first block is always the primary bundle block (implemented by {\tt
+PrimaryBundleBlock}). The list of blocks also contains an arbitrary number of
+objects derived from {\tt Block}, which includes the payload block ({\tt
+PayloadBlock}). The blocks contain all the data that is passed over the network
+between bundle agents. 
 
 In addition to the protocol data in the blocks the bundle class holds
 information for the internal processing of bundles which is not passed to other
@@ -332,39 +393,39 @@ itself.
 
 All blocks except for the primary block, follow a canonical format defined in
 section 4.5.2 of RFC 5050 \cite{bundle-spec}. Parsing this format and the common
-processing flags are implemented as subclasses of Block.
-PayloadBlock is a subclass of Block implementing the container format
-for the application data transported by the bundles.
+processing flags are implemented as subclasses of {\tt Block}.  {\tt
+PayloadBlock} implements the container format for the application data
+transported by the bundles.
 
 All further block-types are optional and commonly named {\em extension bundle
-blocks}. RDTN implements the MetadataBlock specified in \cite{metadata-block}.
-Additional blocks can be implemented as extensions to RDTN as described in
+blocks}. RDTN implements the MetadataBlock specified in \cite{metadata-block}
+and additional blocks can be implemented as extensions to RDTN as described in
 section \ref{sec.extending}.
 
 \subsection{The Forwarding Log}\label{sec.forward-log}
 
 Each bundle in RDTN has exactly one forwarding log. The forwarding log holds
 information to keep track of when bundles are received and sent by an RDTN node.
-It is implemented by {\tt ForwardLog}, storing an entry for each time
-the bundle is received, transmitted, or a transmission error for the bundle is
-detected. An entry comprises of a timestamp, the action performed on the bundle,
-the status of the action, and a reference
-to the neighbor involved in the operation (i.e. the receiver or the sender
-depending on the action).
+It is implemented by {\tt ForwardLog}, storing an entry for each time the bundle
+is received, transmitted, or a transmission error is detected. An entry
+comprises of a timestamp, the action performed on the bundle, the status of the
+action, and a reference to the neighbor involved in the operation (i.e. the
+receiver or the sender depending on the action).
 
 The action is one of the following:
 \begin{description}
 
-\item[received] The bundle was received from another bundle protocol agent or
-the local application interface (see section \ref{sec.appif}). An entry with
-this action is always the first entry in a forwarding log.
+\item[Reception] The bundle was received from another bundle protocol agent or
+the local application interface (see section \ref{sec.appif}). 
+The first entry in a forwarding log always has this action.
 
-\item[replicated] The bundle was sent to another bundle protocol agent, and the
+\item[Replication] The bundle was sent to another bundle protocol agent, and the
 local node keeps the bundle and can send further replicas to other nodes. This
 action is used by routing schemes in which multiple copies of a bundle traverse
-the network to increase the chances for successful delivery to the destination.
+the network to increase the probability for successful delivery to the
+destination.
 
-\item[forwarded] The bundle was sent to another bundle protocol agent, and the
+\item[Forwarding] The bundle was sent to another bundle protocol agent, and the
 local node will not send any further copies to other nodes. This action is
 employed in routing schemes that allow only a single copy of the bundle in the
 network.
@@ -389,19 +450,19 @@ in-flight status indefinitely. In such configurations only routing protocols
 that do not depend on explicit success indications should be used.
 
 \item[transmission error] The action failed. The bundle will be kept and can be
-re-transmitted, even if the action is forward.
+re-transmitted, even if the action is forwarding.
 
 \end{description}
 
 \subsection{Bundle Workflow}\label{sec.workflow}
 
-After a bundle is received by a convergence layer, it is taken through a
-{\em workflow} for processing steps that are managed by an object of the class
-BundleWorkflow. The workflow object is notified of new data from the
-CLs by the event dispatcher initiating one workflow per bundle.
+After a bundle is received by a convergence layer, it is taken through a {\em
+workflow} that is managed by an object of the class BundleWorkflow. When the
+workflow object is notified of new data from the CLs through the event
+dispatcher it initiates a new workflow for each bundle.
 
 As the convergence layers only deliver the raw data, the first step in the
-workflow is to {\bf parse} the bundle data.  When parsing a stream of input
+workflow is to parse the bundle data.  When parsing a stream of input
 data, the code in the bundle class detects the type of the block at the current
 position in the stream and delegates the parsing process the appropriate block
 class. The block parser reads the data for a single block and hands back control
@@ -411,12 +472,12 @@ parsed (a flag in the block data indicates which block is the last one) or an
 error occurs. If a bundle was not completely transmitted the parsing process is
 suspended until the rest of the data is delivered by the convergence layer.
 
-After that, the bundle is {\bf stored} in persistent memory. If the incoming
+After that, the bundle is stored in persistent memory. If the incoming
 bundle is a fragment of a larger bundle and other pieces of that bundle are
-available, the parts are {\bf reassembled}. {\bf Custody signals} and other {\bf
-administrative records} are handled next if necessary. The final step is to
+available, the parts are reassembled. Custody signals and other
+administrative records are handled next if necessary. The final step is to
 notify the routing implementation via the event dispatcher that the bundle is
-{\bf ready to be forwarded}.
+ready to be forwarded.
 
 \subsection{Fragmentation and Reassembly}\label{sec.frag}
 
@@ -434,11 +495,11 @@ bundle. A bundle may be broken into fragments, even if it is already a fragment.
 The fragment offset is calculated relative to the original fragment offset, so
 that the offsets in all fragments are unambiguous.
 
-RDTN can only reassemble to consecutive fragments, there must not be a gab
+RDTN can only reassemble consecutive fragments, there must not be a gab
 between the end of the first fragment and the beginning of the second one to
 reassemble them. It is, however possible to reassemble only a part of the
 fragments of a bundle, so that the complete bundle can be recreated in several
-steps, even on different hosts.
+steps, even on different nodes.
 
 \section{Contact Management}\label{sec.contact-mngt}
 
@@ -450,7 +511,7 @@ implemented by the class {\tt ContactManager}.
 
 The contact manager maintains a list of all available links with their
 convergence layer type and their opening policy (on-demand, opportunistic, or
-always on as described in section \ref{sec.cl}). The contact manager also maps
+permanent as described in section \ref{sec.cl}). The contact manager also maps
 which links are connected to which neighbor nodes. Other components can use the
 contact management to resolve link names and remote EIDs to link objects. For
 example, routes can be configured by specifying the destination EID and either
@@ -459,20 +520,21 @@ forwarded, or the EID of an intermediate bundle router. When the routing
 component needs to use such a route, it asks the contact manager to return the
 appropriate link object.
 
-When the {\tt :linkCreated} is dispatched the ContactManager inserts a new Link
-object to its internal list.  On {\tt :linkClosed} the respective link object is
-removed from the internal list. The mapping between a link and its corresponding
-neighbor EID is created, when the contact manager receives the {\tt :linkOpen}
-event. That events also causes the contact manager to dispatch the {\tt
-:neighborContact} and {\tt :routeAvailable} events that are used by routing
-algorithms, to determine that a new neighbor is ready to receive bundles.
+When the {\tt :linkCreated} event is dispatched the ContactManager inserts a new
+link object to its internal list.  On {\tt :linkClosed} the respective link
+object is removed from the internal list. The mapping between a link and its
+corresponding neighbor EID is created, when the contact manager receives the
+{\tt :linkOpen} event. That events also causes the contact manager to dispatch
+the {\tt :neighborContact} and {\tt :routeAvailable} events that are used by
+routing algorithms, to determine that a new neighbor is ready to receive
+bundles.
 
 \subsection{Contact Opportunities}
 
 Finding opportunities is the task of the discovery mechanisms described in
 section \ref{sec.discovery}.  When a new opportunity is available, the Discovery
-module dispatches a {\tt :opportunityAvailable} event which the contact manager
-subscribes.
+module dispatches an event of the type {\tt :opportunityAvailable} to which the
+contact manager subscribes.
 
 An opportunity event contains the type of the convergence layer, the remote EID
 if it is available, and CL-specific parameters (hostname or IP address and a
@@ -496,56 +558,34 @@ that is started when the contact manager is initialized.
 \subsection{Neighbor Discovery}\label{sec.discovery}
 
 Neighbor Discovery has the purpose to detect other bundle routers and announce
-the presence of the local bundle router. If another router is found, the
+the presence of the local RDTN node. If another router is found, the
 discovery module dispatches an event that allows RDTN to create a link.
 
-The initial version of neighbor discovery in RDTN uses UDP multicast to send and
-receive announcements. This is compatible with the neighbor discovery in the
-DTN2 reference
+RDTN uses UDP multicast to send and receive announcements. This is compatible
+with the neighbor discovery in the DTN2 reference
 implementation.\footnote{http://www.dtnrg.org/wiki/NeighborDiscovery} 
 
-{\bf TBD: Description of the Avahi stuff}
-
 The neighbor discovery module has two parts, the announcer and the receiver. The
-announcer part sends beacons for all configured interfaces in regular intervals,
-the receiver waits for incoming announcements from other bundle routers. When an
-announcement is received, the receiver part dispatches an event.
+announcer part sends beacons for all configured interfaces in regular intervals.
+The receiver waits for incoming beacons. When a beacon announcement is received,
+the receiver part dispatches the {\tt :opportunityAvailable} event with the
+convergence layer type, the address and port of the remote interface, and the
+endpoint identifier of the remote bundle router.
 
 Announcer and receiver each run in their own threads, the receiver blocks in
 reading from its socket and the announcer sleeps most of the time and
 only wakes up in certain intervals to send out the announcements.
 
-The discovery module can be configured from the RDTN config file with the
-following commands:
-
-\begin{verbatim}
-  discovery :address ADDR :port PORT :interval INTERVAL
-  discovery :announce INTERFACES
-\end{verbatim}
-
-The first command configures the multicast address and the port used by both
-announcer an receiver. It also configures the interval between the
-announcements.  The second command configures the interfaces that should be
-announced.  {\tt INTERFACES} is a list of strings which identify previously
-configured interfaces.
-
-When the receiver gets an announcement, it dispatches an {\tt
-:opportunityAvailable} event with the convergence layer type, the address and
-port of the remote interface, and the endpoint identifier of the remote bundle
-router.
-
 RDTN neighbor discovery uses the message format from the DTN2 reference
-implementation ({\tt DTN2/servlib/discovery/IPDiscovery.h}).
+implementation. The generic parser is used to convert the binary beacons into
+the internal format which is shown in figure \ref{fig.discovery-format}.
 
-\begin{verbatim}
-  u_int8_t cl_type;         // Type of CL offered
-  u_int8_t interval;        // 100ms units
-  u_int16_t length;         // total length of packet
-  u_int32_t inet_addr;      // IPv4 address of CL
-  u_int16_t inet_port;      // IPv4 port of CL
-  u_int16_t name_len;       // length of EID
-  char sender_name[0];      // DTN URI of beacon sender
-\end{verbatim}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\columnwidth]{discovery-format.pdf}\\
+\caption{\label{fig.discovery-format} Format of the Discovery Beacon}
+\end{center}
+\end{figure}
 
 \section{Routing}\label{sec.routing}
 
@@ -562,14 +602,15 @@ doForward} method which takes a bundle, a list of links, and an action type
 identifier as parameters. The forwarder ignores a link, if the neighbor node
 that is the remote end of that link has already seen the bundle. Whether a
 neighbor has seen a bundle is determined by inspecting the bundle's forward log
-to see, if the bundle was received from the link's peer if it was forwarded
+to see if the bundle was received from the link's peer or if it was forwarded
 to the peer before. As this mechanism works only on local forwarding data, it
 cannot detect routing loops involving more than two peers.  More general loop
 detection must be provided by the concrete routing schemes if it is required.
 
 The forwarder adds an entry to the forward log of the bundle that contains the
-status {\tt :inflight} and the action that the concrete routing scheme passed to
-the forwarding function. Then the {\tt sendBundle}-function of the link object
+in-flight status and the action that the concrete routing scheme passed to
+the forwarding function (forwarding or replication as described in section
+\ref{se.forwarding-log}). Then the {\tt sendBundle}-function of the link object
 is called. If an error occurs in this call, the new forward log entry is updated
 to an error status. The concrete router implementation has to decide how this
 state is handled. When the convergence layer does not raise an error, the
@@ -592,43 +633,46 @@ the neighbor with that EID. As this is recursive, there must be at least one
 destination that is mapped to a link and not to another EID, otherwise no bundle
 will ever be forwarded.
 
-The static router always uses the {\tt :forward} action, which means that it
+The static router always uses the forwarding action, which means that it
 passes each bundle to at most one neighbor. It does not replicate bundles in the
 network.
 
-When the static router receives the {\tt :bundleToForward} event, it searches
-for a routing table entry that matches the bundle's destination and forwards it.
-On {\tt :routeAvailable} the router searches the persistent storage for bundles
-that match the new entry's destination and forwards the bundles that are found.
+When the static router receives the {\tt :bundleToForward} event that is created
+by the bundle workflow, it searches for a routing table entry that matches the
+bundle's destination and forwards it.  On {\tt :routeAvailable} the router
+searches the persistent storage for bundles that match the new entry's
+destination and forwards the bundles that are found.
 
 \subsection{Priority-based Routing}\label{sec.prio-routing}
 
 A more flexible router that we have implemented in RDTN is the {\tt
 PriorityRouter} which implements an optimized flooding scheme. A set of
 priorities and filters as defined by the DTN Publish/Subscribe Protocol (DPSP)
-can be configured for this router. When no priorities or filters are used, the
-router falls back to epidemic routing.
+\cite{dtn-pubsub} can be configured for this router. When no priorities or
+filters are used, the router falls back to epidemic routing\cite{epidemic}.
+
 
 The priority-based router maintains a queue for each active contact. When DPSP
-is used, the first step after the router received the {\tt :neigborContact}
-event and created the queue, is to exchange a list of subscriptions as described
-in \cite{dtn-pubsub}. After that, the queue is filled with all bundles from the
-persistent storage. The queue is then run through all filters and the remaining
-bundles are sorted based on the priorities. When more than one priority is
-configured, the sorting uses a majority vote. That means, when comparing two
-bundles A and B, their relative priority is assessed by each configured priority
-algorithm. When more algorithms assign a higher value to A, then A gets a higher
-total priority. When A is rated higher than B exactly as often as B is rated
-higher than A, their total priorities are equal.
+is used, the first step after the router received the {\tt :neighborContact}
+event and created the queue, is to exchange a list of subscriptions.  After
+that, the queue is filled with all bundles from the persistent storage. The
+queue is then run through all filters and the remaining bundles are sorted based
+on the priorities. When more than one priority is configured, the sorting uses a
+majority vote. That means, when comparing two bundles A and B, their relative
+priority is assessed by each configured priority algorithm. When more algorithms
+assign a higher value to A, then A gets a higher total priority. When A is rated
+higher than B exactly as often as B is rated higher than A, their total
+priorities are equal.
 
-Next, the router forwards the bundles from the queued starting with the one with
+Next, the router forwards the bundles from the queue starting with the one with
 the highest priority by passing each bundle to the forwarding function of the
-basic router described above. The priority-based router uses the {\tt
-:replicate} action, so that multiple copies of a bundle can exist in a network.
-After the bundle was forwarded it is deleted from the queue. When a {\tt
-:bundleToForward} event is received, the new bundle is added to all active
-queues which are passed through the filters and sorted again before commencing
-to forward bundles.
+basic router described above. The priority-based router uses replication, so
+that multiple copies of a bundle can exist in a network.  After the bundle was
+forwarded it is deleted from the queue.
+
+When a {\tt :bundleToForward} event is received, the new bundle is added to all
+active queues which are passed through the filters and sorted again before
+commencing to forward bundles.
 
 While the static router treats local registrations like links to remote peers,
 the priority-based router maintains a separate list of local links that get only
@@ -636,10 +680,12 @@ those bundles that match the registration.
 
 \section{Persistent Storage}\label{sec.storage}
 
-RDTN implements its persisten storage using the Ruby {\tt PStore}.
+RDTN implements its persistent storage using the Ruby {\tt PStore}.
 Bundles are the most important objects the store needs to take care of, but
 it also makes persistent copies of routing state (e.g. routing
 tables or history of previous contacts) and link configurations.
+
+{\bf Explain PStore}
 
 The storage object starts a thread on initialization that searches
 for expired bundles. Such bundles are deleted and the appropriate administrative
@@ -650,11 +696,11 @@ records and custody signals are generated.
 \section{Application Interface}\label{sec.appif}
 
 The RDTN application interface allows applications to send and receive bundles,
-query the persistent storage, and send application acknowledgements. This
-interface can be accessed inside the RDTN daemon process, so that it can be used
-by the interactive mode (see section \ref{sec.interactive}) and by extensions
-(see section \ref{sec.extending}), as well as from separate processes either on
-the same machine or on another one connected via a network.
+query the persistent storage, and send end-to-end application acknowledgements.
+This interface can be accessed inside the RDTN daemon process, so that it can be
+used by the interactive mode (see section \ref{sec.interactive}) and by
+extensions (see section \ref{sec.extending}), as well as from separate processes
+either on the same machine or on another one connected via a network.
 
 \subsection{Bundle Objects}\label{sec.bundle-obj}
 
@@ -686,7 +732,7 @@ and passes it to the router as incoming bundle. The second function takes the
 payload, the destination EID, and optionally the source EID and creates a new
 bundle object which is passed to the router.
 
-For either function RDTN expands the source EID if it is not a valid URI. In
+For either function, RDTN expands the source EID if it is not a valid URI. In
 that case the given string is taken as an application tag which is suffixed to
 the local EID. For example, when the local EID configured for RDTN is {\tt
 dtn://test.dtn/} and a sending function is called with the source EID {\tt app},
@@ -696,10 +742,10 @@ used to fill this field.
 
 \subsection{Receiving Bundles}\label{sec.receiving}
 
-An application has to {\em register} itself with RDTN if it wants to receive bundles using
-the {\tt register}-function. A registration is always bound to an EID.
-Applications can register for any EID independent of the local EID of the RDTN
-instance.
+An application has to {\em register} itself with RDTN if it wants to receive
+bundles. A registration is always bound to an
+EID.  Applications can register for any EID independent of the local EID of the
+RDTN instance.
 
 When a registration is added, RDTN passes all stored bundles matching the
 registered EID to the application. After that, whenever RDTN receives a bundle 
@@ -712,8 +758,9 @@ the {\tt register}-function takes a block which is called for each received
 bundle matching the registration.
 
 When the application has received a bundle, it can generate an {\em application
-acknowledgement} that is sent to the bundle's source. Such a message can be
-generated using the {\tt applicationAck}-function.
+acknowledgement} that is sent to the bundle's source. The application only needs
+to provide the identification of the bundle, the creation and addressing of the
+actual status report is handled by RDTN.
 
 \subsection{Interactive Mode}\label{sec.interactive}
 
@@ -725,21 +772,20 @@ RDTN.
 RDTN can be used interactively simply by loading the daemon as a module in
 Ruby's interactive interpreter irb. {\tt irb -r lib/daemon.rb}
 
-{\bf TBD: installation for RDTN so we get the paths right.}
-
 An interactive RDTN session with irb automatically creates a Daemon object (an
 instance of the class {\tt Daemon}) which is assigned to the global
 variable {\tt \$daemon}. This object can be used to send bundles (see section
-\ref{sec.sending}, register for receiving bundles (see section
+\ref{sec.sending}), register for receiving bundles (see section
 \ref{sec.receiving}), and to manipulate the daemon's configuration. No
 configuration file is read when an interactive session is started. Instead the
-daemon uses a default configuration without convergence layer and with a static
+daemon uses a default configuration without convergence layers and with a static
 table based router. When a configuration file is needed, it can be loaded
 using the {\tt parseConfigFile}-function. Routing configuration, convergence
 layers, storage settings, and discovery modules (see section
 \ref{sec.contact-mngt}) can be manipulated through the daemon object.
 
-An example session which sends a bundle to itself could look like this:
+An example session which sends a bundle to itself and prints the payload on
+standard output could look like this:
 
 \begin{verbatim}
 > $daemon.register("dtn://rdtn/test") do |b|
@@ -758,17 +804,16 @@ the daemon to use the application interface. We anticipate that most
 applications will run on the same device as the daemon, but the interface can be
 used over a network, as it is based on TCP. The application interface is,
 however, not intended to be used over a challenged network, so the connections
-are expected to be stable and have short round-trip times. A use case for
-distributed applications is a vehicular network, where an RDTN router is
-installed in a vehicle to handle communications in the challenged environment
-while the vehicle is moving. Other devices in the vehicle can run the
-applications which use the RDTN daemon.
+are expected to be stable and have short round-trip times.
+
+A use case for distributed applications is a vehicular network, where an RDTN
+router is installed in a vehicle to handle communications in the challenged
+environment while the vehicle is moving. Other devices in the vehicle can run
+the applications which use the RDTN daemon.
 
 The client protocol is designed with three goals in mind: language-independence,
 straight-forward integration with the Ruby code of the daemon, and efficient
 handling of large binary payloads. 
-
-{\bf TBD: extend this part, when the YAML stuff is implemented.}
 
 The protocol has two categories of messages: Requests sent from client to the
 daemon that directly responds, and asynchronous messages from the daemon to the
@@ -801,8 +846,6 @@ The arguments of the request are the same as for the functions. The {\tt
 and messages of type {\tt :bundles} have a list of bundles as their arguments,
 even when there is only a single bundle.
 
-{\bf TBD: encoding}.
-
 The daemon-side of this protocol is implemented in the classes {\tt
 AppInterface} and {\tt AppLink}. The objects of the former class
 wait for incoming connections and create objects of the latter class when a
@@ -812,13 +855,13 @@ interface.
 
 \section{Configuration}\label{sec.config}
 
-An settings for an RDTN node can made a configuration-file using Ruby commands
+The settings for an RDTN node can made a configuration-file using Ruby commands
 similar to those available in the interactive mode. By default, this file is
-located in the lib subdirectory of the RDTN path, but different locations for
-the configuration may be specified on the command line.
+located in the {\tt lib} subdirectory of the RDTN path, but different locations
+for the configuration may be specified on the command line.
 
 Internally, RDTN stores its configuration in an object of the class
-Settings which is passed to all components in the node that require
+{\tt Settings} which is passed to all components in the node that require
 access to the values. The settings can be accessed either through the
 configuration file or through the daemon object in interactive mode (see section
 \ref{sec.interactive}). The configuration file is loaded into the Ruby
@@ -836,7 +879,7 @@ The simulator runs multiple nodes, each of which is an instance of the RDTN
 code. All nodes in a simulation run in one Ruby interpreter, but they are still
 independent, because each uses its own configuration and event dispatcher. All
 communication between the simulated nodes is handled by convergence layers
-as it is for ``real'' nodes connected over a network.
+as if they were ``real'' nodes connected over a network.
 
 Nodes are implemented by the class {\tt Node} which is derived from {\tt
 Daemon}, the class for ``real'' nodes. Because of this derivation, the node
@@ -854,16 +897,16 @@ on the simulation host machine.
 
 Nodes and the links between them are managed by the {\em simulation core}.  The
 core has its own event dispatcher that is independent of the dispatchers used by
-the nodes. The core together with the nodes and the simulation convergence
-layer provides the infrastructure for simulating delay-tolerant networks; in
-order to run a simulation, a {\em network model} and a {\em workload} are
-needed. In the following sections we present how the core manages the events and
-the passage of simulation time, how the simulation convergence layer works, and
-how network models and workloads are used for running simulations.
+the nodes. The core together with the nodes and the simulation convergence layer
+provides the infrastructure for simulating delay-tolerant networks; in order to
+run a simulation, a {\em network model} and a {\em workload} are needed. In the
+following sections, we present how the core manages the events and the passage
+of simulation time, how the simulation convergence layer works, and how network
+models and workloads are used for running simulations.
 
 \subsection{Event Processing and Timing}\label{sec.sim.events}
 
-As the RDTN simulation module is a discrete event simulator is deals with a
+As the RDTN simulation module is a discrete event simulator, it deals with a
 sequence of events. In RDTN there are events to connect and disconnect nodes, to
 send data between nodes, and to execute code for the workload. The events are
 stored in a queue that is initialized before starting the simulation and
@@ -898,19 +941,19 @@ The simulation convergence layer has the distinction between link and interface
 used by all convergence layers (see section \ref{sec.cl}) and is implemented in
 {\tt MemoryLink} and {\tt MemoryInterface}.
 
-When the simulation core receives a {\tt :simConnection} event, it creates a new
-memory link between the nodes attached to the event. This link can be used by
-both nodes like any other bi-directional convergence layer link to send and
-receive bundles. The link is taken down when the core receives a {\tt
-:simDisconnection} event for the connected nodes.
+When a connection event is taken from the queue, the simulation core creates a
+new memory link between the nodes attached to the event. This link can be used
+by both nodes like any other bi-directional convergence layer link to send and
+receive bundles. The link is taken down when the core receives a disconnection
+event for the connected nodes.
 
 When the router in a simulated node decides to forward a bundle, the memory link
 takes the bundle and adds it to its outgoing queue. As the links have rate
-limits, only the number of bytes that can be sent in a second are copied to the
+limits, only the number of bytes that can be sent in a second is copied to the
 receiving link object, the rest of the bundle remains in the queue. In order to
-transmit all the queued data, the link add a new event for the simulator event
+transmit all the queued data, the link adds a new event for the simulator event
 queue that is scheduled for the next second. When that event is received, the
-next chunk the can be transmitted in one second is copied.
+next chunk that can be transmitted in one second is copied.
 
 \subsection{Using RDTN Simulations for Experiments}\label{sec.sim.experiments}
 
@@ -924,11 +967,10 @@ used as input for the ns2 network
 simulator\footnote{http://www.isi.edu/nsnam/ns/} and for the data gathered by
 the MIT reality mining project.
 
-All sources of connectivity events add events to the simulator's event queue
+All sources of connectivity events add events to the simulator's event queue.
 Connectivity events are associated with the time when
 they are executed, a pair of node identifiers, and the type of the event (i.e.
-connect or disconnect). The first node identifier refers to the node initiating
-a link to the node identified by the second one.
+connect or disconnect).
 
 While input from trace parsers is necessary to simulate realistic networks of
 any complexity, simpler scenarios are often useful in the first stages of
@@ -948,7 +990,7 @@ The workload can either schedule actions such as sending bundles by adding
 events or it can connect to events that are triggered inside a node. For
 example, a workload could be implemented to send a response whenever a certain
 node receives a bundle. As the simulated nodes inherit the behaviour of the RDTN
-daemon, the programmed action can be implemented using the functions show for
+daemon, the programmed action can be implemented using the functions shown for
 the interactive mode in section \ref{sec.interactive}.
 
 \section{Extending RDTN}\label{sec.extending}
@@ -958,7 +1000,7 @@ functionality currently integrated. The loosely coupled design and the dynamic
 implementation language facilitate fast development of additional functionality.
 
 Extensions do not have to be specially compiled and loaded into RDTN as would be
-the case with many other languages. Instead, the extension -- which must be
+the case with many other languages. Instead, the extensions -- which must be
 written in Ruby -- get loaded like any other code file.
 
 In order to interact with the RDTN core-functionality, extensions use two
@@ -969,14 +1011,14 @@ changes its state. Component registries store information about the available
 classes that provide certain tasks, such as convergence layers, extension bundle
 blocks, or routing algorithms. Component registries are used to resolve settings
 in the configuration. When, e.g., the configuration parser encounters the
-instruction to use a routing algorithm, the registry for routers is queries for
+instruction to use a routing algorithm, the registry for routers is queried for
 the corresponding implementation. Component registries are also used to find
 implementations for handling incoming data from other nodes. For example, when
 an extension block is found in a bundle, the bundle parser asks the registry of
 bundle blocks for the class implementing the type of the received block.
 
 Although there is no technical restriction of the functions for which extensions
-are used, we anticipate that extensions will implement convergence layers,
+are used, we expect that extensions will implement convergence layers,
 extension bundle block, routing mechanisms, and processing steps for the bundle
 workflow. In the following we describe what requirements extensions for each of
 these functions have to satisfy.
@@ -992,13 +1034,13 @@ mode (see section \ref{sec.interactive}).
 
 The link class should be derived from {\tt Link} and the interface class should
 be a subclass of {\tt Interface}.  The link class must implement {\tt open} and
-{\tt close} methods with start and stop the operation of the link. Interfaces
+{\tt close} methods which start and stop the operation of the link. Interfaces
 should start working when they are created and must implement a {\tt close}
 method to be called when the interface should stop accepting connections and
 incoming data.
 
 Links should use the event dispatcher to notify the other components when it is
-crated, ready to communicate, or when it has received data as described in
+created, ready to communicate, or when it has received data as described in
 section \ref{sec.cl}.
 
 \subsection{Extension Bundle Blocks}\label{sec.ext.blocks}
@@ -1028,18 +1070,8 @@ when bundles are ready to be sent, it should also subscribe to the {\tt
 
 The classes implementing a router should inherit from the {\tt Router} class
 provided by the RDTN core, as it implements the basic forwarding behaviour in
-the method {\tt doForward}. The forwarding method takes a bundle object, a list
-of links, and the action to be performed -- forwarding or replication as
-described in section \ref{sec.forward-log}. The forwarded checks for each link,
-if it is still available and if the bundle has not already been sent to the
-neighbor (determined by the bundle's forwarding log). If the bundle is larger
-than the link can transmit in one action, the forwarder applies fragmentation to
-the bundle to accommodate the size constraints. Finally, when all checks have
-passed, the {\tt sendBundle} method of the link is called and an entry is added
-to the forwarding log.
-
-As an extension can rely on the forwarding method from the core, it only needs
-to determine when to send a bundle to another node.
+the method {\tt doForward}.  As an extension can rely on the forwarding method
+from the core, it only needs to determine when to send a bundle to another node.
 
 \subsection{Workflow Tasks}\label{sec.ext.workflow}
 
@@ -1061,7 +1093,7 @@ In this technical report we presented RDTN and explained its design, its
 components, and how it can be used as a research platform. The flexible,
 light-wieght architecture and the use of a dynamic programming language allows
 for rapid development for extensions that implement proposed research protocols.
-The integrated simulator allows researches to test their proposal quickly and
+The integrated simulator allows researchers to test ideas quickly and
 adapt them accordingly. It is even possible to use a testing framework such as
 the Ruby's unit tests, to continually verify the functionality of the
 extensions.
