@@ -11914,7 +11914,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="3.4847215"
-     inkscape:cx="65.553345"
+     inkscape:cx="116.05953"
      inkscape:cy="116.22163"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -13764,19 +13764,81 @@
          y="553.76819">Network</tspan></text>
     <text
        xml:space="preserve"
-       style="font-size:7.99999857px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
-       x="-101.66955"
-       y="500.10654"
+       style="font-size:7.99999714px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+       x="-117.6414"
+       y="486.86111"
        id="text7616"
        sodipodi:linespacing="125%"
        transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
          sodipodi:role="line"
          id="tspan7618"
-         x="-101.66955"
-         y="500.10654">Event Dispatcher</tspan></text>
+         x="-117.6414"
+         y="486.86111">Event Dispatcher</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:7.99999714px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+       x="-12.848249"
+       y="583.64081"
+       id="text7620"
+       sodipodi:linespacing="125%"
+       transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
+         sodipodi:role="line"
+         id="tspan7622"
+         x="-12.848249"
+         y="583.64081">Event Dispatcher</tspan></text>
     <g
        id="g6585"
        transform="translate(2.6966964,5.3934452)">
+      <g
+         style="display:inline"
+         id="g11111"
+         transform="translate(57.92295,26.905057)">
+        <rect
+           style="opacity:1;fill:none;fill-opacity:0.98039216;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+           id="rect11117"
+           width="53.934452"
+           height="20.375238"
+           x="341.48529"
+           y="310.04254" />
+        <g
+           id="g11686">
+          <g
+             style="display:inline;fill:#ffffff;fill-opacity:1"
+             transform="translate(-61.366556,-26.905052)"
+             id="g6655">
+            <text
+               xml:space="preserve"
+               style="font-size:8px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+               x="407.76749"
+               y="352.12378"
+               id="text6541"
+               sodipodi:linespacing="125%"
+               transform="translate(-2.6966964,-5.3934452)"><tspan
+                 sodipodi:role="line"
+                 id="tspan6543"
+                 x="407.76749"
+                 y="352.12378">Applications</tspan></text>
+            <rect
+               y="334.43472"
+               x="400.31351"
+               height="20.375238"
+               width="53.934452"
+               id="rect6651"
+               style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+          </g>
+          <text
+             xml:space="preserve"
+             style="font-size:8px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+             x="343.70425"
+             y="319.82529"
+             id="text11113"
+             sodipodi:linespacing="125%"><tspan
+               sodipodi:role="line"
+               id="tspan11115"
+               x="343.70425"
+               y="319.82529">Applications</tspan></text>
+        </g>
+      </g>
       <rect
          y="376.38373"
          x="314.01837"
@@ -13822,29 +13884,19 @@
              id="tspan6547"
              sodipodi:role="line">Storage</tspan></text>
       </g>
-      <g
-         id="g6655">
-        <text
-           transform="translate(-2.6966964,-5.3934452)"
-           sodipodi:linespacing="125%"
-           id="text6541"
-           y="352.12378"
-           x="407.76749"
-           style="font-size:8px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
-           xml:space="preserve"><tspan
-             y="352.12378"
-             x="407.76749"
-             id="tspan6543"
-             sodipodi:role="line">Applications</tspan></text>
-        <rect
-           style="opacity:1;fill:none;fill-opacity:0.98039216;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-           id="rect6651"
-           width="53.934452"
-           height="20.375238"
-           x="400.31351"
-           y="334.43472" />
-      </g>
     </g>
+    <text
+       xml:space="preserve"
+       style="font-size:7.99999666px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+       x="-50.490669"
+       y="624.40002"
+       id="text7624"
+       sodipodi:linespacing="125%"
+       transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
+         sodipodi:role="line"
+         id="tspan7626"
+         x="-50.490669"
+         y="624.40002">Event Dispatcher</tspan></text>
     <g
        style="display:inline"
        id="g7063"
@@ -13889,18 +13941,6 @@
            x="307.52255"
            y="487.95517">Convergence Layer</tspan></text>
     </g>
-    <text
-       xml:space="preserve"
-       style="font-size:7.99999857px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
-       x="-30.080158"
-       y="572.74744"
-       id="text7620"
-       sodipodi:linespacing="125%"
-       transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
-         sodipodi:role="line"
-         id="tspan7622"
-         x="-30.080158"
-         y="572.74744">Event Dispatcher</tspan></text>
     <g
        id="g7594">
       <rect
@@ -13929,28 +13969,16 @@
     </g>
     <text
        xml:space="preserve"
-       style="font-size:7.99999952px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
-       x="-158.20148"
-       y="529.84772"
+       style="font-size:7.99999809px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
+       x="-155.28383"
+       y="527.62036"
        id="text7608"
        sodipodi:linespacing="125%"
        transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
          sodipodi:role="line"
          id="tspan7610"
-         x="-158.20148"
-         y="529.84772">Event Dispatcher</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:7.99999809px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L;-inkscape-font-specification:Nimbus Sans L"
-       x="-47.709358"
-       y="625.56262"
-       id="text7624"
-       sodipodi:linespacing="125%"
-       transform="matrix(0.7346373,-0.67846,0.67846,0.7346373,0,0)"><tspan
-         sodipodi:role="line"
-         id="tspan7626"
-         x="-47.709358"
-         y="625.56262">Event Dispatcher</tspan></text>
+         x="-155.28383"
+         y="527.62036">Event Dispatcher</tspan></text>
     <path
        style="fill:none;fill-opacity:0.75000000000000000;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;marker-end:url(#Arrow2Lend);stroke-opacity:1;marker-mid:none;marker-start:url(#Arrow2Lstart)"
        d="M 342.78341,538.18708 L 342.78341,503.21963"
@@ -13969,7 +13997,7 @@
        id="path8191" />
     <path
        style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;marker-end:url(#Arrow2Lend);stroke-miterlimit:4;stroke-dasharray:3, 3;stroke-dashoffset:0;stroke-opacity:1"
-       d="M 343.98195,381.77716 L 397.31712,353.61139"
+       d="M 343.98195,381.77716 L 392.72565,354.18532"
        id="path8750"
        sodipodi:nodetypes="cc" />
     <path
