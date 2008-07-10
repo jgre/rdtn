@@ -20,14 +20,76 @@ require "sdnv"
 
 module GenParser
 
-  def defField(fieldId, params)
-    @genParserFields = [] if not defined? @genParserFields
-    res = @genParserFields.find do |obj| 
-      if obj[0] == fieldId
-	obj[1].merge!(params)
+  module ClassMethods
+
+    def _genParseMethods
+      res = public_instance_methods.find_all {|meth| /^_genParse/ =~ meth}
+      res.sort_by do |meth|
+        /^_genParse(\d+)/ =~ meth
+        $1.to_i
       end
     end
-    @genParserFields << res = [fieldId, params] unless res
+
+    def field(fieldId, params = {}, &block)
+      index = _genParseMethods.length
+      attr_accessor fieldId
+      define_method("_genParse#{index}_#{fieldId}") do |sio|
+        if params.has_key?(:length)
+          val = params[:length]
+          length = val.is_a?(Symbol) ? self.send(val) : val
+        else
+          length = nil
+        end
+
+        unless params[:decode] or length
+          raise RuntimeError, "Cannot parse field #{fieldId} without decoder or length indication."
+        end
+
+        decode = params[:decode] || lambda do |io, len|
+          dat = io.read(len)
+          if not dat or dat.length < length
+            dlen = dat ? dat.length : 0
+            raise InputTooShort, len - dlen
+          end
+          [dat, dat.length]
+        end
+
+        check = lambda do |dat|
+          unless params[:condition].nil? or params[:condition].call(dat)
+            raise ProtocolError,"Condition for field '#{fieldId}' not satisfied"
+          end
+        end
+
+        handle = lambda do |dat|
+          if params.has_key?(:handler)
+            self.send(params[:handler], dat)
+          elsif block
+            block.call(self, dat) 
+          else
+            send("#{fieldId}=", dat)
+            #instance_variable_set("@#{fieldId}", dat)
+          end
+        end
+
+        if params[:array]
+          length.times do |i|
+            data, length = decode.call(sio, nil)
+            check.call(data)
+            handle.call(data)
+          end
+        else
+          data, length = decode.call(sio, length) 
+          check.call(data)
+          handle.call(data)
+        end
+
+      end
+    end
+
+  end
+
+  def self.included(host_class)
+    host_class.extend(ClassMethods)
   end
 
   def parse(buf)
@@ -40,51 +102,15 @@ module GenParser
       raise TypeError, "Parser needs input as String or StringIO."
     end
 
-    @genParserFields.each_with_index do |field, i|
-      if field[1].has_key?(:ignore) and field[1][:ignore]
-	@finishedIndex = i
-	next
-      end
-      if field[1].has_key?(:length): length = field[1][:length]
-      else length = nil
-      end
-      if field[1].has_key?(:decode)
-	data, length = field[1][:decode].call(sio, length) 
-      elsif length
-	data = sio.read(length)
-	if not data or data.length < length
-	  dlen = data ? data.length : 0
-	  raise InputTooShort, length - dlen
-	end
-      else
-	raise RuntimeError, "Cannot parse field #{field[0]} without decoder or length indication."
-      end
-
-      if field[1].has_key?(:condition)
-	if not field[1][:condition].call(data)
-	  raise ProtocolError, "Condition for field '#{field[0]}' not fulfilled."
-	end
-      end
-
-      if field[1].has_key?(:block)
-	field[1][:block].call(data) 
-      end
-
-      if field[1].has_key?(:handler)
-	if field[1].has_key?(:object)
-	  obj = field[1][:object]
-	else
-	  obj = self
-	end
-	obj.send(field[1][:handler], data) 
-      end
+    self.class._genParseMethods.each_with_index do |meth, i|
+      self.send(meth, sio)
       @finishedIndex = i
     end
   end
 
   def parserFinished?
     if @finishedIndex
-      return @finishedIndex == (@genParserFields.length - 1)
+      return @finishedIndex == (self.class._genParseMethods.length - 1)
     else
       false
     end

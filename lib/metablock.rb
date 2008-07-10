@@ -11,21 +11,14 @@ class MetadataBlock < Bundling::Block
 
   @@storePolicy = :memory
 
+  field :mdblockLength, :decode => GenParser::SdnvDecoder
+  field :ontology,      :decode => GenParser::SdnvDecoder
+  field :metadata,      :length => :mdblockLength
+
   def initialize(bundle, metadata = nil, ontology = 100)
     super(bundle)
     self.metadata = metadata
     self.ontology = ontology
-
-    defField(:mdblockLength, :decode => GenParser::SdnvDecoder,
-	       :block => lambda {|len| defField(:metadata, :length => len)})
-	       
-    # if (self.containsEidReference?)
-    #   defField()
-    # end
-    
-    defField(:ontology, :decode => GenParser::SdnvDecoder,
-             :handler => :ontology=)
-    defField(:metadata, :handler => :metadata=)
   end
 
   def to_s

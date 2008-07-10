@@ -25,21 +25,16 @@ class MyParser
   attr_accessor :f1, :f2, :f3, :f4, :f1Len
   attr_reader :fields
 
+  field :f0, :length => 1, :decode => GenParser::NumDecoder
+  field :f1, :handler => :field1, :length => :f0,
+        :condition => lambda {|data| data == "AA"}
+  field :f2, :length => 4
+  field :f3, :length => 2
+  field :f4, :length => 4
+
   def initialize
     @f1Len = 0
 
-    defField(:f0, :length => 1, 
-	     :block => lambda { |data| defField(:f1, :length => data)},
-	     :handler => :f1Len=,
-	     #:decode => lambda {|data,length|GenParser.decodeNum(data,length)})
-	     :decode => GenParser::NumDecoder)
-    defField(:f1, :handler => :field1, 
-	    :condition => lambda {|data| data == "AA"})
-    defField(:f2, :length => 4, :block => self.method(:field2))
-    defField(:f3, :length => 2, :block => lambda do |data| 
-      @f3 = data
-    end)
-    defField(:f4, :length => 4, :handler => :f4=)
   end
 
   def field1(data)
@@ -64,7 +59,7 @@ class TestGenParser< Test::Unit::TestCase
     input = f0+f1+f2+f3+f4
     mp = MyParser.new
     assert_nothing_raised {mp.parse(input)}
-    assert_equal(f0[0], mp.f1Len)
+    assert_equal(f0[0], mp.f0)
     assert_equal(f1, mp.f1)
     assert_equal(f2, mp.f2)
     assert_equal(f3, mp.f3)

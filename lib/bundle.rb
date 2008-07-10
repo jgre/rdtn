@@ -141,13 +141,30 @@ module Bundling
 
     include GenParser
 
-    attr_accessor :version, :procFlags, :cosFlags, :srrFlags, :blockLength,
-      :destSchemeOff, :destSspOff, :srcSchemeOff, :srcSspOff,
-      :repToSchemeOff, :repToSspOff, :custSchemeOff, :custSspOff,
-      :creationTimestamp, :creationTimestampSeq, :lifetime, :dictLength,
-      :destEid, :srcEid, :reportToEid, :custodianEid,
-      :fragmentOffset, :aduLength,
-      :bytesToRead, :queue
+    attr_accessor :destEid, :srcEid, :reportToEid, :custodianEid,
+      :bytesToRead, :queue, :fragmentOffset, :aduLength
+
+    field :version, :length => 1, :decode => GenParser::NumDecoder,
+      :condition => lambda {|v| Bundle::SUPPORTED_VERSIONS.include?(v)}
+    field :procFlags, :decode => GenParser::SdnvDecoder
+    field :blockLength, :decode => GenParser::SdnvDecoder
+    field :destSchemeOff, :decode => GenParser::SdnvDecoder
+    field :destSspOff, :decode => GenParser::SdnvDecoder
+    field :srcSchemeOff, :decode => GenParser::SdnvDecoder
+    field :srcSspOff, :decode => GenParser::SdnvDecoder
+    field :repToSchemeOff,:decode => GenParser::SdnvDecoder
+    field :repToSspOff, :decode => GenParser::SdnvDecoder
+    field :custSchemeOff, :decode => GenParser::SdnvDecoder
+    field :custSspOff, :decode => GenParser::SdnvDecoder
+    field :creationTimestamp, :decode => GenParser::SdnvDecoder
+    field :creationTimestampSeq, :decode => GenParser::SdnvDecoder
+    field :lifetime, :decode => GenParser::SdnvDecoder
+    field :dictLength, :decode => GenParser::SdnvDecoder
+    field :dict, :length => :dictLength, :handler => :parseDict
+    # These fields are only enabled (ignore => false) when the
+    # corresponding flags are set
+    #field :fragmentOff, :ignore => true, :decode => GenParser::SdnvDecoder
+    #field :totalADUlen, :ignore => true, :decode => GenParser::SdnvDecoder
 
     @@lastTimestamp = 0
     @@lastSeqNo = 0
@@ -178,9 +195,6 @@ module Bundling
 
       @bytesToRead = -1 # Unknown
 
-      defField(:version, :length => 1, :decode => GenParser::NumDecoder,
-	       :condition => lambda {|version| Bundle::SUPPORTED_VERSIONS.include?(version)},
-	       :handler => :defineFields)
     end
 
     def expired?
@@ -189,52 +203,14 @@ module Bundling
 
     def defineFields(version)
       @version = version
-      defField(:procFlags, :decode => GenParser::SdnvDecoder, 
-	       :handler => :procFlags=)
 
-      defField(:blockLength, :decode => GenParser::SdnvDecoder,
-	       :handler => :blockLength=)
-      defField(:destSchemeOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :destSchemeOff=)
-      defField(:destSspOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :destSspOff=)
-      defField(:srcSchemeOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :srcSchemeOff=)
-      defField(:srcSspOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :srcSspOff=)
-      defField(:repToSchemeOff,:decode => GenParser::SdnvDecoder,
-	       :handler => :repToSchemeOff=)
-      defField(:repToSspOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :repToSspOff=)
-      defField(:custSchemeOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :custSchemeOff=)
-      defField(:custSspOff, :decode => GenParser::SdnvDecoder,
-	       :handler => :custSspOff=)
-      defField(:creationTimestamp, 
-	       :decode => GenParser::SdnvDecoder, 
-	       :handler => :creationTimestamp=)
-      defField(:creationTimestampSeq, 
-	       :decode => GenParser::SdnvDecoder, 
-	       :handler => :creationTimestampSeq=)
-      defField(:lifetime, :decode => GenParser::SdnvDecoder,
-	       :handler => :lifetime=)
-      defField(:dictLength, :decode => GenParser::SdnvDecoder,
-	       :handler => :dictLength=,
-	       :block => lambda {|len| defField(:dict, :length => len)})
-      defField(:dict, :handler => :dict=)
-      # These fields are only enabled (ignore => false) when the
-      # corresponding flags are set
-      defField(:fragmentOff, :ignore => true, :handler => :fragmentOffset=,
-	       :decode => GenParser::SdnvDecoder)
-      defField(:totalADUlen, :ignore => true, :handler => :totalADULen=,
-	       :decode => GenParser::SdnvDecoder)
     end
 
     def bundleId
       "#{@srcEid}-#{@creationTimestamp}-#{@creationTimestampSeq}-#{@fragmentOffset}".hash
     end
 
-    def dict=(dict)
+    def parseDict(dict)
       sio = StringIO.new(dict)
 
       @destEid = EID.new
@@ -722,12 +698,11 @@ module Bundling
     attr_reader :bundle
     protected :bundle
 
+    field :procFlags, :decode => GenParser::SdnvDecoder
+
     def initialize(bundle)
       @flags   = 0
       @bundle  = bundle
-
-      defField(:procFlags, :decode => GenParser::SdnvDecoder,
-	       :handler => :flags=)
     end
 
     def replicateBlockForEveryFragment=(set)
@@ -796,14 +771,13 @@ module Bundling
 
     @@storePolicy = :memory
 
+    field :payloadLength, :decode => GenParser::SdnvDecoder
+    field :payload, :length => :payloadLength
+
     def initialize(bundle, payload = nil)
       super(bundle)
       self.payload = payload
       self.flags   = 8 # last block
-
-      defField(:plblockLength, :decode => GenParser::SdnvDecoder,
-	       :block => lambda {|len| defField(:payload, :length => len)})
-      defField(:payload, :handler => :payload=)
     end
 
     def to_s

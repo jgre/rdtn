@@ -46,6 +46,27 @@ class Announcement
     end
   end
 
+  def Announcement.decodeInetAddr(sio, length)
+    if length != 4
+      raise TypeError, "Cannot decode Inet Addr with length #{length}"
+    end
+    data = sio.read(length)
+    if not data or data.length < length
+      raise InputTooShort, length
+    end
+    return IPAddr.new_ntoh(data).to_s
+  end
+
+  InetAddrDecoder = Announcement.method(:decodeInetAddr)
+
+  field :clType,    :length => 1, :decode => GenParser::NumDecoder
+  field :interval,  :length => 1, :decode => GenParser::NumDecoder
+  field :packetLen, :length => 2, :decode => GenParser::NumDecoder
+  field :inetAddr,  :length => 4, :decode => InetAddrDecoder
+  field :inetPort,  :length => 2, :decode => GenParser::NumDecoder
+  field :eidLength, :length => 2, :decode => GenParser::NumDecoder
+  field :senderEid, :length => :eidLength
+
   def initialize(config, clType = nil, interval = 1, addr = "127.0.0.1", 
 		 port = 12345, eid = nil)
     @config    = config
@@ -60,18 +81,6 @@ class Announcement
     end
     @lastSeen  = RdtnTime.now
 
-    defField(:type, :length => 1, :decode => GenParser::NumDecoder,
-	     :handler => :clType=)
-    defField(:interval, :length => 1, :decode => GenParser::NumDecoder,
-	     :handler => :interval=)
-    defField(:packetLen, :length => 2, :decode => GenParser::NumDecoder)
-    defField(:addr, :length => 4, :decode => InetAddrDecoder, 
-	     :handler => :inetAddr=)
-    defField(:port, :length => 2, :decode => GenParser::NumDecoder,
-	     :handler => :inetPort=)
-    defField(:eidLength, :length => 2, :decode => GenParser::NumDecoder,
-	     :block => lambda {|len| defField(:senderEid, :length => len)})
-    defField(:senderEid, :handler => :senderEid=)
   end
 
   def ==(ann)
@@ -99,19 +108,6 @@ class Announcement
     data << @senderEid.to_s
     return data
   end
-
-  def Announcement.decodeInetAddr(sio, length)
-    if length != 4
-      raise TypeError, "Cannot decode Inet Addr with length #{length}"
-    end
-    data = sio.read(length)
-    if not data or data.length < length
-      raise InputTooShort, length
-    end
-    return IPAddr.new_ntoh(data).to_s
-  end
-
-  InetAddrDecoder = Announcement.method(:decodeInetAddr)
 
 end
 

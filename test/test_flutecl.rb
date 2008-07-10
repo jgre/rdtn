@@ -85,7 +85,6 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
     destEid = "dtn://oink/grunt"
     @config.localEid = "dtn://bla.fasel"
     bundle = Bundling::Bundle.new("mypayload", destEid, srcEid)
-    bundle.cosFlags = 1
 
     @evDis.subscribe(:linkOpen) do |cl|
       createReceived = true 

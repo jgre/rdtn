@@ -132,6 +132,7 @@ class TestSubscriptionHandler < Test::Unit::TestCase
     sleep(1)
     sub2 = Subscription.parse(@config, @evDis, io)
     assert_equal(sub.uri.to_s, sub2.uri.to_s)
+    assert_equal(sub.uniqueSubscriptions[0].uid,sub2.uniqueSubscriptions[0].uid)
     #assert_equal(sub.uids, sub2.uids)
     assert_equal(sub.creationTimestamp.to_i, sub2.creationTimestamp.to_i)
     assert_equal(sub.expires.to_i, sub2.expires.to_i)
