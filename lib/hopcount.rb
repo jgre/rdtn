@@ -25,12 +25,12 @@ class HopCountBlock < Bundling::Block
 
   HOP_COUNT_BLOCK  = 192
 
+  field :hcblockLength, :decode => GenParser::SdnvDecoder
+  field :hopCount,      :decode => GenParser::SdnvDecoder
+
   def initialize(bundle, copyCount = 0)
     super(bundle)
     @hopCount = hopCount
-
-    defField(:hcblockLength, :decode => GenParser::SdnvDecoder)
-    defField(:hc, :decode => GenParser::SdnvDecoder, :handler => :hopCount=)
   end
 
   def to_s
@@ -55,12 +55,12 @@ class CopyCountBlock < Bundling::Block
 
   COPY_COUNT_BLOCK = 193
 
+  field :ccblockLength, :decode => GenParser::SdnvDecoder
+  field :copyCount,     :decode => GenParser::SdnvDecoder
+
   def initialize(bundle, copyCount = 0)
     super(bundle)
     @copyCount = copyCount
-
-    defField(:ccblockLength, :decode => GenParser::SdnvDecoder)
-    defField(:cc, :decode => GenParser::SdnvDecoder, :handler => :copyCount=)
   end
 
   def to_s

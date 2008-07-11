@@ -61,22 +61,23 @@ module TCPCL
   
   class ConnectedState < State
     include GenParser
+
+    field :magic, :length => 4, 
+          :condition => lambda {|data| data == TCPLink::MAGIC}
+    field :version, :length => 1, :decode => GenParser::NumDecoder,
+          :condition => lambda {|data| data == TCPLink::TCPCL_VERSION}
+    field :flags, :length => 1, :decode => GenParser::NumDecoder
+    field :keepaliveInterval, :length => 2, :decode => GenParser::NumDecoder
+    field :eidLength, :decode => GenParser::SdnvDecoder
+    field :localEid, :length => :eidLength
     
     def initialize(evDis, tcpLink)
       super(evDis, tcpLink)
       
-      defField(:magic, :length => 4, 
-	       :condition => lambda {|data| data == TCPLink::MAGIC})
-      defField(:version, :length => 1, :decode => GenParser::NumDecoder,
-	       :condition => lambda {|data| data == TCPLink::TCPCL_VERSION})
-      defField(:flags, :length => 1, :decode => GenParser::NumDecoder,
-	       :handler => :flags=)
-      defField(:keepaliveInterval, :length => 2,:handler => :keepaliveInterval=,
-	       :decode => GenParser::NumDecoder)
-      defField(:eidLength, :decode => GenParser::SdnvDecoder,
-	       :block => lambda {|data| defField(:localEid, :length => data)})
-      defField(:localEid, 
-	       :block => lambda {|eid| @tcpLink.remoteEid = EID.new(eid)})
+    end
+
+    def localEid=(eid)
+      @tcpLink.remoteEid = EID.new(eid)
     end
     
     def flags=(flags)
@@ -174,18 +175,18 @@ module TCPCL
     include GenParser
     attr_accessor :contentLength
     
+    field :flags, :length => 1
+    field :contentLength, :decode => GenParser::SdnvDecoder
+    field :content, :length => :contentLength, :handler => :bundleData
+
     def initialize(evDis, tcpLink)
       super(evDis, tcpLink)
       
-      defField(:flags, :length => 1, :block => lambda do |data| 
-                 @sFlag = data[0] & 0x2 # The 7th bit
-                 @eFlag = data[0] & 0x1 # The last bit
-               end)
-      defField(:contentLength, :decode => GenParser::SdnvDecoder,
-	       :handler => :contentLength=,
-	       :block => lambda {|data| defField(:content, :length => data)})
-      defField(:content, 
-	       :handler => :bundleData)
+    end
+
+    def flags=(data)
+      @sFlag = data[0] & 0x2 # The 7th bit
+      @eFlag = data[0] & 0x1 # The last bit
     end
     
     def bundleData(data)
@@ -214,14 +215,13 @@ module TCPCL
   class AckState < State
     include GenParser
     
+      field :flags, :length => 1,
+            :condition => lambda {|data| data[0] == (TCPLink::ACK_SEGMENT << 4)}
+      field :recievedLength, :decode => GenParser::SdnvDecoder
+      
     def initialize(evDis, tcpLink)
       super(evDis, tcpLink)
       
-      defField(:flags, :length => 1,
-               :condition => lambda {|data| data[0] == (TCPLink::ACK_SEGMENT << 4)})
-      
-      defField(:recievedLength, :decode => GenParser::SdnvDecoder,
-               :handler => :recievedLength)
     end
     
     # TODO
@@ -230,7 +230,7 @@ module TCPCL
     #   connection broke and if reactive fragmentation is not enabled(I guess).
     # - Remove bytes from bundle if reactive fragmentation is enabled. 
     
-    def recievedLength(length)
+    def recievedLength=(length)
       # @tcpLink.removeAcknowledgedPayload(length)
     end 
     
