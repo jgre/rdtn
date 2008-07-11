@@ -18,7 +18,6 @@
 require 'cl'
 require 'bundle'
 require 'configuration'
-require 'rerun_thread'
 require 'genparser'
 require 'ipaddr'
 require 'platform.rb'
@@ -114,7 +113,6 @@ end
 class IPDiscovery < Monitor
 
   include QueuedReceiver
-  include RerunThread
 
   def initialize(config, evDis, address, port, interval = 10, announceIfs = [])
     super()
@@ -157,8 +155,8 @@ class IPDiscovery < Monitor
     end
 
     queuedReceiverInit(@sock)
-    @listenerThread = spawnThread { read }
-    @senderThread   = spawnThread { announce }
+    @listenerThread = Thread.new { read }
+    @senderThread   = Thread.new { announce }
   end
 
   def close
@@ -249,8 +247,8 @@ class KasuariDiscovery < IPDiscovery
     @sock = UDPSocket.new
     @sock.bind(Socket::INADDR_ANY, @port)
     queuedReceiverInit(@sock)
-    @listenerThread = spawnThread { read }
-    @senderThread   = spawnThread { announce }
+    @listenerThread = Thread.new { read }
+    @senderThread   = Thread.new { announce }
   end
 
   def announce
