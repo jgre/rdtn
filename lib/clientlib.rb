@@ -18,11 +18,9 @@
 require "socket"
 require "bundle"
 require "queue"
-require "rerun_thread"
 require "queuedio"
 
 class RdtnClient
-  include RerunThread
   include QueuedSender
   include QueuedReceiver
   attr_reader :bundleHandler, :host, :port
@@ -41,12 +39,12 @@ class RdtnClient
       sock = TCPSocket.new(h, p) 
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
-      @threads.push(spawnThread { read })
+      @threads.push(Thread.new { read })
     end
     if blocking
       connectBlock.call(host, port)
     else
-      @threads.push(spawnThread(host, port, &connectBlock))
+      @threads.push(Thread.new(host, port, &connectBlock))
     end
   end
 
@@ -176,7 +174,7 @@ class RdtnClient
   def sendBuf(data)
     sendQueueAppend(data)
     doSend
-    #@threads << spawnThread { doSend }
+    #@threads << Thread.new { doSend }
     Thread.pass
   end
 
