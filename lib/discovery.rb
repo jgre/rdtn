@@ -137,7 +137,7 @@ class IPDiscovery < Monitor
         end
       end
     end
-    @platform = Platform.new
+    @platform = RdtnPlatform.new
     
   end
 

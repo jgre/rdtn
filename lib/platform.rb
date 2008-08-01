@@ -18,7 +18,7 @@
 require 'socket'
 require 'singleton'
 
-class Platform
+class RdtnPlatform
   if (RUBY_PLATFORM == "i386-mswin32")
     Socket::IP_MULTICAST_LOOP = 11 unless Socket.const_defined?('IP_MULTICAST_LOOP')
     Socket::IP_ADD_MEMBERSHIP = 12 unless Socket.const_defined?('IP_ADD_MEMBERSHIP')
