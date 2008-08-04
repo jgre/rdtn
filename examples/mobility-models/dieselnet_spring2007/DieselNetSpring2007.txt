@@ -1,0 +1,26 @@
+----------------------------------------------------
+DieselNet traces collected during RAPID deployment
+02/06/2007-05/14/2007
+http://prisms.cs.umass.edu/diesel/
+----------------------------------------------------
+This set of DieselNet traces where compiled during Spring 2007 from busses running routes serviced by UmassTransit, which lists their bus routes on the web at http://www.umass.edu/campus_services/transit/. UmassTransit's 40 busses were equipped with DieselNet equipment and a certain portion of those operated daily as dictated by bus failures and maintenance. 
+ 
+
+All connection events occurring during a day are stored in the log file matching that date (month/day/year). The buses are identified by their MAC address. Time stamps are recorded as absolute minutes and seconds after midnight. In the following entry, bus 00:09:5B:B3:E3:4E sent bus 00:09:5B:B5:6E:6E at 06:57:18 transferring 94240422 bytes. The latitude and longitude of meeting is 72.53267 and 42.39381 respectively. The last column is true if the satellite reading is current and false otherwise.  
+
+00:09:5B:B3:E3:4E 00:09:5B:B5:6E:6E 06:57:18 94240422 72.53267 42.39381 true
+
+If you use these traces in a research paper, please reference the traces as 
+
+Aruna Balasubramanianm Brian Neil Levine and Arun Venkataramani,
+"DTN Routing as a Resource Allocation Problem" 
+in Proceedings of ACM Sigcomm, August 2007
+
+@InProceedings{Rapid-sigcomm07,
+  author = 	 {Aruna Balasubramanianm Brian Neil Levine and Arun Venkataramani},
+  title = 	 {{DTN Routing as a Resource Allocation Problem}},
+  booktitle = 	 {Proc. ACM Sigcomm},
+  year =	 2007,
+  month =	 {August}
+}
+
