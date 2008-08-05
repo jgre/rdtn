@@ -11,7 +11,7 @@ end
 dir = ARGV[0]
 nodemap = {}
 
-Dir.glob(File.join(dir, "[0-9]*")).each do |fname|
+Dir.glob(File.join(dir, "[0-9]*")).sort.each do |fname|
   day = diesel_date(fname)
   open(fname) do |f|
     f.each_line do |line|
