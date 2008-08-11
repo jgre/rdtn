@@ -2,7 +2,7 @@ $:.unshift File.join(File.dirname(__FILE__), '../../sim/stats')
 
 require 'contacthistory'
 
-describe Contact do
+describe ContactHistory do
 
   before(:each) do
     @ch = ContactHistory.new([1, 2])
