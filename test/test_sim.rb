@@ -32,7 +32,7 @@ class TestSim < Test::Unit::TestCase
     @g.edge 3=>4
 
     @dirName    = File.join(Dir.getwd, "test#{Time.now.to_i}")
-    @sim        = Sim::SimCore.new(@dirName)
+    @sim        = Sim::Core.new(@dirName)
     @sim.events = @g.events
     @sim.createNodes(@g.nodes.length)
   end
