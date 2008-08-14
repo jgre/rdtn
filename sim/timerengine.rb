@@ -34,30 +34,6 @@ module Sim
       until eventQueue.empty? or @timer >= duration
 	@timer = eventQueue.nextEvent(@evDis)
       end
-
-      #gran = @config["granularity"]
-      #thresh = 0.01 # Tolerance for timing inaccuracy for realtime emulation
-      #startTime.step(duration, gran) do |time|
-      #  @timer = time
-      #  @evDis.dispatch(:simTimerTick, @timer)
-      #end
-      #loop do
-      #  break if duration and @timer > duration
-      #  # Blocks until all work for this clock tick is done
-      #  @evDis.dispatch(:simTimerTick, @timer)
-      #  if @config["realTime"]
-      #    sleepTime =  (@timer + gran) - Time.now
-      #    sleep(sleepTime) if sleepTime > 0
-      #    newTime = Time.now
-      #    if newTime > (@timer + gran + thresh)
-      #      puts "Timing deviation too great: T-1 = #{timer.to_f}, T = #{newTime.to_f}"
-      #    end
-      #    @timer = newTime
-      #  else
-      #    puts "Time #{@timer} #{gran}"
-      #    @timer += gran
-      #  end
-      #end
     end
 
     def time
