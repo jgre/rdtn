@@ -31,8 +31,14 @@ module Sim
     def run(duration, eventQueue, startTime = 0)
       @t0 = Time.now - startTime
       @timer = startTime
-      until eventQueue.empty? or @timer >= duration
-	@timer = eventQueue.nextEvent(@evDis)
+      eventQueue.each_with_index do |event, i|
+        @timer = event.time
+
+        next if @timer < startTime
+
+        event.dispatch(@evDis)
+
+        break if @timer >= duration
       end
     end
 

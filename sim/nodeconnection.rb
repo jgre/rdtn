@@ -39,10 +39,14 @@ module Sim
       @bytesPerSec = bytesPerSec
 
       @config.store = Storage.new(@evDis)
-      # Create logging environment for the node
-      subDirName = File.join(dirName, "kasuari#{@id}")
-      Dir.mkdir(subDirName) unless File.exist?(subDirName)
-      @config.setStatDir(subDirName)
+
+      if dirName
+        # Create logging environment for the node
+        subDirName = File.join(dirName, "kasuari#{@id}")
+        Dir.mkdir(subDirName) unless File.exist?(subDirName)
+        @config.setStatDir(subDirName)
+      end
+
       parseConfigFile(configPath) if configPath
       @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
 		    :node=>self, :sim=>@sim)
