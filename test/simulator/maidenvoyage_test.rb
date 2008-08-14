@@ -63,6 +63,15 @@ class TestMaidenVoyage < Test::Unit::TestCase
   end
 
   context 'Workload fixtures' do
+
+    network :simple
+    workload :single_shot
+
+    prepare {}
+
+    should 'be loaded into the simulator' do
+    end
+
   end
 
 end

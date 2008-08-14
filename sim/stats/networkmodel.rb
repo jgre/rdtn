@@ -37,7 +37,11 @@ class NetworkModel
   end
 
   def events=(eq)
-    eq.events.each {|e| contactEvent(e.nodeId1, e.nodeId2, e.time, e.type)}
+    eq.events.each do |e|
+      if [:simConnection, :simDisconnection].include? e.type
+        contactEvent(e.nodeId1, e.nodeId2, e.time, e.type)
+      end
+    end
   end
 
   def contactEvent(node1, node2, time, evType)
@@ -50,9 +54,9 @@ class NetworkModel
       (@incidents[id[1]] ||= []).push(@contacts[id])
     end
     ch = @contacts[id]
-    if evType == :simConnection or evType == :simConnect
+    if evType == :simConnection
       ch.contactStart(time)
-    elsif evType == :simDisconnection or evType == :simDisconnect
+    elsif evType == :simDisconnection
       ch.contactEnd(time)
     end
   end
