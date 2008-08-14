@@ -45,4 +45,24 @@ class TestMaidenVoyage < Test::Unit::TestCase
 
   end
 
+  context 'Network fixtures' do
+
+    # The network must be configured before the prepare-block, as the prepare
+    # starts the simulation.
+    network :simple
+
+    # There must be a prepare block -- even when it's empty -- as it is used to
+    # start the simulator
+    prepare {}
+
+    should 'be loaded into the simulator' do
+      assert_equal 6, network_model.numberOfNodes
+      assert_equal 6, network_model.numberOfContacts
+    end
+
+  end
+
+  context 'Workload fixtures' do
+  end
+
 end
