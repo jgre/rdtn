@@ -201,6 +201,10 @@ module Bundling
       RdtnTime.now.to_i > (creationTimestamp.to_i + lifetime.to_i + Time.gm(2000).to_i) 
     end
 
+    def created
+      Time.utc(2000) + @creationTimestamp
+    end
+
     def defineFields(version)
       @version = version
 
