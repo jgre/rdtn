@@ -28,7 +28,7 @@ class StatBundleTest < Test::Unit::TestCase
     assert_equal @src,  @sbndl.src
   end
 
-  should 'take the playload size from a RDTN bundle' do
+  should 'take the payload size from a RDTN bundle' do
     assert_equal @pl.length, @sbndl.payload_size
   end
 
@@ -50,6 +50,14 @@ class StatBundleTest < Test::Unit::TestCase
       assert_equal 15-@sbndl.created.to_i, @sbndl.averageDelay
     end
 
+    should 'count the number of recipients reached' do
+      assert_equal 1, @sbndl.nDelivered
+    end
+
+    should 'count the number of transmissions' do
+      assert_equal 1, @sbndl.transmissions
+    end
+
   end
 
   context 'Bundles replicated to nodes that are not a destination' do
@@ -64,6 +72,10 @@ class StatBundleTest < Test::Unit::TestCase
 
     should 'be counted as replica' do
       assert_equal 1, @sbndl.nReplicas
+    end
+
+    should 'not be counted as delivered destination' do
+      assert_equal 0, @sbndl.nDelivered
     end
 
   end

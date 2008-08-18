@@ -1,101 +1,27 @@
-
 $:.unshift File.join(File.dirname(__FILE__), "..")
 $:.unshift File.join(File.dirname(__FILE__))
 
-require 'optparse'
-require "eventqueue"
-require "dijkstra"
+require 'statbundle'
+require 'core'
 
-class StatBundle
+class TrafficModel
 
-  attr_reader :bundleId, :dest, :src, :size, :subscribers, :created
-
-  def initialize(dest, src, bid, size, subscribers)
-    @dest        = dest
-    @src         = src
-    @bundleId    = bid
-    @size        = size
-    @subscribers = subscribers
-    @delivered   = {} # Node -> time
-    @created     = 0
-    @incidents   = []
-    @outgoing    = []
+  def initialize(t0, log)
+    @t0      = t0
+    @bundles = {} # bundleId -> StatBundle
+    self.log = log
   end
 
-  def to_s
-    "Bundle (#{@bundleId}): #{@src} -> #{@dest} (#{@size} bytes)"
-  end
-
-  def print(f)
-    f.puts("Created #{@created}")
-    @subscribers.each do |subs|
-      f.puts("Subscriber #{subs}: delivered at #{@delivered[subs]}")
-    end
-  end
-
-  def sentFrom(node, time)
-    @outgoing.push(node)
-  end
-
-  def receivedAt(node, time)
-    @incidents.push(node)
-    if node == @src
-      @created = time
-    end
-    if @subscribers.include?(node)
-      if @delivered[node]
-	@delivered[node] = [@delivered[node], time].min
-      else
-	@delivered[node] = time
+  def log=(log)
+    log.each do |e|
+      case e.eventId
+      when :bundleCreated
+        @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
+      when :bundleForwarded
+        @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
       end
     end
   end
-
-  def nDelivered
-    @delivered.length
-  end
-
-  def nSubscribed
-    @subscribers.length
-  end
-
-  def nReplicas
-    @incidents.uniq.length
-  end
-
-  def nTimesSent
-    @outgoing.length
-  end
-
-  def deliveryDelay(dest)
-    if @delivered[dest]
-      @delivered[dest] - @created
-    else
-      nil
-    end
-  end
-
-  def delays
-    @delivered.values.map {|time| time - @created}
-  end
-
-  def averageDelay
-    return nil if @delivered.empty?
-    total = delays.inject(0) {|sum, delay| sum + delay}
-    return total.to_f / @delivered.length
-  end
-
-  def maxDelay
-    delays.max
-  end
-
-  def minDelay
-    delays.min
-  end
-
-end
-
-class TrafficModel
 
   def bundleEvent(node1, node2, inout, bundle, time)
     @bundles[bundle.bundleId] = bundle unless @bundles[bundle.bundleId]
@@ -157,8 +83,12 @@ class TrafficModel
     @bundles.values.inject(0) {|sum, bundle| sum+bundle.nDelivered}
   end
 
+  def deliveryRatio
+    numberOfDeliveredBundles / numberOfBundles.to_f
+  end
+
   def numberOfTransmissions
-    @bundles.values.inject(0) {|sum, bundle| sum + bundle.nTimesSent}
+    @bundles.values.inject(0) {|sum, bundle| sum + bundle.transmissions}
   end
 
   def transmissionsPerBundle
