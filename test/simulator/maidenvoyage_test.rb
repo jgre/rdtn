@@ -43,6 +43,10 @@ class TestMaidenVoyage < Test::Unit::TestCase
       assert_equal 60, network_model.duration
     end
 
+    should 'create a traffic model' do
+      assert_instance_of TrafficModel, traffic_model
+    end
+
   end
 
   context 'Network fixtures' do
@@ -70,6 +74,7 @@ class TestMaidenVoyage < Test::Unit::TestCase
     prepare {}
 
     should 'be loaded into the simulator' do
+      assert_equal 1, traffic_model.numberOfBundles
     end
 
   end
