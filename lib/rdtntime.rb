@@ -24,12 +24,20 @@ class RdtnTime
     @@timerFunc = func
   end
 
+  def RdtnTime.timerFunc
+    @@timerFunc
+  end
+
   def RdtnTime.now
     @@timerFunc.call
   end
 
   def RdtnTime.sleepFunc=(func)
     @@sleepFunc = func
+  end
+
+  def RdtnTime.sleepFunc
+    @@sleepFunc
   end
 
   def RdtnTime.rsleep(sec = nil)
