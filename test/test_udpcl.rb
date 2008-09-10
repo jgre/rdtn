@@ -26,7 +26,7 @@ require "platform"
 
 class TestUDPConvergenceLayer < Test::Unit::TestCase
 
-  @platform = Platform.new
+  @platform = RdtnPlatform.new
   
   def setup
     @evDis  = EventDispatcher.new
