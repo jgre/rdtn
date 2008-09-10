@@ -183,7 +183,7 @@ module Bundling
 	@@lastSeqNo = @creationTimestampSeq = 0
       end
       @@lastTimestamp = @creationTimestamp
-      @lifetime = 120
+      @lifetime = 3600
       @destEid = EID.new(destEid)
       @srcEid = EID.new(srcEid)
       if not reportToEid
