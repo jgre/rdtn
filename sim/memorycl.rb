@@ -38,7 +38,7 @@ module Sim
       @bytesPerSec = bytesPerSec
       @sim         = sim
       @bytesToSend = 0
-      @queue       = []
+      @bytesQueued = 0
       @evDis.dispatch(:linkOpen, self) if @peerLink
     end
 
@@ -60,38 +60,25 @@ module Sim
       @peerLink    = nil
       pl.close if pl
       @bytesToSend = 0
-      @queue       = []
+      # TODO what happens with queued bundles?
     end
 
     def sendBundle(bundle)
-      if @peerLink
-	if @queue.empty?
-	  @sim.after((bundle.payload.length / @bytesPerSec).ceil) do |time|
-	    process
-	    false
-	  end
-	end
-	@queue.push(bundle)
-      else
-	raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
-      end
-    end
+      @bytesQueued += bundle.payload.length
+      bundle.payload =~ /^(\d+) /
+      bundleIndex = $1
+      @sim.after(@bytesQueued / @bytesPerSec.to_f) do
+        if @peerLink
+          @bytesQueued -= bundle.payload.length
 
-    def process
-      if @peerLink
-	bundle = @queue.shift
-	@evDis.dispatch(:bundleForwarded, bundle, self)
-        @sim.log(:bundleForwarded, @nodeId, @dest, :bundle => bundle)
+          @evDis.dispatch(:bundleForwarded, bundle, self)
+          @sim.log(:bundleForwarded, @nodeId, @dest, :bundle => bundle)
 
-	@peerLink.receiveBundle(bundle, self)
-	unless @queue.empty?
-	  @sim.after((@queue[0].payload.length / @bytesPerSec).ceil) do |time|
-	    process
-	    false
-	  end
-	end
-      else
-	raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
+          @peerLink.receiveBundle(bundle, self)
+        else
+          raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
+        end
+        false
       end
     end
 
