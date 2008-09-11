@@ -81,6 +81,8 @@ module Sim
       if @peerLink
 	bundle = @queue.shift
 	@evDis.dispatch(:bundleForwarded, bundle, self)
+        @sim.log(:bundleForwarded, @nodeId, @dest, bundle)
+
 	@peerLink.receiveBundle(bundle, self)
 	unless @queue.empty?
 	  @sim.after((@queue[0].payload.length / @bytesPerSec).ceil) do |time|

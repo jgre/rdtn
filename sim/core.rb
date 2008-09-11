@@ -24,6 +24,7 @@ require 'nodeconnection'
 require 'optparse'
 require 'timerengine'
 require 'yaml'
+require 'logentry'
 
 module Sim
 
@@ -44,6 +45,7 @@ module Sim
       @evDis = EventDispatcher.new
       # id -> NodeConnection
       @nodes = {}
+      @log   = []
       @timerEventId = 0
       @config = DEFAULT_CONF 
       @config["dirName"] = dirName
@@ -130,6 +132,10 @@ module Sim
       @nodes[id]
     end
 
+    def log(eventId, nodeId1, nodeId2, options = {})
+      @log.push(LogEntry.new(time, eventId, nodeId1, nodeId2, options))
+    end
+
     def run(duration = nil, startTime = 0)
       dur = duration || @config["duration"]
       @endTime = startTime + dur
@@ -138,6 +144,7 @@ module Sim
       RdtnTime.timerFunc = lambda {@te.time}
 
       @te.run(dur, @events, startTime)
+      [@events, @log]
     end
 
     def createNodes(nodeNames = nil)
