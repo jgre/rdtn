@@ -211,7 +211,7 @@ module Bundling
     end
 
     def bundleId
-      "#{@srcEid}-#{@creationTimestamp}-#{@creationTimestampSeq}-#{@fragmentOffset}".hash
+      @bid ||= "#{@srcEid}-#{@creationTimestamp}-#{@creationTimestampSeq}-#{@fragmentOffset}".hash
     end
 
     def parseDict(dict)
