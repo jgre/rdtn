@@ -33,6 +33,14 @@ module Sim
           sim.createNodes(g.nodes.length)
         end
       end
+
+      def workload(name)
+        dir = File.join(File.dirname(__FILE__), '../../test/workload_fixtures')
+        Thoughtbot::Shoulda.current_context.setup do
+          sim.instance_eval(File.read(File.join(dir, name.to_s + '.rb')))
+        end
+      end
+
     end
 
     def sim

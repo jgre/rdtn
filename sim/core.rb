@@ -126,6 +126,10 @@ module Sim
       at(@te.timer + time) {|t| yield(t)}
     end
 
+    def node(id)
+      @nodes[id]
+    end
+
     def run(duration = nil, startTime = 0)
       dur = duration || @config["duration"]
       @endTime = startTime + dur
