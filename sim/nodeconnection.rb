@@ -49,22 +49,8 @@ module Sim
 
       parseConfigFile(configPath) if configPath
       @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
-		    :node=>self, :sim=>@sim)
-      #@config.subscriptionHandler = SubscriptionHandler.new(@config, @evDis,
-      #						    @config.contactManager)
+                     :node=>self, :sim=>@sim)
     end
-
-    #def self.connect(node1, node2)
-    #  node1.addConnection(node2)
-    #  node2.addConnection(node1)
-    #  node1.startConnection(node2)
-    #  node2.startConnection(node1)
-    #end
-
-    #def self.disconnect(node1, node2)
-    #  node1.closeConnection(node2)
-    #  node2.closeConnection(node1)
-    #end
 
     def process(nSec)
       @links.each_value {|link| link.process(nSec) if link}
@@ -80,24 +66,6 @@ module Sim
     def disconnect(node2)
       removeLink("simlink#{node2.id}")
     end
-
-    #def addConnection(node2)
-    #  @links[node2.id] = MemoryLink.new(@id, @evDis, node2.id, 
-    #    				@config.bytesPerSec)
-    #end
-
-    #def startConnection(node2)
-    #  if node2.links[@id]
-    #    @links[node2.id].peerLink = node2.links[@id]
-    #  else
-    #    raise RuntimeError, "(Core) Node#{@id} cannot start connection to node{node2.id}"
-    #  end
-    #end
-
-    #def closeConnection(node2)
-    #  @links[node2.id].close if @links[node2.id]
-    #  @links[node2.id] = nil
-    #end
 
     def createBundle(channel, size)
       payload = "a" * size
