@@ -164,6 +164,9 @@ module RdtnDaemon
 	routerClass = RouterReg.instance.routers[type]
 	rerror(self, "Unknown type of router: #{type}") unless routerClass
       end
+
+      @config.router.stop if @config.router
+
       if routerClass
 	if @config.router
 	  if @config.router.class == routerClass
