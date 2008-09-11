@@ -27,7 +27,7 @@ require 'yaml'
 
 module Sim
 
-  class SimCore
+  class Core
 
     attr_reader :config, :nodes
 
@@ -161,7 +161,7 @@ end # module sim
 if $0 == __FILE__
   dirName = File.join(Dir.getwd, 
 			  "experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-  sim = Sim::SimCore.new(dirName)
+  sim = Sim::Core.new(dirName)
   sim.parseOptions
   sim.parseConfigFile
   sim.createNodes
@@ -169,5 +169,5 @@ if $0 == __FILE__
 elsif $0 == "irb"
   dirName = File.join(Dir.getwd, 
 			  "irb-experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-  $sim = Sim::SimCore.new(dirName)
+  $sim = Sim::Core.new(dirName)
 end

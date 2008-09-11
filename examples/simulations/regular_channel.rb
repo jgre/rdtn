@@ -22,7 +22,7 @@ require "core"
 
 dirName = File.join(Dir.getwd, 
 		  "channel-experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-sim = Sim::SimCore.new(dirName)
+sim = Sim::Core.new(dirName)
 sim.parseOptions
 sim.parseConfigFile
 sim.createNodes

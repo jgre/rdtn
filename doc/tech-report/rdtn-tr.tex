@@ -1032,7 +1032,7 @@ class TestExample < Test::Unit::TestCase
     @g = Sim::Graph.new
     @g.edge 1=>2
 
-    @sim        = Sim::SimCore.new
+    @sim        = Sim::Core.new
     @sim.events = @g.events
 
     @sim.createNodes(@g.nodes.length)

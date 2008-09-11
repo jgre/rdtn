@@ -28,7 +28,7 @@ class TestFlooding < Test::Unit::TestCase
   def setup
     @g = Sim::Graph.new
     @dirName    = File.join(Dir.getwd, "test#{Time.now.to_i}")
-    @sim        = Sim::SimCore.new(@dirName)
+    @sim        = Sim::Core.new(@dirName)
   end
 
   def teardown
