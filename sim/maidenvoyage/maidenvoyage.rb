@@ -23,6 +23,16 @@ module Sim
           @network_model = NetworkModel.new(event_log)
         end
       end
+
+      def network(name)
+        dir = File.join(File.dirname(__FILE__), '../../test/network_fixtures')
+        Thoughtbot::Shoulda.current_context.setup do
+          g = Sim::Graph.new
+          g.instance_eval(File.read(File.join(dir, name.to_s + '.rb')))
+          sim.events = g.events
+          sim.createNodes(g.nodes.length)
+        end
+      end
     end
 
     def sim
