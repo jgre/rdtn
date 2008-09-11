@@ -32,19 +32,22 @@ class EID
       if str =~ /([[:alnum:]]+):([[:print:]]+)/
 	@scheme = $1
 	@ssp = $2
+        @str = str
       else
 	raise InvalidEid, str
       end
     else
       @scheme = "dtn"
       @ssp = "none"
+      @str = 'dtn:none'
     end
   end
 
   def to_s
-    unless @scheme.empty? or @ssp.empty?
-      return @scheme + ":" + @ssp
-    end
+    @str
+    #unless @scheme.empty? or @ssp.empty?
+    #  return @scheme + ":" + @ssp
+    #end
   end
 
   def indexingPart
