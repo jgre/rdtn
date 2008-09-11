@@ -23,59 +23,53 @@ class InvalidEid < ProtocolError
   end
 end
 
-class EID
-  attr_reader :scheme, :ssp
+EID_REGEXP = /^([[:alnum:]]+):([[:print:]]+)$/
 
-  def initialize(str=nil)
-    if str and str != ""
-      str = str.to_s # Just in case str is actually an EID object
-      if str =~ /([[:alnum:]]+):([[:print:]]+)/
-	@scheme = $1
-	@ssp = $2
-        @str = str
-      else
-	raise InvalidEid, str
-      end
-    else
-      @scheme = "dtn"
-      @ssp = "none"
-      @str = 'dtn:none'
+class String
+
+  def is_eid?
+    self =~ EID_REGEXP
+  end
+
+  def scheme
+    if empty?                then ''
+    elsif self =~ EID_REGEXP then $1
+    else raise InvalidEid, str
+    end
+  end
+
+  def ssp
+    if empty?                then ''
+    elsif self =~ EID_REGEXP then $2
+    else raise InvalidEid, str
     end
   end
 
   def scheme=(scheme)
-    @scheme = scheme
-    @str    = nil
+    if empty?     then self << scheme << ':none'
+    elsif is_eid? then gsub!(/^[[:alnum:]]+:/, "#{scheme}:")
+    else raise InvalidEid, str
+    end
   end
 
   def ssp=(ssp)
-    @ssp = ssp
-    @str = nil
+    if empty?     then self << 'dtn:' << ssp
+    elsif is_eid? then gsub!(/:[[:print:]]+$/, ":#{ssp}")
+    else raise InvalidEid, str
+    end
   end
 
-  def to_s
-    @str ||= "#@scheme:#@ssp" unless @scheme.empty? or @ssp.empty?
-  end
-
-  def indexingPart
-    return self.to_s
-  end
-
-  def join(str)
-    res = EID.new
-    res.scheme = @scheme
-    if @ssp[-1].chr == "/" and str.to_s[0].chr == "/"
-      res.ssp = @ssp + str[1..-1]
-    elsif @ssp[-1].chr != "/" and str.to_s[0].chr != "/"
-      res.ssp = @ssp + "/" + str.to_s
+  def eid_append(str)
+    res = ""
+    res.scheme = scheme
+    if ssp[-1].chr == "/" and str.to_s[0].chr == "/"
+      res.ssp = ssp + str[1..-1]
+    elsif ssp[-1].chr != "/" and str.to_s[0].chr != "/"
+      res.ssp = ssp + "/" + str.to_s
     else
-      res.ssp = @ssp + str.to_s
+      res.ssp = ssp + str.to_s
     end
     return res
-  end
-
-  def ==(eid2)
-    self.to_s == eid2.to_s
   end
 
 end

@@ -120,7 +120,7 @@ module RdtnConfig
     end
 
     def localEid(eid)
-      @settings.localEid = EID.new(eid) unless @settings.localEid
+      @settings.localEid = eid unless @settings.localEid
     end
 
     def route(action, dest, link)
@@ -175,10 +175,6 @@ module RdtnConfig
       @logLevels = []
       @defaultLogLevel = Logger::ERROR
       @acceptCustody = false
-    end
-
-    def localEid=(eid)
-      @localEid = eid ? EID.new(eid) : nil
     end
 
     def contactManager

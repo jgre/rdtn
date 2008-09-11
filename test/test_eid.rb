@@ -23,19 +23,25 @@ require "eidscheme"
 
 class TestEID < Test::Unit::TestCase
 
+  def test_eid
+    assert "dtn:test".is_eid?
+    assert "dtn://bla/fasel".is_eid?
+    assert !"dtnhugo".is_eid?
+  end
+
   def test_join
-    eid1 = EID.new("dtn:test")
-    eid2 = EID.new("dtn:test/")
-    eid3 = EID.new
+    eid1 = "dtn:test"
+    eid2 = "dtn:test/"
+    eid3 = ""
     str1 = "/test"
     str2 = "test"
 
     result = "dtn:test/test"
 
-    assert_equal(result, eid1.join(str1).to_s)
-    assert_equal(result, eid2.join(str1).to_s)
-    assert_equal(result, eid1.join(str2).to_s)
-    assert_equal(result, eid2.join(str2).to_s)
+    assert_equal(result, eid1.eid_append(str1))
+    assert_equal(result, eid2.eid_append(str1))
+    assert_equal(result, eid1.eid_append(str2))
+    assert_equal(result, eid2.eid_append(str2))
   end
 
 end

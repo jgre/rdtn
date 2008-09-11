@@ -68,7 +68,7 @@ class TestStorage < Test::Unit::TestCase
     
     0.upto(99) do |i|
       b=Bundling::Bundle.new(i.to_s)
-      b.destEid=EID.new("dtn://test/" + i.to_s)
+      b.destEid = "dtn://test/" + i.to_s
       @store.storeBundle(b)
     end
 

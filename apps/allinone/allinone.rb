@@ -43,7 +43,7 @@ opts = OptionParser.new do |opts|
     dest=d
   end
   opts.on("-l", "--local EID", "local EID") do |l|
-    RdtnConfig::Settings.instance.localEid = EID.new(l)
+    RdtnConfig::Settings.instance.localEid = l
   end
   opts.on("-L", "--loop INTERVAL", Integer) do |val|
     loopInterval = val
@@ -71,8 +71,7 @@ if defined? plFile and plFile
   payload=plFile.read
   plFile.close
 
-  b = Bundling::Bundle.new(payload)
-  b.destEid = EID.new(dest)
+  b = Bundling::Bundle.new(payload, dest)
   rdebug(self, "sending bundle")
   EventDispatcher.instance().dispatch(:bundleParsed, b)
 
@@ -80,8 +79,7 @@ if defined? plFile and plFile
     Thread.new(loopInterval) do |interv|
       while true
 	sleep(interv)
-	b = Bundling::Bundle.new(payload)
-	b.destEid = EID.new(dest)
+	b = Bundling::Bundle.new(payload, dest)
 	rdebug(self, "sending bundle")
 	EventDispatcher.instance().dispatch(:bundleParsed, b)
       end

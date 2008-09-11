@@ -29,7 +29,7 @@ rdebug(self, "Starting dtnrcv")
 
 opts = OptionParser.new do |opts|
   opts.on("-l", "--local EID", "local EID") do |l|
-    eid = EID.new(l)
+    eid = l
   end
 end
 opts.parse!(ARGV)

@@ -178,12 +178,12 @@ module Bundling
       end
       @@lastTimestamp = @creationTimestamp
       @lifetime = options[:lifetime] || 3600
-      @destEid  = EID.new(destEid)
-      @srcEid   = EID.new(srcEid)
+      @destEid  = destEid
+      @srcEid   = srcEid
 
       rte           = options[:reportToEid]
-      @reportToEid  = (rte.nil? or rte.empty?) ? EID.new(destEid) : EID.new(rte)
-      @custodianEid = EID.new(options[:custodianEid])
+      @reportToEid  = (rte.nil? or rte.empty?) ? destEid : rte
+      @custodianEid = options[:custodianEid]
 
       @blocks = []
 
@@ -248,10 +248,10 @@ module Bundling
     def parseDict(dict)
       sio = StringIO.new(dict)
 
-      @destEid = EID.new
-      @srcEid = EID.new
-      @reportToEid = EID.new
-      @custodianEid = EID.new
+      @destEid      = ""
+      @srcEid       = ""
+      @reportToEid  = ""
+      @custodianEid = ""
 
       sio.pos = @destSchemeOff
       @destEid.scheme = sio.gets(0.chr).strip
@@ -420,8 +420,8 @@ module Bundling
       rbDict = {}
       strDict = ""
       eids.each do |eid, schemeOff, sspOff|
-	scheme = EID.new(self.send(eid).to_s).scheme
-	ssp = EID.new(self.send(eid).to_s).ssp
+	scheme = self.send(eid).to_s.scheme
+	ssp    = self.send(eid).to_s.ssp
 	if not rbDict.include?(scheme)
 	  strDict << scheme + "\0"
 	  rbDict[scheme] = offset

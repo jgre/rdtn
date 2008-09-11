@@ -113,7 +113,7 @@ if mychannel
       #payload = open("/dev/urandom") {|f| f.read(bytes) }
       payload = "a" * bytes
       #dest    = dests[rand(dests.length)]
-      b       = Bundling::Bundle.new(payload, EID.new(mychannel))
+      b       = Bundling::Bundle.new(payload, mychannel)
       #puts("sending bundle to #{mychannel}")
       c.sendBundle(b)
       RdtnTime.rsleep(maxWait - wait)

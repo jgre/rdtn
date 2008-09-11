@@ -43,7 +43,7 @@ class Subscription
   def initialize(config, evDis, uri)
     @config = config
     @evDis = evDis
-    @uri = EID.new(uri.to_s)
+    @uri = uri
     @uniqueSubscriptions = []
     @bundlesReceived = []
     @nUSubs = 0

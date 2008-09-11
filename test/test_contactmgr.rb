@@ -61,7 +61,7 @@ class TestContactManager < Test::Unit::TestCase
   def test_insertion
     cm = ContactManager.new(@config, @evDis)
     link = CMockLink.new(@config, @evDis)
-    eid = EID.new("dtn://test/fasel")
+    eid = "dtn://test/fasel"
     link.remoteEid = eid
 
     result = cm.findLink {|l| l == link}

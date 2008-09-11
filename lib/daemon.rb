@@ -43,7 +43,7 @@ module RdtnDaemon
       @config = RdtnConfig::Settings.new(@evDis)
       Bundling::ParserManager.registerEvents(@evDis)
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
-      @config.localEid    = EID.new(localEid) if localEid
+      @config.localEid    = localEid if localEid
       # Create a default router
       @config.router      = RoutingTable.new(@config, @evDis)
       @configFileName     = File.join(File.dirname(__FILE__), "rdtn.conf")
@@ -60,7 +60,7 @@ module RdtnDaemon
 	@configFileName = c
       end
       optParser.on("-l", "--local EID", "local EID") do |l|
-	@config.localEid = EID.new(l)
+	@config.localEid = l
       end
       optParser.on("-s", "--stat-dir DIR", "Directory for statistics") do |s|
 	@config.setStatDir(s)
@@ -115,11 +115,11 @@ module RdtnDaemon
     def makeLocalEid(part = nil)
       if not part
 	@config.localEid
-      elsif part.to_s =~ /([[:alnum:]]+):([[:print:]]+)/
-	EID.new(part)
+      elsif part.is_eid?
+	part
       else
 	# If the part is only a partial eid, prepend the eid of the router.
-	@config.localEid.join(part)
+	@config.localEid.eid_append(part)
       end
     end
 

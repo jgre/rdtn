@@ -77,7 +77,7 @@ module TCPCL
     end
 
     def localEid=(eid)
-      @tcpLink.remoteEid = EID.new(eid)
+      @tcpLink.remoteEid = eid
     end
     
     def flags=(flags)
