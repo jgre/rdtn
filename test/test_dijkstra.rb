@@ -17,7 +17,7 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 $:.unshift File.join(File.dirname(__FILE__), "..", "sim")
-$:.unshift File.join(File.dirname(__FILE__), "..", "apps", "stateval")
+$:.unshift File.join(File.dirname(__FILE__), "..", "sim", "stats")
 
 require "test/unit"
 require "graph"
