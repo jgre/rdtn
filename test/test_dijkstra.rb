@@ -42,9 +42,6 @@ class TestDijkstra < Test::Unit::TestCase
     @g.addEdge(6, 7, 8, 50)
     @g.addEdge(6, 8, 1, 50)
     @g.addEdge(7, 8, 7, 50)
-
-    open("graph.dot", "w") {|f| @g.printGraphviz(f)}
-
   end
 
   def test_values

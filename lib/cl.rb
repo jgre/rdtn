@@ -16,17 +16,15 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 require 'singleton'
-require "rerun_thread"
 require "thread"
 
 # Interface class for incoming connections
 # Interface objects can generate new Links
 class Interface
   attr_accessor :name
-  include RerunThread
 
   def listenerThread(*args, &block)
-    @listenerThread = spawnThread(*args, &block)
+    @listenerThread = Thread.new(*args, &block)
   end
 
   def close
@@ -44,7 +42,6 @@ end
 
 
 class Link
-  include RerunThread
 
   MIN_READ_BUFFER=1048576
 
@@ -111,13 +108,13 @@ class Link
   protected
 
   def senderThread(*args, &block)
-    ret = spawnThread(*args, &block)
+    ret = Thread.new(*args, &block)
     @senderThreads.push(ret)
     return ret
   end
 
   def receiverThread(*args, &block)
-    ret = spawnThread(*args, &block)
+    ret = Thread.new(*args, &block)
     @receiverThreads.push(ret)
     return ret
   end
