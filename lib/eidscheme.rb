@@ -24,7 +24,7 @@ class InvalidEid < ProtocolError
 end
 
 class EID
-  attr_accessor :scheme, :ssp
+  attr_reader :scheme, :ssp
 
   def initialize(str=nil)
     if str and str != ""
@@ -43,11 +43,18 @@ class EID
     end
   end
 
+  def scheme=(scheme)
+    @scheme = scheme
+    @str    = nil
+  end
+
+  def ssp=(ssp)
+    @ssp = ssp
+    @str = nil
+  end
+
   def to_s
-    @str
-    #unless @scheme.empty? or @ssp.empty?
-    #  return @scheme + ":" + @ssp
-    #end
+    @str ||= "#@scheme:#@ssp" unless @scheme.empty? or @ssp.empty?
   end
 
   def indexingPart

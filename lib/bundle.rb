@@ -207,7 +207,26 @@ module Bundling
 
     def defineFields(version)
       @version = version
+    end
 
+    def srcEid=(eid)
+      @srcEid = eid
+      @bid    = nil
+    end
+
+    def creationTimestamp=(ts)
+      @creationTimestamp = ts
+      @bid               = nil
+    end
+
+    def creationTimestampSeq(tsseq)
+      @creationTimestampSeq = tsseq
+      @bid                  = nil
+    end
+
+    def fragmentOffset(offset)
+      @fragmentOffset = offset
+      @bid            = nil
     end
 
     def bundleId
@@ -242,6 +261,7 @@ module Bundling
       sio.pos = @custSspOff
       @custodianEid.ssp = sio.gets(0.chr).strip
 
+      @bid = nil
     end
 
     def fragment=(set)
