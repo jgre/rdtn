@@ -6,6 +6,7 @@ require 'test/unit'
 require 'shoulda'
 require 'core'
 require 'networkmodel'
+require 'trafficmodel'
 
 module Sim
 
@@ -19,8 +20,9 @@ module Sim
       def prepare(&blk)
         Thoughtbot::Shoulda.current_context.setup do
           blk.bind(self).call
-          event_log = sim.run
-          @network_model = NetworkModel.new(event_log)
+          events, log    = sim.run
+          @network_model = NetworkModel.new(events)
+          @traffic_model = TrafficModel.new(0, log)
         end
       end
 

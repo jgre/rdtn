@@ -67,6 +67,11 @@ module Sim
       removeLink("simlink#{node2.id}")
     end
 
+    def sendBundle(bundle)
+      @sim.log(:bundleCreated, @id, nil, :bundle => bundle)
+      super
+    end
+
     def createBundle(channel, size)
       payload = "a" * size
       #sendDataTo(payload, channel)

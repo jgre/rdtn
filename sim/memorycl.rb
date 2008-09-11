@@ -81,7 +81,7 @@ module Sim
       if @peerLink
 	bundle = @queue.shift
 	@evDis.dispatch(:bundleForwarded, bundle, self)
-        @sim.log(:bundleForwarded, @nodeId, @dest, bundle)
+        @sim.log(:bundleForwarded, @nodeId, @dest, :bundle => bundle)
 
 	@peerLink.receiveBundle(bundle, self)
 	unless @queue.empty?
