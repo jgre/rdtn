@@ -5,15 +5,16 @@ require 'graph'
 
 class TestStress < Test::Unit::TestCase
 
-  context 'Under stress the simulator' do
+  simulation_context 'Under stress the simulator' do
 
     network  :two_connected_nodes
     workload :sending_many_bundles
 
-    prepare {}
+    should 'generate 1200 bundles' do
+      assert_equal 1200, traffic_model.numberOfBundles
+    end
 
     should 'deliver all bundles' do
-      assert_equal 1200, traffic_model.numberOfBundles
       assert_equal 1, traffic_model.deliveryRatio
     end
 
