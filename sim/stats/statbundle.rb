@@ -30,6 +30,10 @@ class StatBundle
     @incidents.has_key? @dest
   end
 
+  def nDelivered
+    delivered? ? 1 : 0
+  end
+
   def nReplicas
     @incidents.length
   end
