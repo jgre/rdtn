@@ -21,12 +21,9 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'rdtnevent'
 require 'nodeconnection'
-require 'setdestparser'
-require 'mitparser'
 require 'optparse'
 require 'timerengine'
 require 'yaml'
-require 'traceparser'
 
 module Sim
 
@@ -58,7 +55,7 @@ module Sim
 	Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
       end
       @nConnect = @nDisconnect = 0
-      @configFileName= File.join(File.dirname(__FILE__), 'sim.conf')
+      @configFileName = File.join(File.dirname(__FILE__), 'sim.conf')
       @events = nil
       @te = TimerEngine.new(@config, @evDis)
 
@@ -87,7 +84,6 @@ module Sim
 	traceParser(@config["traceParser"])
       end
       Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
-      #@config.load(configFileName)
     end
 
     def parseOptions(optParser = OptionParser.new)
@@ -114,24 +110,24 @@ module Sim
     end
 
     def traceParser(options)
-      klass = TraceParserReg.instance.tps[options["type"]]
-      if klass
-	parser = klass.new(@config["duration"], @config["granularity"], options)
-	self.events = parser.events
-	if options["tracefile"]
-	  open(File.basename(options["tracefile"], ".*")+".rdtnsim", "w") do |f|
-	    Marshal.dump(@events, f)
-	  end
-	end
-      else
-	rerror(self, "Unknown type of traceparser #{options["type"]}")
+      type      = options['type']
+      pluginDir = File.join(File.dirname(__FILE__), 'plugins/trace-parsers')
+      load File.join(pluginDir, type.downcase + '.rb')
+      parser    = Module.const_get(type).new(@config["duration"], 
+                                             @config["granularity"], options)
+
+      self.events = parser.events
+      if options["tracefile"]
+        open(File.basename(options["tracefile"], ".*")+".rdtnsim", "w") do |f|
+          Marshal.dump(@events, f)
+        end
       end
     end
 
     def events=(events)
-      #@events.stop(@evDis) if @events
+      @events.stop(@evDis) if @events
       @events = events
-      #@events.register(@evDis)
+      @events.register(@evDis)
     end
 
     def at(time)
@@ -160,10 +156,6 @@ module Sim
 
       RdtnTime.timerFunc = lambda {@te.time}
 
-      #at(60) do |time|
-	#puts "Running for #{time} seconds (#{(time).to_f/@config["duration"] * 100}%), #{@endTime-time} seconds left."
-#	  true
-#      end
       @te.run(dur, @events, startTime)
     end
 
