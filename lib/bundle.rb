@@ -636,6 +636,18 @@ module Bundling
       return ret
     end
 
+    def wireCopy
+      ret = Bundle.new
+      ret.forwardLog = Bundling::ForwardLog.new
+      ret.blocks = @blocks.map {|block| block.clone}
+      instance_variables.each do |var|
+        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var)
+          ret.instance_variable_set(var, instance_variable_get(var))
+        end
+      end
+      return ret
+    end
+
     def setCustodyTimer(timer)
       @custodyTimer = timer
     end
