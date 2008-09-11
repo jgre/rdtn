@@ -25,6 +25,9 @@ require "eventqueue"
 require "dieselnetparser"
 
 SAMPLE_DIESEL_TRACE = <<END_OF_STRING
+0 1 1176855143 1495
+1 2 1176879728 82918414
+1 3 1176880079 4681007
 END_OF_STRING
 
 class TestMITParser < Test::Unit::TestCase
@@ -37,24 +40,36 @@ class TestMITParser < Test::Unit::TestCase
   end
 
   def test_parse
-    parser = DieselNetParser.new(20, 1, "tracefile" => @path)
+    parser = DieselNetParser.new(nil, nil, "tracefile" => @path)
     ev = parser.events
-    assert_equal(3, ev.events.length)
+    assert_equal(6, ev.events.length)
 
     assert_equal(0, ev.events[0].time)
-    assert_equal(1, ev.events[0].nodeId1)
-    assert_equal(2, ev.events[0].nodeId2)
+    assert_equal(0, ev.events[0].nodeId1)
+    assert_equal(1, ev.events[0].nodeId2)
     assert_equal(:simConnection, ev.events[0].type)
-
-    assert_equal(10, ev.events[1].time)
-    assert_equal(1, ev.events[1].nodeId1)
-    assert_equal(2, ev.events[1].nodeId2)
+    assert_equal(1, ev.events[1].time)
+    assert_equal(0, ev.events[1].nodeId1)
+    assert_equal(1, ev.events[1].nodeId2)
     assert_equal(:simDisconnection, ev.events[1].type)
 
-    assert_equal(10, ev.events[2].time)
-    assert_equal(2, ev.events[2].nodeId1)
-    assert_equal(3, ev.events[2].nodeId2)
+    assert_equal(24585, ev.events[2].time)
+    assert_equal(1, ev.events[2].nodeId1)
+    assert_equal(2, ev.events[2].nodeId2)
     assert_equal(:simConnection, ev.events[2].type)
+    assert_equal(24646, ev.events[3].time)
+    assert_equal(1, ev.events[3].nodeId1)
+    assert_equal(2, ev.events[3].nodeId2)
+    assert_equal(:simDisconnection, ev.events[3].type)
+
+    assert_equal(24936, ev.events[4].time)
+    assert_equal(1, ev.events[4].nodeId1)
+    assert_equal(3, ev.events[4].nodeId2)
+    assert_equal(:simConnection, ev.events[4].type)
+    assert_equal(24940, ev.events[5].time)
+    assert_equal(1, ev.events[5].nodeId1)
+    assert_equal(3, ev.events[5].nodeId2)
+    assert_equal(:simDisconnection, ev.events[5].type)
   end
 
 end
