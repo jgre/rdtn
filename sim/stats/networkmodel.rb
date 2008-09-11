@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Copyright (C) 2007, 2008 Janico Greifenberg <jgre@jgre.org> and 
 #  Dirk Kutscher <dku@tzi.org>
 #
 # This program is free software; you can redistribute it and/or modify
