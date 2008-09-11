@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-#  Copyright (C) 2007 Janico Greifenberg <jgre@jgre.org> and 
+#  Copyright (C) 2007, 2008 Janico Greifenberg <jgre@jgre.org> and 
 #  Dirk Kutscher <dku@tzi.org>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,6 @@ module Sim
       # id -> NodeConnection
       @nodes = {}
       @timerEventId = 0
-      #@config = Sim::Config.new(@evDis)
       @config = DEFAULT_CONF 
       @config["dirName"] = dirName
       # Hash of configuration options that should overwrite setting from the
@@ -81,7 +80,8 @@ module Sim
       if @config["eventdump"] and File.exist?(@config["eventdump"])
 	loadEventdump(@config["eventdump"])
       elsif @config["traceParser"]
-	traceParser(@config["traceParser"])
+	traceParser(@config["duration"], @config["granularity"],
+                    @config["traceParser"])
       end
       Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
     end
@@ -107,21 +107,6 @@ module Sim
 
     def loadEventdump(filename)
       open(filename) {|f| self.events = Marshal.load(f) }
-    end
-
-    def traceParser(options)
-      type      = options['type']
-      pluginDir = File.join(File.dirname(__FILE__), 'plugins/trace-parsers')
-      load File.join(pluginDir, type.downcase + '.rb')
-      parser    = Module.const_get(type).new(@config["duration"], 
-                                             @config["granularity"], options)
-
-      self.events = parser.events
-      if options["tracefile"]
-        open(File.basename(options["tracefile"], ".*")+".rdtnsim", "w") do |f|
-          Marshal.dump(@events, f)
-        end
-      end
     end
 
     def events=(events)
