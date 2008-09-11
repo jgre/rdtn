@@ -137,12 +137,20 @@ module Bundling
   end
 
 
-  class PrimaryBundleBlock
+  # Representation of a Bundle including the parser and serialization. Refer to
+  # the bundles protocol specification for the semantics of the attributes.
+
+  class Bundle
 
     include GenParser
 
-    attr_accessor :destEid, :srcEid, :reportToEid, :custodianEid,
+    PAYLOAD_BLOCK = 1
+
+    attr_accessor :incomingLink, :destEid, :srcEid, :reportToEid, :custodianEid,
       :bytesToRead, :queue, :fragmentOffset, :aduLength
+    attr_reader   :forwardLog, :blocks
+
+    SUPPORTED_VERSIONS = [5]
 
     field :version, :length => 1, :decode => GenParser::NumDecoder,
       :condition => lambda {|v| Bundle::SUPPORTED_VERSIONS.include?(v)}
@@ -169,9 +177,8 @@ module Bundling
     @@lastTimestamp = 0
     @@lastSeqNo = 0
 
-    def initialize(bundle, destEid=nil, srcEid=nil, reportToEid=nil,
+    def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
 		   custodianEid=nil)
-      @bundle = bundle
       @version = 5
       @procFlags = 0
       @cosFlags = 0
@@ -195,6 +202,26 @@ module Bundling
 
       @bytesToRead = -1 # Unknown
 
+      @blocks = []
+
+      @custodyAccepted = false
+      @deleted         = false
+      @forwardLog = Bundling::ForwardLog.new
+      if payload
+	@blocks.push(PayloadBlock.new(self, payload))
+	@blocks[-1].lastBlock = true
+      end
+
+      @custodyTimer = nil
+    end
+
+    def deleted?
+      @deleted
+    end
+
+    def delete
+      @deleted = true
+      # TODO: delete paylaod
     end
 
     def expired?
@@ -203,10 +230,6 @@ module Bundling
 
     def created
       Time.utc(2000) + @creationTimestamp
-    end
-
-    def defineFields(version)
-      @version = version
     end
 
     def srcEid=(eid)
@@ -219,12 +242,12 @@ module Bundling
       @bid               = nil
     end
 
-    def creationTimestampSeq(tsseq)
+    def creationTimestampSeq=(tsseq)
       @creationTimestampSeq = tsseq
       @bid                  = nil
     end
 
-    def fragmentOffset(offset)
+    def fragmentOffset=(offset)
       @fragmentOffset = offset
       @bid            = nil
     end
@@ -312,7 +335,6 @@ module Bundling
       (@procFlags & 0x20) != 0
     end  
 
-
     # 00 :bulk, 
     # 01 :normal, 
     # 10 :expedited
@@ -373,12 +395,7 @@ module Bundling
       (@procFlags & 0x40000) != 0
     end
 
-    def lastBlock?
-      # The primary bundle block cannot be the last block
-      return false
-    end
-
-    def to_s
+    def serializePrimaryBlock
       data = ""
       data << @version
       pbb = ""
@@ -405,7 +422,6 @@ module Bundling
       return data
     end
 
-    private
     def buildDict
       eids = [[:destEid, :destSchemeOff=, :destSspOff=],
 	[:srcEid, :srcSchemeOff=, :srcSspOff=],
@@ -431,50 +447,6 @@ module Bundling
 	self.send(sspOff, rbDict[ssp])
       end
       return strDict
-    end
-
-  end
-
-  # Representation of a Bundle including the parser and serialization. Refer to
-  # the bundles protocol specification for the semantics of the attributes.
-
-  class Bundle
-
-    PAYLOAD_BLOCK = 1
-
-    attr_accessor :incomingLink
-    attr_reader   :forwardLog, :blocks
-
-    SUPPORTED_VERSIONS = [5]
-
-    def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
-		   custodianEid=nil)
-      @blocks = [PrimaryBundleBlock.new(self, destEid, srcEid, 
-					reportToEid, custodianEid)]
-      @custodyAccepted = false
-      @deleted         = false
-      @forwardLog = Bundling::ForwardLog.new
-      if payload
-	@blocks.push(PayloadBlock.new(self, payload))
-	@blocks[-1].lastBlock = true
-      end
-
-      @custodyTimer = nil
-      
-    end
-
-    # Most method calls are redirected to the PrimaryBundleBlock
-    def method_missing(methodId, *args)
-      @blocks[0].send(methodId, *args)
-    end
-    
-    def deleted?
-      @deleted
-    end
-
-    def delete
-      @deleted = true
-      # TODO: delete paylaod
     end
 
     def payload
@@ -513,15 +485,13 @@ module Bundling
     end
 
     def addBlock(block)
-      if @blocks[-1] and @blocks[-1].class != PrimaryBundleBlock
-	@blocks[-1].lastBlock = false 
-      end
+      @blocks[-1].lastBlock = false unless @blocks.empty?
       block.lastBlock = true
       @blocks.push(block)
     end
 
     def to_s
-      data = ""
+      data = serializePrimaryBlock
       @blocks.each {|block| data << block.to_s}
       return data
     end
@@ -558,17 +528,23 @@ module Bundling
       # TODO: cancel pending transmissions in forwardLog
     end
 
+    alias_method :genParse, :parse
     def parse(io)
       while not io.eof?
-	if @blocks[-1].parserFinished?
-	  blockType = io.getc
-	  block = BundleBlockReg.instance.makeBlock(blockType, self)
-	  addBlock(block)
-	end
-	oldPos = io.pos
 	begin
+          oldPos = io.pos
+          unless genParserFinished? # parse the primary block
+            genParse(io)
+            next
+          end
+
+          if @blocks.empty? or @blocks[-1].parserFinished?
+            blockType = io.getc
+            block = BundleBlockReg.instance.makeBlock(blockType, self)
+            addBlock(block)
+          end
+          oldPos = io.pos
 	  @blocks[-1].parse(io)
-	  #puts "Parsing Block #{@blocks[-1].class}, #{@blocks[-1].flags} #{io.pos}, #{io.length}" unless @blocks.length == 1
 	rescue InputTooShort => detail
 	  io.pos = oldPos
 	  raise
@@ -576,11 +552,12 @@ module Bundling
       end
     end
 
+    alias_method :genParserFinished?, :parserFinished?
     def parserFinished?
       if @blocks.empty?
-	return false
+	false
       else
-	return (@blocks[-1].parserFinished? and @blocks[-1].lastBlock?)
+	genParserFinished? and @blocks[-1].parserFinished? and @blocks[-1].lastBlock?
       end
     end
 
@@ -635,23 +612,27 @@ module Bundling
       end
     end
     
-    def marshal_dump      
-      [@blocks, @forwardLog, @custodyAccepted]
+    def marshal_dump
+      dumpFields.map {|var| [var, instance_variable_get(var)]}
     end
 
     def marshal_load(arr)
-      @blocks, @forwardLog, @custodyAccepted = arr
+      arr.each {|var, val| instance_variable_set(var, val)}
     end
 
     def to_yaml_properties
-      %w{ @blocks @forwardLog @custodyAccepted }
+      dumpFields
     end
 
     def deepCopy
       ret = Bundle.new
       ret.forwardLog = @forwardLog.deepCopy
-      ret.custodyAccepted = @custodyAccepted
       ret.blocks = @blocks.map {|block| block.clone}
+      instance_variables.each do |var|
+        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var)
+          ret.instance_variable_set(var, instance_variable_get(var))
+        end
+      end
       return ret
     end
 
@@ -670,7 +651,13 @@ module Bundling
     attr_writer   :forwardLog
     protected :blocks, :blocks=, :forwardLog=
 
-      private
+    private
+
+    def dumpFields
+      instance_variables.find_all do |var|
+        var != "@genParserFields" and var != "@incomingLink"
+      end
+    end
 
     # Calculate the size of the "headers" (the primary block, extension
     # blocks, and the headers of the payload block). This is (roughly) the
