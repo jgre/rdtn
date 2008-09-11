@@ -84,8 +84,7 @@ module Sim
 
     def receiveBundle(bundle, link)
       @peerLink = link unless @peerLink
-      sio = StringIO.new(bundle.to_s)
-      @evDis.dispatch(:bundleData, sio, self)
+      @evDis.dispatch(:bundleParsed, bundle.deepCopy)
     end
 
   end
