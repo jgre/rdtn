@@ -64,7 +64,7 @@ module Bundling
     # convergence layer.
     @@incomingBundles = {}
 
-    def ParserManager.registerEvents(evDis)
+    def self.registerEvents(evDis)
       evDis.subscribe(:bundleData) do |*args|
 	ParserManager::handleBundleData(evDis, *args)
       end
@@ -72,30 +72,21 @@ module Bundling
       #TODO start housekeeping thread
     end
 
-    def ParserManager.handleBundleData(evDis, queue, link)
-      if not @@incomingBundles.has_key?(queue.object_id)
-	@@incomingBundles[queue.object_id] = ParserManager.new(evDis, link)
-	rdebug(self, "Adding new entry to @incomingBundles #{queue.object_id}")
-      end
-
+    def self.handleBundleData(evDis, queue, link)
       if queue.closed?
 	rwarn(self, "':bundleData' event received, but the queue is closed.")
 	@@incomingBundles.delete(queue.object_id)
-	return
+      else
+        pm=@@incomingBundles[queue.object_id] ||= ParserManager.new(evDis, link)
+        pm.doParse(queue)
+        @@incomingBundles.delete(queue.object_id) unless pm.active?
       end
-
-      pm = @@incomingBundles[queue.object_id]
-      pm.doParse(queue)
-      @@incomingBundles.delete(queue.object_id) unless pm.active?
-
     end
 
     def initialize(evDis, link)
-      @evDis = evDis
-      @active = true
-      @bundle = Bundle.new
-      neighbor = link ? link.remoteEid : nil
-      @bundle.forwardLog.addEntry(:incoming, :transmitted, neighbor, link)
+      @evDis   = evDis
+      @active  = true
+      @bundle  = Bundle.new(nil, nil, nil, :incomingLink => link)
       @idleSince = nil
       @bundle.incomingLink = link
 
@@ -130,9 +121,8 @@ module Bundling
       end
     end
 
-    def active?
-      return @active
-    end
+    attr_accessor :active
+    alias active?  active
 
   end
 
@@ -147,7 +137,7 @@ module Bundling
     PAYLOAD_BLOCK = 1
 
     attr_accessor :incomingLink, :destEid, :srcEid, :reportToEid, :custodianEid,
-      :bytesToRead, :queue, :fragmentOffset, :aduLength
+      :queue, :fragmentOffset, :aduLength
     attr_reader   :forwardLog, :blocks
 
     SUPPORTED_VERSIONS = [5]
@@ -177,42 +167,41 @@ module Bundling
     @@lastTimestamp = 0
     @@lastSeqNo = 0
 
-    def initialize(payload=nil, destEid=nil, srcEid=nil, reportToEid=nil,
-		   custodianEid=nil)
-      @version = 5
+    def initialize(payload=nil, destEid=nil, srcEid=nil, options={})
+      @version   = 5
       @procFlags = 0
-      @cosFlags = 0
-      @srrFlags = 0
       @creationTimestamp = (RdtnTime.now - Time.gm(2000)).to_i
       if @creationTimestamp == @@lastTimestamp
-	@@lastSeqNo = @creationTimestampSeq = @@lastSeqNo + 1
+	@creationTimestampSeq = @@lastSeqNo += 1
       else
 	@@lastSeqNo = @creationTimestampSeq = 0
       end
       @@lastTimestamp = @creationTimestamp
-      @lifetime = 3600
-      @destEid = EID.new(destEid)
-      @srcEid = EID.new(srcEid)
-      if not reportToEid
-	@reportToEid = EID.new(destEid)
-      else
-	@reportToEid = EID.new(reportToEid)
-      end
-      @custodianEid = EID.new(custodianEid)
+      @lifetime = options[:lifetime] || 3600
+      @destEid  = EID.new(destEid)
+      @srcEid   = EID.new(srcEid)
 
-      @bytesToRead = -1 # Unknown
+      rte           = options[:reportToEid]
+      @reportToEid  = (rte.nil? or rte.empty?) ? EID.new(destEid) : EID.new(rte)
+      @custodianEid = EID.new(options[:custodianEid])
 
       @blocks = []
 
       @custodyAccepted = false
       @deleted         = false
+      @custodyTimer    = nil
+
       @forwardLog = Bundling::ForwardLog.new
+      if link = options[:incomingLink]
+        neighbor = link ? link.remoteEid : nil
+        @forwardLog.addEntry(:incoming, :transmitted, neighbor, link)
+      end
+
       if payload
 	@blocks.push(PayloadBlock.new(self, payload))
 	@blocks[-1].lastBlock = true
       end
 
-      @custodyTimer = nil
     end
 
     def deleted?
@@ -636,9 +625,8 @@ module Bundling
       return ret
     end
 
-    def wireCopy
-      ret = Bundle.new
-      ret.forwardLog = Bundling::ForwardLog.new
+    def wireCopy(incomingLink)
+      ret = Bundle.new(nil, nil, nil, :incomingLink => incomingLink)
       ret.blocks = @blocks.map {|block| block.clone}
       instance_variables.each do |var|
         unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var)

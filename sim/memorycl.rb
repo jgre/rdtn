@@ -84,7 +84,7 @@ module Sim
 
     def receiveBundle(bundle, link)
       @peerLink = link unless @peerLink
-      @evDis.dispatch(:bundleParsed, bundle.wireCopy)
+      @evDis.dispatch(:bundleParsed, bundle.wireCopy(self))
     end
 
   end

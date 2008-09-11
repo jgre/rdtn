@@ -51,7 +51,6 @@ class TestBundle < Test::Unit::TestCase
 
     assert(bundle.parserFinished?)
     assert_equal(5, bundle.version)
-    assert_equal(-1, bundle.bytesToRead)
     #TODO check flags
     assert_equal("dtn://domain.dtn/test", bundle.destEid.to_s)
     assert_equal("dtn://hamlet.dtn/test", bundle.srcEid.to_s)
