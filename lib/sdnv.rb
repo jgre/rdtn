@@ -58,14 +58,12 @@ module Sdnv
     if (n >=0)
       flag = 0
       done = false
-      while(not done)
+      loop do
         newbits = n & 0x7F
         n = n >> 7
         r = (newbits + flag).chr + r
-        if(flag==0) then flag = 0x80
-        end
-        if(n==0) then done=true
-        end
+        flag = 0x80 if flag == 0
+        break if n == 0
       end
     end
     return r
