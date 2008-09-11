@@ -141,9 +141,13 @@ module Sim
       @endTime = startTime + dur
       rinfo(self, "Starting simulation with #{@config["nnodes"]} simulation nodes starting at time #{startTime}. Duration: #{dur} seconds.")
 
+      old_timer_func     = RdtnTime.timerFunc
       RdtnTime.timerFunc = lambda {@te.time}
 
       @te.run(dur, @events, startTime)
+
+      RdtnTime.timerFunc = old_timer_func
+
       [@events, @log]
     end
 
