@@ -28,7 +28,7 @@ module Sim
       @evDis  = evDis
     end
 
-    def run(duration, eventQueue, startTime = 0)
+    def run(eventQueue, startTime = 0, duration = nil)
       @t0 = Time.now - startTime
       @timer = startTime
       eventQueue.each_with_index do |event, i|
@@ -38,7 +38,7 @@ module Sim
 
         event.dispatch(@evDis)
 
-        break if @timer >= duration
+        break if duration and @timer >= duration
       end
     end
 

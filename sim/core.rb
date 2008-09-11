@@ -35,7 +35,6 @@ module Sim
 
     DEFAULT_CONF = {
       "nnodes"      => 10,
-      "duration"    => 600,
       "granularity" => 0.1,
       "realTime"    => false,
       "bytesPerSec" => 1024,
@@ -136,18 +135,17 @@ module Sim
       @log.push(LogEntry.new(time, eventId, nodeId1, nodeId2, options))
     end
 
-    def run(duration = nil, startTime = 0)
-      dur = duration || @config["duration"]
-      @endTime = startTime + dur
-      rinfo(self, "Starting simulation with #{@config["nnodes"]} simulation nodes starting at time #{startTime}. Duration: #{dur} seconds.")
+    def run(duration = @config["duration"], startTime = 0)
+      rinfo(self, "Starting simulation with #{@config["nnodes"]} simulation nodes starting at time #{startTime}. Duration: #{duration} seconds.")
 
       old_timer_func     = RdtnTime.timerFunc
       RdtnTime.timerFunc = lambda {@te.time}
 
-      @te.run(dur, @events, startTime)
+      @te.run(@events, startTime, duration)
 
       RdtnTime.timerFunc = old_timer_func
 
+      #puts "Simulated #{@te.timer} seconds with #{@events.events.length} events"
       [@events, @log]
     end
 
