@@ -62,7 +62,6 @@ class TestSim < Test::Unit::TestCase
   end
 
   def test_interruption
-    #$rdtnLogLevels[nil] = Logger::DEBUG
     received = false
     data     = "test"
     t0       = Time.now.to_i
@@ -72,9 +71,9 @@ class TestSim < Test::Unit::TestCase
     @sim.at(1) do |t|
       rdebug(self, "Sending bundle")
       @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
+      false
     end
     @sim.run(9)
-    #$rdtnLogLevels[nil] = Logger::ERROR
     assert_operator(t0+9, :<=, RdtnTime.now.to_i)
     assert((not received))
     @sim.run(nil, 10)

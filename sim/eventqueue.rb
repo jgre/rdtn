@@ -21,56 +21,51 @@ require 'rdtnevent'
 
 module Sim
 
+  class Event
+    attr_accessor :time, :nodeId1, :nodeId2, :type
+
+    def initialize(time, nodeId1, nodeId2, type)
+      @time    = time
+      @nodeId1 = nodeId1
+      @nodeId2 = nodeId2
+      @type    = type
+    end
+
+    def dispatch(evDis)
+      if @nodeId1 and @nodeId2
+        evDis.dispatch(@type, @nodeId1, @nodeId2)
+      else
+        evDis.dispatch(@type, @time)
+      end
+    end
+
+  end
+
   class EventQueue
 
-    attr_accessor :events, :deltaTime
-
-    Struct.new("SimEvent", :time, :nodeId1, :nodeId2, :type)
+    attr_accessor :events
+    include Enumerable
 
     def initialize(time0 = 0)
       @events = [] # [time, nodeId1, nodeId2, :simConnection|:simDisconnection]
       @time0  = 0  # All event before time0 will be ignored
+      @cur_ev = 0  # The index of the current event
     end
 
-    def register(evDis)
-      @evTick = evDis.subscribe(:simTimerTick) do |t| 
-	while @events[0] and @events[0].time <= t.to_f
-	  nextEvent(evDis)
-	end
-      end
-    end
-
-    def nextEvent(evDis)
-      return nil if @events.empty?
-      ev = @events.shift
-      #don't dispatch all events in the past when the timer is started
-      #with an offset
-      if ev.time >= @time0
-	rdebug(self, "Dispatching #{ev}")
-	if ev.nodeId1 and ev.nodeId2
-	  evDis.dispatch(ev.type, ev.nodeId1, ev.nodeId2)
-	else
-	  evDis.dispatch(ev.type, ev.time)
-	end
-      end
-      ev.time
-    end
-
-    def stop(evDis)
-      evDis.unsubscribe(:simTimerTick, @evTick) if @evTick
+    def each(&blk)
+      @events.each(&blk)
+      self
     end
 
     def addEvent(time, nodeId1, nodeId2, type)
-      @events.push(Struct::SimEvent.new(time, nodeId1, nodeId2, type))
-      #@events.push([time, nodeId1, nodeId2, type])
+      @events.push(Event.new(time, nodeId1, nodeId2, type))
       self
     end
 
     def addEventSorted(time, nodeId1, nodeId2, type)
       @events.each_with_index do |event, index|
 	if event.time > time
-	  @events.insert(index, 
-			 Struct::SimEvent.new(time, nodeId1, nodeId2, type))
+	  @events.insert(index, Event.new(time, nodeId1, nodeId2, type))
 	  return self
 	end
       end

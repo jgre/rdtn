@@ -26,12 +26,13 @@ require 'contacthistory'
 
 class NetworkModel
 
-  attr_reader :contacts
+  attr_reader :contacts, :duration
 
   def initialize(eq = nil)
     # Node -> List of ContactHistories involving Node
     @incidents   = {} 
     @contacts    = {} 
+    @duration    = 0
     self.events  = eq if eq
   end
 
@@ -40,6 +41,8 @@ class NetworkModel
   end
 
   def contactEvent(node1, node2, time, evType)
+    @duration = [@duration, time].max
+
     id = ContactHistory.getId(node1, node2)
     unless @contacts.has_key? id
       @contacts[id] = ContactHistory.new(id)

@@ -29,7 +29,8 @@ module Sim
 
   class Core
 
-    attr_reader :config, :nodes
+    attr_reader   :config, :nodes
+    attr_accessor :events
 
     DEFAULT_CONF = {
       "nnodes"      => 10,
@@ -53,20 +54,17 @@ module Sim
 	@owConf["dirName"] = dirName
 	Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
       end
-      @nConnect = @nDisconnect = 0
+
       @configFileName = File.join(File.dirname(__FILE__), 'sim.conf')
-      @events = nil
+      @events = EventQueue.new
       @te = TimerEngine.new(@config, @evDis)
 
       @evDis.subscribe(:simConnection) do |nodeId1, nodeId2|
-	#rdebug(self, "SimConnection #{nodeId1}, #{nodeId2}")
-	@nConnect += 1
 	node1 = @nodes[nodeId1]
 	node2 = @nodes[nodeId2]
 	node1.connect(node2) if node1 and node2
       end
       @evDis.subscribe(:simDisconnection) do |nodeId1,nodeId2|
-	@nDisconnect += 1
 	node1 = @nodes[nodeId1]
 	node2 = @nodes[nodeId2]
 	node1.disconnect(node2) if node1 and node2
@@ -106,13 +104,7 @@ module Sim
     end
 
     def loadEventdump(filename)
-      open(filename) {|f| self.events = Marshal.load(f) }
-    end
-
-    def events=(events)
-      @events.stop(@evDis) if @events
-      @events = events
-      @events.register(@evDis)
+      open(filename) {|f| @events = Marshal.load(f) }
     end
 
     def at(time)
@@ -152,6 +144,10 @@ module Sim
 			     @config["bytesPerSec"],
 			     @config["rdtnConfPath"])
       end
+    end
+
+    def time
+      @te.timer if @te
     end
 
   end
