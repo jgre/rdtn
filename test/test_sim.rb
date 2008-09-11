@@ -64,7 +64,6 @@ class TestSim < Test::Unit::TestCase
   def test_interruption
     received = false
     data     = "test"
-    t0       = Time.now.to_i
     @sim.nodes[3].register do |bundle|
       received = true
     end
@@ -74,7 +73,7 @@ class TestSim < Test::Unit::TestCase
       false
     end
     @sim.run(9)
-    assert_operator(t0+9, :<=, RdtnTime.now.to_i)
+    assert_operator(9, :<=, @sim.time)
     assert((not received))
     @sim.run(nil, 10)
     assert(received)
