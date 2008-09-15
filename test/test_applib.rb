@@ -87,7 +87,7 @@ class TestAppLib < Test::Unit::TestCase
     b=Bundling::Bundle.new(@bundleContent, eid)
     @client.register(eid) do |bundle|
       eventSent = true
-      assert_equal(bundle.payload.length, bundle.payload.length)
+      assert_equal(bundle.payload, b.payload)
     end
     client2 = RdtnClient.new(@client.host, @client.port)
     client2.sendBundle(b)
