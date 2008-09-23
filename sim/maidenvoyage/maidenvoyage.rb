@@ -31,6 +31,15 @@ module Sim
 
     class << self
       attr_accessor :sim, :network_model, :traffic_model
+
+      def method_missing(name, *args, &block)
+        if name.to_s[-1].chr == '='
+          attr_name = name.to_s[0..-2]
+          instance_variable_set("@#{attr_name}", *args)
+        else
+          instance_variable_get("@#{name}")
+        end
+      end
     end
 
     def sim
@@ -43,6 +52,10 @@ module Sim
 
     def traffic_model
       MaidenVoyage.traffic_model
+    end
+
+    def method_missing(*args, &block)
+      MaidenVoyage.send(*args, &block)
     end
 
     class Context < Thoughtbot::Shoulda::Context
