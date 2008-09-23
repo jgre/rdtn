@@ -163,6 +163,10 @@ module Sim
       @te.timer if @te
     end
 
+    def router(type = nil, options = {})
+      @nodes.each_value {|node| node.router(type, options)}
+    end
+
   end
 
 end # module sim
