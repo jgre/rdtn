@@ -66,11 +66,10 @@ class PriorityRouterQueue < Router
 
   attr_accessor :link
 
-  def initialize(config, evDis, contactManager, neighbor, filters, priorities)
+  def initialize(daemon, contactManager, neighbor, filters, priorities)
     rdebug(self, "Starting new PriorityRouterQueue for #{neighbor}")
     mon_initialize
-    super(config, evDis)
-    @config     = config
+    super(daemon)
     @contactMgr = contactManager
     @neighbor   = neighbor
     @store      = @config.store
@@ -151,16 +150,15 @@ class PriorityRouter < Router
 
   attr_accessor :filters, :priorities
 
-  def initialize(daemon)
+  def initialize(daemon, options = {})
     mon_initialize
     super(daemon)
-    @config = config
     @contactManager = @config.contactManager
     @filters    = []
     @priorities = []
     @routes     = []
     @subHandler = @config.subscriptionHandler
-    @queues = Hash.new {|h,n| h[n] = PriorityRouterQueue.new(@config, @evDis,
+    @queues = Hash.new {|h,n| h[n] = PriorityRouterQueue.new(@daemon,
 							     @contactManager, n,
 							     @filters, 
 							     @priorities)}

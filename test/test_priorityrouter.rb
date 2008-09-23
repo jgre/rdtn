@@ -55,17 +55,17 @@ end
 class TestPriorityRouter < Test::Unit::TestCase
 
   def setup
-    @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @daemon = RdtnDaemon::Daemon.new("dtn://test.sender")
+    @evDis  = @daemon.evDis
+    @config = @daemon.config
     @config.contactManager
-    @config.localEid = "dtn://test.sender"
     @link1 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:oink")
     @link2 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt")
     @link3 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis)
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
     @config.subscriptionHandler = @subHandler
-    @routeTab = PriorityRouter.new(@config, @evDis)
+    @routeTab = PriorityRouter.new(@daemon)
   end
 
   def teardown
@@ -100,7 +100,7 @@ class TestPriorityRouter < Test::Unit::TestCase
     rdebug(self, "Test Store #{store.object_id}")
     # Do not wait for the subscription bundle
     @config.subscriptionHandler = nil
-    @routeTab = PriorityRouter.new(@config, @evDis)
+    @routeTab = PriorityRouter.new(@daemon)
     @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
 						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])

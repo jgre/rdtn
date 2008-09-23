@@ -19,6 +19,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
 require "bundle"
+require "daemon"
 require "queue"
 require "routetab"
 require "bundleworkflow"
@@ -61,14 +62,15 @@ end
 class TestRoutetab < Test::Unit::TestCase
 
   def setup
-    @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @daemon = RdtnDaemon::Daemon.new("dtn://receiver.dtn/")
+    @evDis  = @daemon.evDis
+    @config = @daemon.config
     @link1 = TestRtab::MockLink.new(@config, @evDis, "dtn:oink")
     @link2 = TestRtab::MockLink.new(@config, @evDis, "dtn:grunt")
     @link3 = TestRtab::MockLink.new(@config, @evDis, "dtn:grunt3")
     @config.store = Storage.new(@evDis, nil, "store")
     @contactManager = TestRtab::MockContactManager.new(@link1)
-    @routeTab = RoutingTable.new(@config, @evDis)
+    @routeTab = RoutingTable.new(@daemon)
   end
 
   def teardown
