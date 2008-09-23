@@ -66,8 +66,9 @@ class TrafficModel
     end
   end
 
-  def numberOfReplicas
-    @bundles.values.inject(0) {|sum, bundle| sum + bundle.nReplicas}
+  def numberOfReplicas(bundle = nil)
+    lst = bundle.nil? ? @bundles.values : [@bundles[bundle.bundleId]].compact
+    lst.inject(0) {|sum, bundle| sum + bundle.nReplicas}
   end
 
   def replicasPerBundle

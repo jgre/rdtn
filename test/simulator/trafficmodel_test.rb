@@ -45,6 +45,10 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 4, @tm.numberOfReplicas
     end
 
+    should 'count replicas for individual bundles' do
+      assert_equal 2, @tm.numberOfReplicas(@b1)
+    end
+
     should 'calulate the number of replicas per bundle' do
       assert_equal 4.0/3, @tm.replicasPerBundle
     end
