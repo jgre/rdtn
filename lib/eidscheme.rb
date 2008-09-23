@@ -32,14 +32,14 @@ class String
   end
 
   def scheme
-    if empty?                then ''
+    if empty?                then 'dtn'
     elsif self =~ EID_REGEXP then $1
     else raise InvalidEid, str
     end
   end
 
   def ssp
-    if empty?                then ''
+    if empty?                then 'none'
     elsif self =~ EID_REGEXP then $2
     else raise InvalidEid, str
     end
@@ -48,14 +48,14 @@ class String
   def scheme=(scheme)
     if empty?     then self << scheme << ':none'
     elsif is_eid? then gsub!(/^[[:alnum:]]+:/, "#{scheme}:")
-    else raise InvalidEid, str
+    else raise InvalidEid, self
     end
   end
 
   def ssp=(ssp)
     if empty?     then self << 'dtn:' << ssp
     elsif is_eid? then gsub!(/:[[:print:]]+$/, ":#{ssp}")
-    else raise InvalidEid, str
+    else raise InvalidEid, self
     end
   end
 
