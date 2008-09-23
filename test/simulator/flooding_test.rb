@@ -24,7 +24,9 @@ class TestFlooding < Test::Unit::TestCase
       assert_equal 1, traffic_model.deliveryRatio
     end
 
-    should 'replicate each bundle to each node'
+    should 'replicate each bundle to each node' do
+      assert_equal 360, traffic_model.numberOfReplicas
+    end
 
   end
 
