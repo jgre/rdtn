@@ -41,15 +41,45 @@ class RoutingEntry
     return @link
   end
 
+  def match?(eid)
+    @destination === eid
+  end
+
 end
 
 class Router
 
-  def initialize(evDis)
-    @evDis = evDis
+  def initialize(config, evDis)
+    @config   = config
+    @evDis    = evDis
+    @localReg = []
+
+    @rtEvAvailable = evDis.subscribe(:routeAvailable) do |re|
+      if re.link.is_a?(AppIF::AppProxy)
+        @localReg << re
+        if store = @config.store
+          store.each {|b| localDelivery(b, [re.link]) if re.match?(b.destEid)}
+        end
+      end
+    end
+
+    @rtEvToForward = evDis.subscribe(:bundleToForward) do |b|
+      links = @localReg.find_all {|re| re.match?(b.destEid)}.map {|re| re.link}
+      localDelivery(b, links) unless links.empty?
+    end
+  end
+
+  def stop
+    @evDis.unsubscribe(:routeAvailable, @rtEvAvailable)
+    @evDis.unsubscribe(:bundleToForward, @rtEvToForward)
   end
 
   protected
+
+  def localDelivery(bundle, links)
+    action = bundle.destinationIsSingleton? ? :forward : :replicate
+    doForward(bundle, links, action)
+  end
  
   # Forward a bundle. Takes a bundle and a list of links. Returns nil.
   # modified to optionally drop random bundles
@@ -58,7 +88,7 @@ class Router
       begin
 	neighbor   = link.remoteEid
 	rdebug(self, "Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
-	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : false
+	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
 	unless bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
 	  next
 	end

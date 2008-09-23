@@ -69,7 +69,7 @@ class PriorityRouterQueue < Router
   def initialize(config, evDis, contactManager, neighbor, filters, priorities)
     rdebug(self, "Starting new PriorityRouterQueue for #{neighbor}")
     mon_initialize
-    super(evDis)
+    super(config, evDis)
     @config     = config
     @contactMgr = contactManager
     @neighbor   = neighbor
@@ -153,7 +153,7 @@ class PriorityRouter < Router
 
   def initialize(config, evDis)
     mon_initialize
-    super(evDis)
+    super(config, evDis)
     @config = config
     @contactManager = @config.contactManager
     @filters    = []

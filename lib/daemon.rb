@@ -158,7 +158,7 @@ module RdtnDaemon
       end
     end
 
-    def router(type = nil)
+    def router(type = nil, options = {})
       routerClass = nil
       if type
 	routerClass = RouterReg.instance.routers[type]
@@ -168,16 +168,9 @@ module RdtnDaemon
       @config.router.stop if @config.router
 
       if routerClass
-	if @config.router
-	  if @config.router.class == routerClass
-	    rdebug(self, "Router of type #{type} already active")
-	    return @config.router
-	  else
-	    @config.router.stop
-	  end
-	end
+        @config.router.stop if @config.router
 	rdebug(self, "Starting router: #{type}") 
-	@config.router = routerClass.new(@config, @evDis)
+	@config.router = routerClass.new(@config, @evDis, options)
       end
       @config.router
     end
