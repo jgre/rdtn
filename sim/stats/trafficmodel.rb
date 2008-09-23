@@ -9,6 +9,7 @@ class TrafficModel
   def initialize(t0, log)
     @t0      = t0
     @bundles = {} # bundleId -> StatBundle
+    @regs    = Hash.new {|hash, key| hash[key] = []}
     self.log = log
   end
 
@@ -19,6 +20,8 @@ class TrafficModel
         @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
       when :bundleForwarded
         @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
+      when :registered
+        @regs[e.eid] << e.nodeId1
       end
     end
   end
@@ -75,16 +78,20 @@ class TrafficModel
     end
   end
 
-  def numberOfSubscribedBundles
-    @bundles.values.inject(0) {|sum, bundle| sum+bundle.nSubscribed}
+  def numberOfExpectedBundles
+    @bundles.values.inject(0) do |sum, bundle|
+      sum + (bundle.multicast? ? @regs[bundle.dest].length : 1)
+    end
   end
 
   def numberOfDeliveredBundles
-    @bundles.values.inject(0) {|sum, bundle| sum+bundle.nDelivered}
+    @bundles.values.inject(0) do |sum, b|
+      sum + b.nDelivered((@regs[b.dest] + [b.dest]).uniq)
+    end
   end
 
   def deliveryRatio
-    numberOfDeliveredBundles / numberOfBundles.to_f
+    numberOfDeliveredBundles / numberOfExpectedBundles.to_f
   end
 
   def numberOfTransmissions
