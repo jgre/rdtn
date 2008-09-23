@@ -74,10 +74,14 @@ module Sim
 
     def createBundle(channel, size)
       payload = "a" * size
-      #sendDataTo(payload, channel)
       bundle = Bundling::Bundle.new(payload, channel, @config.localEid)
       bundle.lifetime = 86400
       sendBundle(bundle)
+    end
+
+    def register(eid = nil, &handler)
+      super
+      @sim.log(:registered, @id, nil, :eid => eid)
     end
 
   end
