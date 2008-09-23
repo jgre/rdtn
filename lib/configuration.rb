@@ -24,6 +24,7 @@ require 'flutecl'
 require 'clientregcl'
 require 'discovery'
 require 'priorityrouter'
+require 'epidemicrouter'
 require 'custodytimer'
 require 'subscriptionhandler'
 
