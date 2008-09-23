@@ -49,12 +49,13 @@ end
 
 class Router
 
-  def initialize(config, evDis)
-    @config   = config
-    @evDis    = evDis
+  def initialize(daemon)
+    @daemon   = daemon
+    @config   = daemon.config
+    @evDis    = daemon.evDis
     @localReg = []
 
-    @rtEvAvailable = evDis.subscribe(:routeAvailable) do |re|
+    @rtEvAvailable = @evDis.subscribe(:routeAvailable) do |re|
       if re.link.is_a?(AppIF::AppProxy)
         @localReg << re
         if store = @config.store
@@ -63,7 +64,7 @@ class Router
       end
     end
 
-    @rtEvToForward = evDis.subscribe(:bundleToForward) do |b|
+    @rtEvToForward = @evDis.subscribe(:bundleToForward) do |b|
       links = @localReg.find_all {|re| re.match?(b.destEid)}.map {|re| re.link}
       localDelivery(b, links) unless links.empty?
     end

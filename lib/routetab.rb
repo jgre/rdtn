@@ -27,8 +27,8 @@ class RoutingTable < Router
 
   include MonitorMixin
 
-  def initialize(config, evDis, options = {})
-    super(config, evDis)
+  def initialize(daemon, options = {})
+    super(daemon)
     mon_initialize
     @routes         = []
     @contactManager = @config.contactManager

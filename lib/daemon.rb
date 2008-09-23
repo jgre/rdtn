@@ -45,7 +45,7 @@ module RdtnDaemon
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
       @config.localEid    = localEid if localEid
       # Create a default router
-      @config.router      = RoutingTable.new(@config, @evDis)
+      @config.router      = RoutingTable.new(self)
       @configFileName     = File.join(File.dirname(__FILE__), "rdtn.conf")
       @localRegistrations = {} # EID -> AppProxy
       @links              = {}
@@ -85,6 +85,7 @@ module RdtnDaemon
     def sendBundle(bundle)
       bundle.srcEid = makeLocalEid(bundle.srcEid)
       @evDis.dispatch(:bundleParsed, bundle)
+      bundle
     end
 
     def register(eid = nil, &handler)
@@ -170,7 +171,7 @@ module RdtnDaemon
       if routerClass
         @config.router.stop if @config.router
 	rdebug(self, "Starting router: #{type}") 
-	@config.router = routerClass.new(@config, @evDis, options)
+	@config.router = routerClass.new(self, options)
       end
       @config.router
     end

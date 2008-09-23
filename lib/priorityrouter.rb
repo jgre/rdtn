@@ -151,9 +151,9 @@ class PriorityRouter < Router
 
   attr_accessor :filters, :priorities
 
-  def initialize(config, evDis)
+  def initialize(daemon)
     mon_initialize
-    super(config, evDis)
+    super(daemon)
     @config = config
     @contactManager = @config.contactManager
     @filters    = []

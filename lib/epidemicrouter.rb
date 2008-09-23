@@ -3,12 +3,12 @@ require 'bundle'
 
 class EpidemicRouter < Router
 
-  def initialize(config, evDis, options = {})
-    super(config, evDis)
+  def initialize(daemon, options = {})
+    super(daemon)
     @contMgr     = @config.contactManager
     @vaccination = options[:vaccination]
 
-    @evToForward = evDis.subscribe(:bundleToForward) do |b|
+    @evToForward = @evDis.subscribe(:bundleToForward) do |b|
       if b.isVaccination? and store = @config.store
         vacc = Vaccination.new(b)
         store.deleteBundle(vacc.bundleId)
@@ -17,7 +17,7 @@ class EpidemicRouter < Router
                 :replicate)
     end
 
-    @evAvailable = evDis.subscribe(:routeAvailable) do |rentry|
+    @evAvailable = @evDis.subscribe(:routeAvailable) do |rentry|
       if store = @config.store and !rentry.link.is_a?(AppIF::AppProxy)
         store.each {|b| doForward(b, [rentry.link], :replicate)}
       end
@@ -33,7 +33,7 @@ class EpidemicRouter < Router
   def localDelivery(bundle, links)
     super
     if @vaccination && bundle.destinationIsSingleton? && !bundle.isVaccination?
-      @evDis.dispatch(:bundleParsed, Vaccination.new(bundle).vaccinationBundle)
+      @daemon.sendBundle(Vaccination.new(bundle).vaccinationBundle)
     end
   end
 
