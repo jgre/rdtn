@@ -73,8 +73,8 @@ module Bundling
 	    rdebug(self, "shouldAct? No, was already forwarded.")
 	    false
 	  when :replicate
-	    ret=(entry.neighbor.to_s != neighbor.to_s and entry.link != link and
-	     (singletonReceiver==nil or entry.neighbor!=singletonReceiver.to_s))
+	    ret=(entry.neighbor != neighbor and entry.link != link #and
+	     (singletonReceiver.nil? or entry.neighbor!=singletonReceiver))
 
 	    rdebug(self, "shouldAct? No, was already replicated to the right place.") unless ret
 	    ret
