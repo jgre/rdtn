@@ -88,6 +88,8 @@ class Neighbor
 end
 
 class ContactManager < Monitor
+
+  attr_reader :links
  
   # The housekeeping timer determines the interval between checks for idle
   # links.
