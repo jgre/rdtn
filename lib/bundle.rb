@@ -185,6 +185,8 @@ module Bundling
       @reportToEid  = (rte.nil? or rte.empty?) ? destEid : rte
       @custodianEid = options[:custodianEid]
 
+      self.destinationIsSingleton = !options[:multicast]
+
       @blocks = []
 
       @custodyAccepted = false
