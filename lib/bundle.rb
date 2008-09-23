@@ -204,6 +204,10 @@ module Bundling
 
     end
 
+    def inspect
+      "#<#{self.class}:#{object_id} (#{self.bundleId}): #@srcEid -> #@destEid>"
+    end
+
     def deleted?
       @deleted
     end
