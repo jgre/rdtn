@@ -30,4 +30,30 @@ class TestFlooding < Test::Unit::TestCase
 
   end
 
+  simulation_context 'Epidemic routing with vaccinations' do
+
+    network :moving_intermediary
+
+    prepare do
+      sim.router(:epidemic, :vaccination => true)
+
+      sim.at(1){self.bndl=sim.node(1).sendDataTo 'test','dtn://kasuari4/';false}
+      sim.node(4).register {}
+    end
+
+    should 'deliver the bundle' do
+      assert_equal 1, traffic_model.deliveryRatio
+    end
+
+    should 'transmit 2 bundles (1 content, 1 vaccination)' do
+      assert_equal 2, traffic_model.numberOfBundles
+    end
+
+    should 'not replicate the bundle to all nodes' do
+      assert_operator traffic_model.numberOfReplicas(self.bndl), :<,
+        network_model.numberOfNodes - 1
+    end
+
+  end
+
 end
