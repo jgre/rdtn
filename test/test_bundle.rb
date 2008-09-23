@@ -141,7 +141,7 @@ class TestBundle < Test::Unit::TestCase
     data = open(__FILE__) { |f| f.read }
     sender = "dtn:test"
     dest = "dtn:bubbler"
-    bundle = Bundling::Bundle.new(data, dest, sender)
+    bundle = Bundling::Bundle.new(data, dest, sender, :multicast => true)
     bundle.fragment = true
     assert_equal(0b000000000000000000001, bundle.procFlags)
     assert(bundle.fragment?)
