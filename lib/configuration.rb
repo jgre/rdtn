@@ -164,43 +164,34 @@ module RdtnConfig
 
   class Settings
 
-    attr_accessor :localEid, :store, :router, 
-      :contactManager, :subscriptionHandler,
-      :sprayWaitCopies, :acceptCustody, :stats
+    attr_accessor :localEid, :acceptCustody
+    Struct.new('Component', :component, :replacementAction)
 
-    def initialize(evDis)
-      # FIXME no big hairy object
-      @evDis = evDis
+    def initialize
       @localEid = nil
-      @store = nil
       @logLevels = []
       @defaultLogLevel = Logger::ERROR
       @acceptCustody = false
+      @components = {}
     end
-
-    def contactManager
-      @contactManager  = ContactManager.new(self, @evDis) unless @contactManager
-      return @contactManager
-    end
-
-    def subscriptionHandler
-      #unless @subscriptionHandler
-      #  @subscriptionHandler = SubscriptionHandler.new(self, @evDis,
-      #  					       contactManager)
-      #end
-      rdebug(self, "SubHandler #{@subscriptionHandler}")
-      return @subscriptionHandler
-    end
-    
-    # def custodyTimer
-    #   @custodyTimer = CustodyTimer.new(self, @evDis) unless @custodyTimer
-    #   return @custodyTimer
-    # end
 
     # Set the log level for for a given classname.
     # The default level is ERROR
     def setLogLevel(pattern, level)
       $rdtnLogLevels[pattern] = level
+    end
+
+    def registerComponent(name, component, &replacementAction)
+      if comp = @components[name] and comp.replacementAction
+        comp.replacementAction[]
+      else
+        self.class.class_eval {define_method(name) {self.component(name)}}
+      end
+      @components[name] = Struct::Component.new(component, replacementAction)
+    end
+
+    def component(name)
+      @components[name].component if @components[name]
     end
 
     def setStatDir(dir)

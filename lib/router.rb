@@ -52,6 +52,7 @@ class Router
   def initialize(daemon)
     @daemon   = daemon
     @config   = daemon.config
+    @config.registerComponent(:router, self) {self.stop}
     @evDis    = daemon.evDis
     @localReg = []
 

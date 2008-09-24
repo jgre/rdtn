@@ -40,12 +40,15 @@ module RdtnDaemon
 
     def initialize(localEid = nil)
       @evDis = EventDispatcher.new
-      @config = RdtnConfig::Settings.new(@evDis)
+      @config = RdtnConfig::Settings.new
+      @config.localEid    = localEid if localEid
+
       Bundling::ParserManager.registerEvents(@evDis)
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
-      @config.localEid    = localEid if localEid
+      Storage.new(@config, @evDis)
+      ContactManager.new(@config, @evDis)
       # Create a default router
-      @config.router      = RoutingTable.new(self)
+      RoutingTable.new(self)
       @configFileName     = File.join(File.dirname(__FILE__), "rdtn.conf")
       @localRegistrations = {} # EID -> AppProxy
       @links              = {}
@@ -166,12 +169,9 @@ module RdtnDaemon
 	rerror(self, "Unknown type of router: #{type}") unless routerClass
       end
 
-      @config.router.stop if @config.router
-
       if routerClass
-        @config.router.stop if @config.router
 	rdebug(self, "Starting router: #{type}") 
-	@config.router = routerClass.new(self, options)
+	routerClass.new(self, options)
       end
       @config.router
     end

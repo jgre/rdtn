@@ -35,8 +35,8 @@ class TestEpidemicRouter < Test::Unit::TestCase
 
   def setup
     @daemon = RdtnDaemon::Daemon.new("dtn://receiver.dtn/")
+    @store  = @daemon.config.store
     @daemon.router(:epidemic)
-    @store   = @daemon.config.store = Storage.new(@daemon.evDis)
   end
   
   context 'When bundles are stored, the EpidemicRouter' do

@@ -23,9 +23,9 @@ class TestWorkflow < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
     @bundle = Bundling::Bundle.new("test", "dtn:receiver")
-    @config.store = @store = Storage.new(@evDis, nil, "store")
+    @store = Storage.new(@config, @evDis, nil, "store")
   end
 
   def teardown

@@ -54,28 +54,24 @@ class TestDaemon < Test::Unit::TestCase
   end
 
   TESTCONF = <<END_OF_STRING
-storageDir 42, "store"
+#storageDir 42, "store"
 localEid "dtn://athird.dtn/"
 END_OF_STRING
 
   def test_init
     assert_equal("dtn://receiver.dtn", @daemon.config.localEid.to_s)
-    statDir = "test-stats-#{Time.now.to_i.to_s}"
     confFilename = "test.conf-#{Time.now.to_i.to_s}"
-    ARGV.concat(["-c", confFilename, "-l", "dtn://another.eid", "-s", statDir])
+    ARGV.concat(["-c", confFilename, "-l", "dtn://another.eid"])
     @daemon.parseOptions
     assert_equal("dtn://another.eid", @daemon.config.localEid.to_s)
-    assert(File.exist?(statDir))
-    assert(File.directory?(statDir))
-    FileUtils.rm_rf(statDir)
 
     open(confFilename, "w") {|f| f.write(TESTCONF)}
     @daemon.parseConfigFile
     # If the EID was set in the command line, the value must not be overridden
     # from the config file
     assert_equal("dtn://another.eid", @daemon.config.localEid.to_s)
-    assert_equal(42, @daemon.config.store.maxSize)
-    assert_equal("store", @daemon.config.store.storageDir)
+    #assert_equal(42, @daemon.config.store.maxSize)
+    #assert_equal("store", @daemon.config.store.storageDir)
     @daemon.config.localEid = nil
 
     @daemon.parseConfigFile

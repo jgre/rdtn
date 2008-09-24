@@ -110,7 +110,7 @@ class TestAppLib < Test::Unit::TestCase
   def test_delete_bundle
     eid = "dtn://test/receiver"
     b=Bundling::Bundle.new(@bundleContent, eid)
-    @config.store = Storage.new(@evDis)
+    Storage.new(@config, @evDis)
     @config.store.storeBundle(b)
     @client.deleteBundle(b.bundleId)
     sleep(1)

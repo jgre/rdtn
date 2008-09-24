@@ -38,13 +38,10 @@ module Sim
       @nbundles = 0
       @bytesPerSec = bytesPerSec
 
-      @config.store = Storage.new(@evDis)
-
       if dirName
         # Create logging environment for the node
         subDirName = File.join(dirName, "kasuari#{@id}")
         Dir.mkdir(subDirName) unless File.exist?(subDirName)
-        @config.setStatDir(subDirName)
       end
 
       parseConfigFile(configPath) if configPath

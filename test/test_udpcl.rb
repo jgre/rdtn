@@ -30,7 +30,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
   
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
   end
 
   def test_bundle_sending

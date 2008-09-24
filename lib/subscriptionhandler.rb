@@ -368,6 +368,7 @@ class SubscriptionHandler
     @neighborSubs = {}
     @subClients = []
     @subscribeBundleId = nil
+    @config.registerComponent(:subscriptionHandler, self)
 
     #@evDis.subscribe(:linkCreated){|link| sendSubscribe(link)}
     Thread.new(checkInterval) do |interval|

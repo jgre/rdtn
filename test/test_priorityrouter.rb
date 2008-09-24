@@ -62,9 +62,8 @@ class TestPriorityRouter < Test::Unit::TestCase
     @link1 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:oink")
     @link2 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt")
     @link3 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt3")
-    @config.store = Storage.new(@evDis)
+    Storage.new(@config, @evDis)
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
-    @config.subscriptionHandler = @subHandler
     @routeTab = PriorityRouter.new(@daemon)
   end
 
@@ -98,8 +97,6 @@ class TestPriorityRouter < Test::Unit::TestCase
     end
 
     rdebug(self, "Test Store #{store.object_id}")
-    # Do not wait for the subscription bundle
-    @config.subscriptionHandler = nil
     @routeTab = PriorityRouter.new(@daemon)
     @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
 						       @subHandler))
@@ -114,8 +111,6 @@ class TestPriorityRouter < Test::Unit::TestCase
   def test_local_registrations
     eid = "dtn://test/receiver"
     daemon = RdtnDaemon::Daemon.new(eid)
-    daemon.config.router = @routeTab
-    daemon.config.store  = @config.store
     b=Bundling::Bundle.new("test", eid)
     eventSent = false
     daemon.sendBundle(b)

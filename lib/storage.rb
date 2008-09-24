@@ -39,8 +39,9 @@ class Storage < Monitor
   include Enumerable
   attr_accessor :displacement, :storageDir, :maxSize
 
-  def initialize(evDis, maxSize = nil, dir = nil)
+  def initialize(config, evDis, maxSize = nil, dir = nil)
     super()
+    @config = config
     @evDis = evDis
     @maxSize = maxSize
     @storageDir = dir
@@ -50,6 +51,7 @@ class Storage < Monitor
     @displacement = []
     #Bundling::PayloadBlock.storePolicy = :random
 
+    @config.registerComponent(:store, self)
     #housekeeping
   end
 

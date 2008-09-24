@@ -31,7 +31,7 @@ class TestPriorities < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
     @eid = "dtn://test/bla"
     @config.localEid = @eid
     @bundles = Uris.map {|uri| Bundling::Bundle.new("abc", uri, SenderEid)}
@@ -42,7 +42,6 @@ class TestPriorities < Test::Unit::TestCase
     @bundles[0].lifetime = 3600
     @bundles[2].lifetime = 3700
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
-    @config.subscriptionHandler = @subHandler
     @subHandler.subscribe(Uris[0])
     @subscriptions = Uris.map {|uri| Subscription.new(@config, @evDis, uri)}
     usub0local = UniqueSubscription.new(nil, @eid)

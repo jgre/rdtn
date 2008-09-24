@@ -18,6 +18,8 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
+require 'rubygems'
+require 'shoulda'
 require "daemon"
 require "configuration"
 
@@ -31,18 +33,9 @@ class TestConfiguration < Test::Unit::TestCase
     @config = @daemon.config
   end
 
-  def teardown
-  end
-
-  def test_load
-  end
-
   def test_add_interface
     conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
     CLs.each_with_index {|cl, i| conf.interface(:add, cl, "if#{i}")}
-  end
-
-  def test_remove_interface
   end
 
   def test_add_link
@@ -61,9 +54,6 @@ class TestConfiguration < Test::Unit::TestCase
     assert(fluteOK)
   end
 
-  def test_remove_link
-  end
-
   def test_add_route
     eventSent = false
     @evDis.subscribe(:routeAvailable) do |*args|
@@ -74,7 +64,30 @@ class TestConfiguration < Test::Unit::TestCase
     assert(eventSent)
   end
 
-  def test_remove_route
+  context 'The component registry provided by Config::Settings' do
+
+    setup do
+      @conf     = RdtnConfig::Settings.new
+      @replaced = false
+      @conf.registerComponent(:testComp, 'ComponentString') {@replaced = true}
+    end
+
+    should 'allow access to the components' do
+      assert_equal 'ComponentString', @conf.component(:testComp)
+    end
+
+    should 'execute the replacement block when another object is registered for the same component' do
+      @conf.registerComponent(:comp2, 'Bla')
+      assert !@replaced
+      @conf.registerComponent(:testComp, 'Bla')
+      assert @replaced
+      assert_equal 'Bla', @conf.component(:testComp)
+    end
+
+    should 'define an accessor for the new component' do
+      assert_equal 'ComponentString', @conf.testComp
+    end
+
   end
 
 end

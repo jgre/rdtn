@@ -100,6 +100,7 @@ class ContactManager < Monitor
     @oppCount  = 0 # Counter for the name of opportunistic links.
     @links     = []
     @neighbors = []
+    @config.registerComponent(:contactManager, self)
 
     @evDis.subscribe(:linkCreated) do |*args| 
       linkCreated(*args)

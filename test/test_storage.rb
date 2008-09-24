@@ -18,6 +18,8 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
+require "rubygems"
+require "shoulda"
 require "storage"
 require "bundle"
 
@@ -26,8 +28,8 @@ class TestStorage < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
-    @store = Storage.new(@evDis, nil, "store")
+    @config = RdtnConfig::Settings.new
+    @store  = Storage.new(@config, @evDis, nil, "store")
   end
 
   def teardown
@@ -35,6 +37,10 @@ class TestStorage < Test::Unit::TestCase
       File.delete("store")
     rescue
     end
+  end
+
+  should 'register itself as ":store" component' do
+    assert_equal @store, @config.component(:store)
   end
 
   def test_storage1
@@ -53,7 +59,7 @@ class TestStorage < Test::Unit::TestCase
 
     @store.clear
 
-    newstore=Storage.new(@evDis, nil, "store")
+    newstore=Storage.new(@config, @evDis, nil, "store")
     newstore.load
 
     idlist.each_with_index do |id, i|
@@ -75,7 +81,7 @@ class TestStorage < Test::Unit::TestCase
     @store.save
     @store.clear
 
-    newstore=Storage.new(@evDis, nil, "store")
+    newstore=Storage.new(@config, @evDis, nil, "store")
     newstore.load
 
     blist=newstore.getBundlesMatching do |bundleInfo|
@@ -97,7 +103,7 @@ class TestStorage < Test::Unit::TestCase
   end
 
   def test_limits
-    @store = Storage.new(@evDis, 100)
+    @store = Storage.new(@config, @evDis, 100)
     b = Bundling::Bundle.new(nil, "dtn://test/")
     id1 = b.bundleId
     b.payload = "x" * 50

@@ -138,7 +138,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
   end
 
 end

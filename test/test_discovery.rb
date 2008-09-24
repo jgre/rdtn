@@ -26,7 +26,7 @@ class TestDiscovery < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
     @tcpif = TCPCL::TCPInterface.new(@config, @evDis, "testtcpif", 
 				     :port => 4558)
     @udpif = UDPCL::UDPInterface.new(@config, @evDis, "testudpif", 

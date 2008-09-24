@@ -38,7 +38,7 @@ class TestBundle < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new(@evDis)
+    @config = RdtnConfig::Settings.new
     @inBundle = "\005\201\020=\000\004\000\026\000\026\000(\372\222\222)\005\234\020-dtn\000//domain.dtn/test\000//hamlet.dtn/test\000none\000\001\b\003bla"
   end
 
