@@ -42,6 +42,7 @@ class StatBundle
   end
 
   def nDelivered(destinations = [])
+    destinations << @dest if destinations.empty?
     destinations.inject(0) {|sum, dest| sum + (delivered?(dest) ? 1 : 0)}
   end
 
