@@ -26,6 +26,11 @@ class TestDaemon < Test::Unit::TestCase
   def setup
     @daemon = RdtnDaemon::Daemon.new("dtn://receiver.dtn")
     #@router = RoutingTable.new(@daemon.config, @daemon.evDis, nil)
+    @confFilename = "test.conf-#{Time.now.to_i.to_s}"
+  end
+
+  def teardown
+    FileUtils.rm_rf(@confFilename)
   end
 
   def test_loopback_data
@@ -60,23 +65,13 @@ END_OF_STRING
 
   def test_init
     assert_equal("dtn://receiver.dtn", @daemon.config.localEid.to_s)
-    confFilename = "test.conf-#{Time.now.to_i.to_s}"
-    ARGV.concat(["-c", confFilename, "-l", "dtn://another.eid"])
+    ARGV.concat(["-c", @confFilename, "-l", "dtn://another.eid"])
     @daemon.parseOptions
     assert_equal("dtn://another.eid", @daemon.config.localEid.to_s)
 
-    open(confFilename, "w") {|f| f.write(TESTCONF)}
-    @daemon.parseConfigFile
-    # If the EID was set in the command line, the value must not be overridden
-    # from the config file
-    assert_equal("dtn://another.eid", @daemon.config.localEid.to_s)
-    #assert_equal(42, @daemon.config.store.maxSize)
-    #assert_equal("store", @daemon.config.store.storageDir)
-    @daemon.config.localEid = nil
-
+    open(@confFilename, "w") {|f| f.write(TESTCONF)}
     @daemon.parseConfigFile
     assert_equal("dtn://athird.dtn/", @daemon.config.localEid.to_s)
-    File.delete(confFilename)
   end
 
 end

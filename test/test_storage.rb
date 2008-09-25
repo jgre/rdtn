@@ -28,7 +28,7 @@ class TestStorage < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new
+    @config = RdtnConfig.new
     @store  = Storage.new(@config, @evDis, nil, "store")
   end
 

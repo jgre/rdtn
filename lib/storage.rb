@@ -37,14 +37,14 @@ end
 class Storage < Monitor
 
   include Enumerable
-  attr_accessor :displacement, :storageDir, :maxSize
+  attr_accessor :displacement, :directory, :limit
 
-  def initialize(config, evDis, maxSize = nil, dir = nil)
+  def initialize(config, evDis, limit = nil, dir = nil)
     super()
     @config = config
     @evDis = evDis
-    @maxSize = maxSize
-    @storageDir = dir
+    @limit = limit
+    @directory = dir
     @curSize = 0
     @bundles = []
     @deleted = []
@@ -131,15 +131,15 @@ class Storage < Monitor
   end
 
   def save
-    if @storageDir
-      store=PStore.new(@storageDir)
+    if @directory
+      store=PStore.new(@directory)
       store.transaction { store[:bundles] = @bundles }
     end
   end
 
   def load
-    if @storageDir
-      store=PStore.new(@storageDir)
+    if @directory
+      store=PStore.new(@directory)
       store.transaction { @bundles = store[:bundles] }
     end
   end
@@ -155,7 +155,7 @@ class Storage < Monitor
       rdebug(self, "Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
       ret
     end
-    #if @maxSize and @curSize > @maxSize
+    #if @limit and @curSize > @limit
     #  @bundles.sort! do |b1, b2|
     #    # Accumulate the comparision from all priority algorithms to 
     #    # based on a bundle to bundle comparison.
@@ -172,7 +172,7 @@ class Storage < Monitor
     delCandidates = []
     delSize       = 0
     @bundles.reverse_each do |bundle|
-      break unless @maxSize and (@curSize - delSize) > @maxSize
+      break unless @limit and (@curSize - delSize) > @limit
       unless bundle.deleted? or bundle.retentionConstraints?
 	rdebug(self, "Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
 	delCandidates.push(bundle.bundleId)

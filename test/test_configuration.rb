@@ -34,12 +34,10 @@ class TestConfiguration < Test::Unit::TestCase
   end
 
   def test_add_interface
-    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
-    CLs.each_with_index {|cl, i| conf.interface(:add, cl, "if#{i}")}
+    CLs.each_with_index {|cl, i| @config.interface(cl, "if#{i}")}
   end
 
   def test_add_link
-    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
     tcpOK = udpOK = fluteOK = false
     @evDis.subscribe(:linkCreated) do |link|
       case link.class.name
@@ -48,26 +46,16 @@ class TestConfiguration < Test::Unit::TestCase
       when "FluteCL::FluteLink": fluteOK = true
       end
     end
-    CLs.each_with_index {|cl, i| conf.link(:add, cl, "link#{i}", :policy => :onDemand) unless cl == :client}
+    CLs.each_with_index {|cl, i| @config.link(cl, "link#{i}", :policy => :onDemand) unless cl == :client}
     assert(tcpOK)
     assert(udpOK)
     assert(fluteOK)
   end
 
-  def test_add_route
-    eventSent = false
-    @evDis.subscribe(:routeAvailable) do |*args|
-      eventSent = true
-    end
-    conf = RdtnConfig::Reader.new(@config, @evDis, @daemon)
-    conf.route(:add, "test", "someLink")
-    assert(eventSent)
-  end
-
   context 'The component registry provided by Config::Settings' do
 
     setup do
-      @conf     = RdtnConfig::Settings.new
+      @conf     = RdtnConfig.new
       @replaced = false
       @conf.registerComponent(:testComp, 'ComponentString') {@replaced = true}
     end

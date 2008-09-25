@@ -53,7 +53,7 @@ class TestSubscriptionHandler < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new
+    @config = RdtnConfig.new
     @client = MockClient.new
     Storage.new(@config, @evDis)
     @shandler = SubscriptionHandler.new(@config, @evDis, nil, 2)

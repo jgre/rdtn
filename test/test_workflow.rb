@@ -23,7 +23,7 @@ class TestWorkflow < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new
+    @config = RdtnConfig.new
     @bundle = Bundling::Bundle.new("test", "dtn:receiver")
     @store = Storage.new(@config, @evDis, nil, "store")
   end

@@ -40,7 +40,7 @@ module RdtnDaemon
 
     def initialize(localEid = nil)
       @evDis = EventDispatcher.new
-      @config = RdtnConfig::Settings.new
+      @config = RdtnConfig.new(self)
       @config.localEid    = localEid if localEid
 
       Bundling::ParserManager.registerEvents(@evDis)
@@ -73,7 +73,7 @@ module RdtnDaemon
 
     def parseConfigFile(configFile = nil)
       configFile = configFile || @configFileName
-      RdtnConfig::Reader.load(@evDis, configFile, self, @config)
+      @config.load(configFile)
     end
 
     def runLoop
@@ -110,11 +110,6 @@ module RdtnDaemon
       bdsr = BundleStatusReport::applicationAck(bundle)
       sendBundle(bdsr)
     end
-
-    #def addLink(link)
-    #  @links.push(link)
-    #  link
-    #end
 
     def makeLocalEid(part = nil)
       if not part

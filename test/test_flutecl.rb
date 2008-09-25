@@ -32,7 +32,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new
+    @config = RdtnConfig.new
     begin
       Dir.mkdir(@@inDirname)
       Dir.mkdir(@@outDirname)

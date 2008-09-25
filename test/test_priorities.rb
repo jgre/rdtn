@@ -31,7 +31,7 @@ class TestPriorities < Test::Unit::TestCase
 
   def setup
     @evDis  = EventDispatcher.new
-    @config = RdtnConfig::Settings.new
+    @config = RdtnConfig.new
     @eid = "dtn://test/bla"
     @config.localEid = @eid
     @bundles = Uris.map {|uri| Bundling::Bundle.new("abc", uri, SenderEid)}
