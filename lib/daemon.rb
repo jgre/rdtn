@@ -29,7 +29,6 @@ require 'flutecl'
 require 'contactmgr'
 require 'storage'
 require 'configuration'
-require "stats"
 require "metablock"
 
 module RdtnDaemon

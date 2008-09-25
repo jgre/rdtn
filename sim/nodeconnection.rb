@@ -21,7 +21,6 @@ require 'queuedio'
 require 'memorycl'
 require 'bundle'
 require 'bundleworkflow'
-require 'stats'
 require 'daemon'
 
 module Sim

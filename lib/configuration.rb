@@ -120,10 +120,6 @@ class RdtnConfig
     Storage.new(@settings, @evDis, limit, dir)
   end
 
-  def statDir(dir)
-    @settings.setStatDir(dir) unless @settings.stats
-  end
-
   def localEid(eid = nil)
     @localEid = eid if eid
     @localEid
@@ -163,23 +159,6 @@ class RdtnConfig
 
   def component(name)
     @components[name].component if @components[name]
-  end
-
-  def setStatDir(dir)
-    dir = File.expand_path(dir)
-    begin
-      Dir.mkdir(dir) unless File.exist?(dir)
-    rescue => ex
-      rwarn(self, "Could not create statistics handler: #{ex}")
-    else
-      @stats = Stats::StatGrabber.new(@evDis,
-                                      File.join(dir, "time.stat"),
-                                      File.join(dir, "out.stat"),
-                                      File.join(dir, "in.stat"),
-                                      File.join(dir, "contact.stat"),
-                                      File.join(dir, "subscribe.stat"),
-                                      File.join(dir, "store.stat"))
-    end
   end
 
 end
