@@ -36,7 +36,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
   def test_bundle_sending
     @config.localEid = "dtn://bla.fasel"
     
-    rdebug(self, "starting contact exchange")
+    rdebug("starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
     begin
@@ -48,7 +48,7 @@ class TestUDPConvergenceLayer < Test::Unit::TestCase
     outBundle = ""
     handler = @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read
-      rdebug(self, "Received bundle1: #{outBundle}")
+      rdebug("Received bundle1: #{outBundle}")
     end
     interface=UDPCL::UDPInterface.new(@config, @evDis, "udp0", 
 				      :host => "localhost", :port => 3456)

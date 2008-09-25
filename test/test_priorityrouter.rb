@@ -93,18 +93,18 @@ class TestPriorityRouter < Test::Unit::TestCase
     bndl = Bundling::Bundle.new("test", "dtn:receiver")
     store.storeBundle(bndl)
     store.each(true) do |b|
-      rdebug(self, "Bundle #{b.bundleId}: #{b.srcEid} -> #{b.destEid}")
+      rdebug("Bundle #{b.bundleId}: #{b.srcEid} -> #{b.destEid}")
     end
 
-    rdebug(self, "Test Store #{store.object_id}")
+    rdebug("Test Store #{store.object_id}")
     @routeTab = PriorityRouter.new(@daemon)
     @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
 						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    rdebug(self, "test_filter: dispatching :neighborContact")
+    rdebug("test_filter: dispatching :neighborContact")
     @evDis.dispatch(:routeAvailable, RoutingEntry.new("dtn://neighbor", @link1))
 
-    rdebug(self, "test_filter end")
+    rdebug("test_filter end")
     assert((not @link1.received?(bndl)))
   end
 

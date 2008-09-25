@@ -52,7 +52,7 @@ class TestSim < Test::Unit::TestCase
       assert_operator(t0+10, :<=, RdtnTime.now.to_i)
     end
     @sim.at(1) do |t|
-      rdebug(self, "Sending bundle")
+      rdebug("Sending bundle")
       assert_equal(1, t)
       @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
       false
@@ -68,7 +68,7 @@ class TestSim < Test::Unit::TestCase
       received = true
     end
     @sim.at(1) do |t|
-      rdebug(self, "Sending bundle")
+      rdebug("Sending bundle")
       @sim.nodes[2].sendDataTo(data, "dtn://kasuari3/")
       false
     end

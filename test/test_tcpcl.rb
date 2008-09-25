@@ -29,7 +29,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_contact_exchange
     @config.localEid = "dtn://bla.fasel"
     
-    rdebug(self, "starting contact exchange")
+    rdebug("starting contact exchange")
     
     @interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
 				       :host=> "localhost", :port => 3456)
@@ -47,7 +47,7 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_bundle_sending
     @config.localEid = "dtn://bla.fasel"
     
-    rdebug(self, "starting contact exchange")
+    rdebug("starting contact exchange")
     
     inBundle = "I'm a DTN bundle01!"
     begin
@@ -55,13 +55,13 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
 	f.read
       end
     rescue
-      rwarn(self, "Could not open large testfile")
+      rwarn("Could not open large testfile")
     end
     outBundle = ""
     handler = @evDis.subscribe(:bundleData) do |queue, cl|
       oldLen = outBundle.length
       outBundle += queue.read
-      rdebug(self, "Received bundle1: #{outBundle.length-oldLen}")
+      rdebug("Received bundle1: #{outBundle.length-oldLen}")
     end
     interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
 				      :host => "localhost", :port => 3456)
@@ -95,13 +95,13 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
   def test_bundle_sending2
     @config.localEid = "dtn://bla.fasel"
     
-    rdebug(self, "starting contact exchange")
+    rdebug("starting contact exchange")
     
     inBundle = "I'm a DTN bundle!"
     outBundle = "" 
     handler = @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle += queue.read 
-      rdebug(self, "Received bundle2: #{outBundle}")
+      rdebug("Received bundle2: #{outBundle}")
     end
     
     interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 

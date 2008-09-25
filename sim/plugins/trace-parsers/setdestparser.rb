@@ -160,9 +160,9 @@ class SetdestParser
         if @diff
           break if @diff[1] > newTime.to_f
           if @diff[1] < (newTime.to_f - @granularity)
-            rerror(self, "Error: times are not ordered (#{@diff[1]} < #{newTime})")
+            rerror("Error: times are not ordered (#{@diff[1]} < #{newTime})")
           end
-          rdebug(self, "Line #{@traceFile.lineno}") if (@traceFile.lineno % 100) == 0
+          rdebug("Line #{@traceFile.lineno}") if (@traceFile.lineno % 100) == 0
           @nodes[@diff[0]].dest  = @diff[2]
           @nodes[@diff[0]].speed = @diff[3]
           @diff = nil

@@ -67,7 +67,7 @@ class PriorityRouterQueue < Router
   attr_accessor :link
 
   def initialize(daemon, contactManager, neighbor, filters, priorities)
-    rdebug(self, "Starting new PriorityRouterQueue for #{neighbor}")
+    rdebug("Starting new PriorityRouterQueue for #{neighbor}")
     mon_initialize
     super(daemon)
     @contactMgr = contactManager
@@ -97,7 +97,7 @@ class PriorityRouterQueue < Router
 	@filters.any? do |filter| 
 	  res = filter.filterBundle?(bundle, @neighbor)
 	  if res and filter.class != SubscribeBundleFilter
-	    rdebug(self, "#{filter.class} removed bundle #{bundle.srcEid} -> #{bundle.destEid}")
+	    rdebug("#{filter.class} removed bundle #{bundle.srcEid} -> #{bundle.destEid}")
 	  end
 	  res
 	end
@@ -122,7 +122,7 @@ class PriorityRouterQueue < Router
     until @bundles.empty?
       synchronize do
 	bundle = @bundles.pop
-	rdebug(self, "PrioRouter: forwarding #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
+	rdebug("PrioRouter: forwarding #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
 	doForward(bundle, [@link], :replicate) if bundle
       end
     end

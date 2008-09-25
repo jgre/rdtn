@@ -27,7 +27,7 @@ class CustodyTimer
   end
   
   def stop
-    rdebug(self, "Stopping CustodyTimer")
+    rdebug("Stopping CustodyTimer")
     @evDis.unsubscribe(:bundleForwarded, @h)
     @timer.each do |timer|
       if (timer.alive?) then  

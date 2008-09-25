@@ -62,7 +62,7 @@ module FluteCL
 	@fluteOpts = options[:fluteOpts]
       end
 
-      rdebug(self, "Flute link writes data for Papageno to #{@ppgDir}")
+      rdebug("Flute link writes data for Papageno to #{@ppgDir}")
 
       if defined? @ppgProg
 	# Spawn a papageno process
@@ -141,7 +141,7 @@ module FluteCL
 	@fluteOpts = options[:fluteOpts]
       end
 
-      rdebug(self, "Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
+      rdebug("Flute interface polling for data from Papageno every #{@pollInterval} seconds in #{@ppgDir}")
 
       listenerThread(@pollInterval) do |interval|
 	poll
@@ -153,7 +153,7 @@ module FluteCL
 	@pid = fork do
 	#if fork.nil?
 	  Dir.chdir(@ppgDir)
-	  rinfo(self, "Starting papageno in #{Dir.pwd}")
+	  rinfo("Starting papageno in #{Dir.pwd}")
 	  # TODO let the parameters be given in options
 	  exec("#{@ppgProg} #{@fluteOpts} -a #{@addr} #{@ppgDir}")
 	end

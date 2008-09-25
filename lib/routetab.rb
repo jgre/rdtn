@@ -60,8 +60,7 @@ class RoutingTable < Router
   end
 
   def addEntry(routingEntry)
-    rinfo(self, 
-      "Added route to #{routingEntry.destination} over #{routingEntry.link}.")
+    rinfo("Added route to #{routingEntry.destination} over #{routingEntry.link}.")
     synchronize { @routes.push(routingEntry) }
 
     # See if we can send stored bundles over this link.
@@ -93,7 +92,7 @@ class RoutingTable < Router
   end
 
   def forward(bundle)
-    rdebug(self, "Forward: #{bundle.destEid}, #{bundle.srcEid}")
+    rdebug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
     matches = self.match(bundle.destEid.to_s)
 
     # Avoid returning the bundle directly to its sender.

@@ -68,7 +68,7 @@ class ContactManager < Monitor
   private
  
   def linkCreated(link)
-    rdebug(self, "Link created #{link.name}")
+    rdebug("Link created #{link.name}")
     synchronize do
       @links << link
     end
@@ -76,8 +76,7 @@ class ContactManager < Monitor
 
   def contactClosed(link)
     @evDis.dispatch(:routeLost, link)
-    rdebug(self,
-	"Removing link #{link.object_id} from ContactManager")
+    rdebug("Removing link #{link.object_id} from ContactManager")
     synchronize do
       @links.delete(link)
     end
@@ -89,7 +88,7 @@ class ContactManager < Monitor
     clClasses = CLReg.instance.cl[type]
     if clClasses
       begin
-	rdebug(self, "Opportunity for #{type} link to #{eid}.")
+	rdebug("Opportunity for #{type} link to #{eid}.")
 	link = clClasses[1].new(@config, @evDis)
 	link.policy = :opportunistic
 	link.remoteEid = eid
@@ -97,19 +96,19 @@ class ContactManager < Monitor
 	@oppCount += 1
 
       rescue RuntimeError => err
-	rerror(self, "Failed to open opportunistic link #{err}")
+	rerror("Failed to open opportunistic link #{err}")
       end
     else
-      rwarn(self, "Opportunity signaled with unknown type #{type}")
+      rwarn("Opportunity signaled with unknown type #{type}")
       return nil
     end
   end
 
   def opportunityDown(type, options, eid)
     # FIXME use type and options, if eid is not given
-    rinfo(self, "Opportunity down #{eid}")
+    rinfo("Opportunity down #{eid}")
     link=findLink {|lnk| lnk.remoteEid == eid and lnk.policy == :opportunistic}
-    rinfo(self, "Closing opportunistic link #{link}") if link
+    rinfo("Closing opportunistic link #{link}") if link
     link.close if link
   end
 

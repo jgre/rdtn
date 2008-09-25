@@ -38,7 +38,7 @@ module AppIF
     end
     
     def sendBundle(bundle)
-      rdebug(self, "AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
+      rdebug("AppProxy::sendBundle: -- Delivering bundle to #{bundle.destEid}")
       @handler.call(bundle)
     end
 
@@ -55,11 +55,11 @@ module AppIF
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
       receiverThread { read }
-      rdebug(self, "AppLink::initialize: watching new socket")
+      rdebug("AppLink::initialize: watching new socket")
     end
     
     def close(wait = nil)
-      rdebug(self, "AppProxy::close -- closing socket #{@s}")
+      rdebug("AppProxy::close -- closing socket #{@s}")
       @sendSocket.close if not @sendSocket.closed?
       @receiveSocket.close if not @receiveSocket.closed?
       super
@@ -79,7 +79,7 @@ module AppIF
           end
         end
       rescue SystemCallError    # lost TCP connection 
-        rerror(self, "AppProxy::read" + $!)
+        rerror("AppProxy::read" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              
@@ -134,11 +134,11 @@ module AppIF
 
       type  = args[0]
       msgId = args[1]
-      rdebug(self, "AppLink #{@name} process: #{type}, MessageId: #{msgId}")
+      rdebug("AppLink #{@name} process: #{type}, MessageId: #{msgId}")
       begin
 	retType, ret = self.send(*args)
       rescue => err
-        rwarn(self, "AppProxy #{@name} error: #{err}")
+        rwarn("AppProxy #{@name} error: #{err}")
 	retType, ret = :error, err
 	raise
       end
@@ -174,7 +174,7 @@ module AppIF
 	port = options[:port]
       end
 
-      rdebug(self, "Building client interface with port=#{port} and hostname=#{host}")
+      rdebug("Building client interface with port=#{port} and hostname=#{host}")
 
       @s = TCPServer.new(host,port)
       # register this socket
@@ -195,7 +195,7 @@ module AppIF
       while true
 	#FIXME deal with errors
 	@link= AppLink.new(@config, @evDis, @daemon, @s.accept())
-	rdebug(self, "created new AppProxy #{@link.object_id}")
+	rdebug("created new AppProxy #{@link.object_id}")
       end
     end
 

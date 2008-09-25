@@ -67,7 +67,7 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
     counter = 0
     @evDis.subscribe(:bundleData) do |queue, cl|
       outBundle = queue.read
-      rdebug(self, "Received bundle: #{outBundle}")
+      rdebug("Received bundle: #{outBundle}")
       assert((outBundle == @@file1 or outBundle == @@file2), "Bundle must equal one of the test files")
       counter += 1
     end

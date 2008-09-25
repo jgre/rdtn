@@ -99,7 +99,7 @@ class Storage < Monitor
       end
       @bundles.push(bundle)
       @evDis.dispatch(:bundleStored, bundle)
-      rdebug(self, "Stored bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
+      rdebug("Stored bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
       enforceLimit
     end
   end
@@ -152,7 +152,7 @@ class Storage < Monitor
   def enforceLimit
     deleteBundles(true) do |bundle| 
       ret = bundle.expired?
-      rdebug(self, "Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
+      rdebug("Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
       ret
     end
     #if @limit and @curSize > @limit
@@ -174,7 +174,7 @@ class Storage < Monitor
     @bundles.reverse_each do |bundle|
       break unless @limit and (@curSize - delSize) > @limit
       unless bundle.deleted? or bundle.retentionConstraints?
-	rdebug(self, "Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
+	rdebug("Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
 	delCandidates.push(bundle.bundleId)
 	delSize += bundle.payloadLength
       end

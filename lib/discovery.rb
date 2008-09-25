@@ -195,9 +195,9 @@ class IPDiscovery < Monitor
 	end
       end
     rescue SystemCallError
-      rerror(self, "IPDiscovery::read" + $!)
+      rerror("IPDiscovery::read" + $!)
     rescue ProtocolError => err
-      rwarn(self, "IPDiscovery: #{err}")
+      rwarn("IPDiscovery: #{err}")
     end
     # If we are here, doRead hit an error or the link was closed.
     self.close
@@ -223,7 +223,7 @@ class IPDiscovery < Monitor
 	    opts = {:host => ann.inetAddr, :port => ann.inetPort }
 	    @evDis.dispatch(:opportunityDown, 
 					      ann.typeSym, opts, ann.senderEid)
-	    rdebug(self, "Announcement timed out for #{ann.senderEid}")
+	    rdebug("Announcement timed out for #{ann.senderEid}")
 	    delIndex.push(i)
 	  end
 	end

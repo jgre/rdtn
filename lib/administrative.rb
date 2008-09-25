@@ -22,7 +22,7 @@ class AdministrativeRecord
     elsif ((typeAndFlags & CUSTODY_SIGNAL) != 0)
       ar = CustodySignal.new
     else 
-      rerror(self, "This administrative record type is not implemented")
+      rerror("This administrative record type is not implemented")
     end
     
     # fill the rest of the object with the remaining payload

@@ -76,7 +76,7 @@ module RdtnDaemon
     end
 
     def runLoop
-      rdebug(self, "Starting DTN daemon main loop")
+      rdebug("Starting DTN daemon main loop")
       sleep
     end
 
@@ -126,11 +126,11 @@ module RdtnDaemon
       if lnkClass
 	link = lnkClass[1].new(@config, @evDis)
 	link.open(name, options)
-	rdebug(self, "Adding #{cl} link #{link.name} with options: '#{options.to_a.join(' ')}'")
+	rdebug("Adding #{cl} link #{link.name} with options: '#{options.to_a.join(' ')}'")
 	@links[link.name] = link
 	link
       else
-	rerror(self, "Unknown convergence layer: #{cl}")
+	rerror("Unknown convergence layer: #{cl}")
       end
     end
 
@@ -143,8 +143,8 @@ module RdtnDaemon
     end
 
     def addIf(cl, name, options = {})
-      rdebug(self, 
-             "Adding #{cl} interface #{name} with options: '#{options.to_a.join(' ')}'")
+      rdebug("Adding #{cl} interface #{name} with options: '#{options.to_a.join(' ')}'")
+             
       ifClass = CLReg.instance.cl[cl]
       if ifClass
 	options[:daemon] = self if ifClass[0] == AppIF::AppInterface
@@ -152,7 +152,7 @@ module RdtnDaemon
 	@interfaces[name] = interface
 	interface 
       else
-	rerror(self, "Unknown convergence layer: #{cl}")
+	rerror("Unknown convergence layer: #{cl}")
       end
     end
 
@@ -160,11 +160,11 @@ module RdtnDaemon
       routerClass = nil
       if type
 	routerClass = RouterReg.instance.routers[type]
-	rerror(self, "Unknown type of router: #{type}") unless routerClass
+	rerror("Unknown type of router: #{type}") unless routerClass
       end
 
       if routerClass
-	rdebug(self, "Starting router: #{type}") 
+	rdebug("Starting router: #{type}") 
 	routerClass.new(self, options)
       end
       @config.router

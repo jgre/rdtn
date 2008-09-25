@@ -368,7 +368,6 @@ module TCPCL
 	@port = peer[1]
 	watch()
 	sendContactHeader()
-	#rdebug(self, "TCPLink::initialize: watching new socket")
       end
       
     end
@@ -454,7 +453,7 @@ module TCPCL
     end
 
     def handleBundleData(startSegment, endSegment, data)
-      rdebug(self, "handleBundleData")
+      rdebug("handleBundleData")
       if @currentBundle.size > 0 and startSegment
         raise OverwritingBundle
       end
@@ -470,7 +469,7 @@ module TCPCL
       @evDis.dispatch(:bundleData, @currentBundle, self)
 
       if endSegment
-        rdebug(self, "TCPLink::handle_bundle_data Bundle is complete")
+        rdebug("TCPLink::handle_bundle_data Bundle is complete")
         # We take a new object for the next bundle. The bundle parser must take
         # care of closing the old one.
         @currentBundle = RdtnStringIO.new
@@ -538,13 +537,13 @@ module TCPCL
 	    end
 
 	  rescue InputTooShort => detail
-	    rinfo(self, "Input too short need to read 
+	    rinfo("Input too short need to read 
 		       #{detail.bytesMissing} (#{input.length - input.pos} given)")
 	    self.bytesToRead = detail.bytesMissing
 	  end
 
           rescue SystemCallError, IOError    # lost TCP connection 
-    	    rwarn(self, "TCPLink::whenReadReady::recvfrom " + $!)
+    	    rwarn("TCPLink::whenReadReady::recvfrom " + $!)
           end
 	end
       # If we are here, doRead hit an error or the link was closed.
@@ -631,7 +630,7 @@ module TCPCL
 	@port = options[:port]
       end
 
-      rdebug(self, "Building TCP interface with port=#{@port} and hostname=#{@host}")
+      rdebug("Building TCP interface with port=#{@port} and hostname=#{@host}")
       
       @s = TCPServer.new(@host,@port)
       # register this socket

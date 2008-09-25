@@ -188,13 +188,13 @@ module Bundling
         
     def processBundle(bundle)
       if bundle.requestCustody?
-        rdebug(self, "Requested Custody from #{bundle.custodianEid} for #{bundle.bundleId}")
+        rdebug("Requested Custody from #{bundle.custodianEid} for #{bundle.bundleId}")
         if (@config.acceptedCustody)
           if (bundle.custodyAccepted? == false) then
             bundle.custodyAccepted = true
           
             timer = CustodyTimer.new(bundle, @evDis)
-            rdebug(self, "Accepted Custody for #{bundle.bundleId}")
+            rdebug("Accepted Custody for #{bundle.bundleId}")
           
             # send custody signal and then update custodian
             sendCustodySignal(bundle, SUCCESS)
@@ -205,7 +205,7 @@ module Bundling
         h = @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
           # was the bundle delivered to an app?
           if ((link.kind_of? AppIF::AppProxy) && (bundle.bundleId == bndl.bundleId))
-                rdebug(self, "bundle with custody delivered on link: #{link}")
+                rdebug("bundle with custody delivered on link: #{link}")
                 # generate delivery SR
           
                 sendCustodySignal(bundle, SUCCESS)
@@ -247,7 +247,7 @@ module Bundling
         b.administrative = true
         b.lifetime = bundle.lifetime
   
-        rdebug(self, "Custody Signal to: #{b.destEid}")
+        rdebug("Custody Signal to: #{b.destEid}")
   
         @evDis.dispatch(:bundleToForward, b)
       end
@@ -323,7 +323,7 @@ module Bundling
       b.administrative = true
       b.lifetime = bundle.lifetime
   
-      rdebug(self, "SND: custody acceptance status report to #{b.destEid}")
+      rdebug("SND: custody acceptance status report to #{b.destEid}")
       @evDis.dispatch(:bundleToForward, b)
     end
     
@@ -355,7 +355,7 @@ module Bundling
       b.administrative = true
       b.lifetime = bundle.lifetime
   
-      rdebug(self, "SND: bundle deletion status report to #{b.destEid}")
+      rdebug("SND: bundle deletion status report to #{b.destEid}")
   
       @evDis.dispatch(:bundleToForward, b)
     end
@@ -395,7 +395,7 @@ module Bundling
       b.administrative = true
       b.lifetime = bundle.lifetime
   
-      rdebug(self, "SND: bundle reception status report to #{b.destEid}")
+      rdebug("SND: bundle reception status report to #{b.destEid}")
   
       @evDis.dispatch(:bundleToForward, b)
     end
@@ -429,7 +429,7 @@ module Bundling
         b.administrative = true
         b.lifetime = bundle.lifetime
   
-        rdebug(self, "SND: bundle forwarding status report to #{b.destEid}")
+        rdebug("SND: bundle forwarding status report to #{b.destEid}")
   
         # prevent nasty loops
         @evDis.unsubscribe(:bundleForwarded, h)
@@ -469,7 +469,7 @@ module Bundling
           b.administrative = true
           b.lifetime = bundle.lifetime
   
-          rdebug(self, "SND: bundle delivery status report to #{b.destEid}")
+          rdebug("SND: bundle delivery status report to #{b.destEid}")
   
           # prevent nasty loops
           @evDis.unsubscribe(:bundleForwarded, h)
@@ -487,14 +487,14 @@ module Bundling
         # A "bundle reception status report" is a bundle status report with 
         # the "reporting node received bundle" flag set to 1.
         if (administrativeRecord.bundleReceived?)
-          rdebug(self, "RCV: bundle reception status report from #{bundle.srcEid}")
+          rdebug("RCV: bundle reception status report from #{bundle.srcEid}")
           
         end
         
         # A "custody acceptance status report" is a bundle status report
         # with the "reporting node accepted custody of bundle" flag set to 1.
         if (administrativeRecord.custodyAccepted?)
-          rdebug(self, "RCV: custody acceptance status report from #{bundle.srcEid}")
+          rdebug("RCV: custody acceptance status report from #{bundle.srcEid}")
           bundle = @config.store.getBundle(administrativeRecord.bundleId)
           bundle.removeCustodyTimer
         end
@@ -502,35 +502,35 @@ module Bundling
         # A "bundle forwarding status report" is a bundle status report with
         # the "reporting node forwarded the bundle" flag set to 1.
         if (administrativeRecord.bundleForwarded?)
-          rdebug(self, "RCV: bundle forwarding status report from #{bundle.srcEid}")
+          rdebug("RCV: bundle forwarding status report from #{bundle.srcEid}")
         end
         
         # A "bundle delivery status report" is a bundle status report with
         # the "reporting node delivered the bundle" flag set to 1.
         if (administrativeRecord.bundleDelivered?)
-          rdebug(self, "RCV: bundle delivery status report from #{bundle.srcEid}")
+          rdebug("RCV: bundle delivery status report from #{bundle.srcEid}")
         end
         
         # A "bundle deletion status report" is a bundle status report with
         # the "reporting node deleted the bundle" flag set to 1.
         if (administrativeRecord.bundleDeleted?)
-          rdebug(self, "RCV: bundle deletion status report from #{bundle.srcEid}")
+          rdebug("RCV: bundle deletion status report from #{bundle.srcEid}")
         end
         
         if (administrativeRecord.ackedByApp?)
-          rdebug(self, "RCV: acked by app from #{bundle.srcEid}")
+          rdebug("RCV: acked by app from #{bundle.srcEid}")
         end
         
         # rfc 5050 6.1.1 transmitted to the report-to endpoint TODO
       elsif (administrativeRecord.custodySignal?)
-        rdebug(self, "RCV: a custody signal arrived from #{bundle.srcEid}")
+        rdebug("RCV: a custody signal arrived from #{bundle.srcEid}")
         # The "current custodian" of a bundle is the endpoint identified by
         # the current custodian endpoint ID in the bundle's primary block.
   
         # A "Succeeded" custody signal is a custody signal with the "custody
         # transfer succeeded" flag set to 1.
         if (administrativeRecord.transferSucceeded?)
-          rdebug(self, "RCV: transfer succeeded from #{bundle.srcEid}")
+          rdebug("RCV: transfer succeeded from #{bundle.srcEid}")
           bundle = @config.store.getBundle(administrativeRecord.bundleId)
           bundle.removeCustodyTimer
           # see rfc 5050 Section 5.11
@@ -539,7 +539,7 @@ module Bundling
         # A "Failed" custody signal is a custody signal with the "custody
         # transfer succeeded" flag set to zero.
         if (!administrativeRecord.transferSucceeded?)
-          rdebug(self, "RCV: transfer failed from #{bundle.srcEid}")
+          rdebug("RCV: transfer failed from #{bundle.srcEid}")
           # see rfc 5050 Section 5.12
         end
       end  

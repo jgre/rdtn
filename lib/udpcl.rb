@@ -70,7 +70,7 @@ module UDPCL
 
     def close(wait = nil)
       super
-      rdebug(self, "UDPLink::close")
+      rdebug("UDPLink::close")
       if socketOK?
 	@sendSocket.close
       end
@@ -111,7 +111,7 @@ module UDPCL
 	@port = options[:port]
       end
 
-      rdebug(self, "Building UDP interface with port=#{@port} and hostname=#{@host}")
+      rdebug("Building UDP interface with port=#{@port} and hostname=#{@host}")
       sock = UDPSocket.new
       sock.bind(@host, @port)
       queuedReceiverInit(sock)
@@ -133,7 +133,7 @@ module UDPCL
 	  @evDis.dispatch(:bundleData, input, self)
 	end
       rescue SystemCallError
-	rerror(self, "UDPLink::whenReadReady::recvfrom" + $!)
+	rerror("UDPLink::whenReadReady::recvfrom" + $!)
       end
       # If we are here, doRead hit an error or the link was closed.
       self.close()              

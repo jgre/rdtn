@@ -53,7 +53,7 @@ module Sim
     end
 
     def connect(node2)
-      rdebug(self, "Connecting #{@id} -> #{node2.id}")
+      rdebug("Connecting #{@id} -> #{node2.id}")
       addLink(:memory, "simlink#{node2.id}", :nodeId=>@id,
 	      :memIf=>node2.memIf, :bytesPerSec=>@bytesPerSec,
 	      :sim=>@sim)

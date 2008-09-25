@@ -32,16 +32,31 @@ RDTNAPPIFPORT=7777
 
 class RdtnConfig
 
-  attr_writer :localEid, :acceptCustody
+  attr_writer   :localEid, :acceptCustody
+  attr_accessor :logger
   Struct.new('Component', :component, :replacementAction)
 
   def initialize(daemon = nil)
     @localEid = nil
     @logLevels = []
-    @defaultLogLevel = Logger::ERROR
     @acceptCustody = false
     @components = {}
     @daemon = daemon
+    @loglevels = {nil => Logger::ERROR}
+    @logger = Logger.new(STDOUT)
+    @logger.formatter = lambda do |sev, time, progname, msg|
+      message = case msg
+                when  ::String
+                  msg
+                when ::Exception
+                  "#{ msg.message } (#{ msg.class })\n" << (msg.backtrace || []).join("\n")
+                else
+                  msg.inspect
+                end
+
+      "[#{time.strftime("%Y-%m-%dT%H:%M:%S")}, #{@localEid}] #{"%5s" % sev}: #{message}\n"
+    end
+
   end
 
   def self.load(filename, daemon)
@@ -53,27 +68,32 @@ class RdtnConfig
     self
   end
 
-  def loglevel(level, pattern = nil)
-    curLevel = case level
-               when :debug then Logger::DEBUG
-               when :info  then Logger::INFO
-               when :error then Logger::ERROR
-               when :warn  then Logger::WARN
-               when :fatal then Logger::FATAL
-               else Logger::ERROR
-               end
+  def loglevel(level, classname = nil)
+    level = case level
+                    when :debug then Logger::DEBUG
+                    when :info  then Logger::INFO
+                    when :error then Logger::ERROR
+                    when :warn  then Logger::WARN
+                    when :fatal then Logger::FATAL
+                    else Logger::ERROR
+                    end
+    
+    @loglevels[classname] = level
+  end
 
-    setLogLevel(pattern, curLevel)
+  def logger(obj)
+    @logger.level = @loglevels[obj.class.to_s] || @loglevels[nil]
+    @logger
   end
 
   def log(level, msg)
     case level
-    when :debug then rdebug(self, msg)
-    when :info  then rinfo(self, msg)
-    when :warn  then rwarn(self, msg)
-    when :error then rerror(self, msg)
-    when :fatal then rfatal(self, msg)
-    else rinfo(self, msg)
+    when :debug then rdebug(msg)
+    when :info  then rinfo(msg)
+    when :warn  then rwarn(msg)
+    when :error then rerror(msg)
+    when :fatal then rfatal(msg)
+    else rinfo(msg)
     end
   end
 
@@ -131,7 +151,7 @@ class RdtnConfig
   end
 
   def route(action, dest, link)
-    rwarn(self, "Configuration action 'route' is depricated. Use router.addRoute instead. #{caller(1)[0]}")
+    rwarn("Configuration action 'route' is depricated. Use router.addRoute instead. #{caller(1)[0]}")
     case action
     when :add    then addRoute(dest, link)
     else raise "syntax error: link #{action}"
@@ -163,34 +183,26 @@ class RdtnConfig
 
 end
 
-$rdtnLogLevels = {nil => Logger::ERROR}
-$rdtnLogger    = Logger.new(STDOUT)
+class Object
 
-def rdtnSetLogLevel(clsname)
-  $rdtnLogger.level = $rdtnLogLevels[clsname] || $rdtnLogLevels[nil]
-end
+  def rdebug(*args)
+    @config.logger(self).debug(*args) if @config.is_a?(RdtnConfig)
+  end
 
-def rdebug(obj, *args)
-  rdtnSetLogLevel(obj.class.name)
-  $rdtnLogger.debug(*args)
-end
+  def rinfo(*args)
+    @config.logger(self).debug(*args) if @config.is_a?(RdtnConfig)
+  end
 
-def rinfo(obj, *args)
-  rdtnSetLogLevel(obj.class.name)
-  $rdtnLogger.info(*args)
-end
+  def rwarn(*args)
+    @config.logger(self).warn(*args) if @config.is_a?(RdtnConfig)
+  end
 
-def rwarn(obj, *args)
-  rdtnSetLogLevel(obj.class.name)
-  $rdtnLogger.warn(*args)
-end
+  def rerror(*args)
+    @config.logger(self).error(*args) if @config.is_a?(RdtnConfig)
+  end
 
-def rerror(obj, *args)
-  rdtnSetLogLevel(obj.class.name)
-  $rdtnLogger.error(*args)
-end
+  def rfatal(*args)
+    @config.logger(self).fatal(*args) if @config.is_a?(RdtnConfig)
+  end
 
-def rfatal(obj, *args)
-  rdtnSetLogLevel(obj.class.name)
-  $rdtnLogger.fatal(*args)
 end

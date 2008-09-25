@@ -74,7 +74,7 @@ module Bundling
 
     def self.handleBundleData(evDis, queue, link)
       if queue.closed?
-	rwarn(self, "':bundleData' event received, but the queue is closed.")
+	rwarn("':bundleData' event received, but the queue is closed.")
 	@@incomingBundles.delete(queue.object_id)
       else
         pm=@@incomingBundles[queue.object_id] ||= ParserManager.new(evDis, link)
@@ -103,17 +103,17 @@ module Bundling
 	@bundle.parse(queue)
       rescue InputTooShort => detail
 	@idleSince = RdtnTime.now
-	rinfo(self, "Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
+	rinfo("Input too short need to read #{detail.bytesMissing} (#{queue.length - queue.pos} given)")
       rescue ProtocolError => msg
-	rerror(self, "Bundle parser error: #{msg}")
+	rerror("Bundle parser error: #{msg}")
 	queue.close
 	@active = false
       rescue IOError => msg
-	rerror(self, "Bundle parser IO error: #{msg}")
+	rerror("Bundle parser IO error: #{msg}")
 	@active = false
       else
 	if @bundle.parserFinished?
-	  rdebug(self, "Parsing Bundle finished")
+	  rdebug("Parsing Bundle finished")
 	  @evDis.dispatch(:bundleParsed, @bundle)
 	  queue.close
 	  @active = false

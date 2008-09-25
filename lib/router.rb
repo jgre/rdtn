@@ -89,7 +89,7 @@ class Router
     links.each do |link|
       begin
 	neighbor   = link.remoteEid
-	rdebug(self, "Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
+	rdebug("Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
 	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
 	unless bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
 	  next
@@ -102,13 +102,12 @@ class Router
 	fragments.each do |frag|
 	  frag.forwardLog.addEntry(action, :inflight, neighbor, link)
 	  link.sendBundle(frag)
-	  rinfo(self, 
-	       "Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	  rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
       rescue ProtocolError, SystemCallError, IOError => err
 	bundle.forwardLog.updateEntry(action,:transmissionError,neighbor,link)
-	rerror(self, "Routetab::doForward #{err}")
+	rerror("Routetab::doForward #{err}")
       end
     end
     return nil

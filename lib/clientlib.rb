@@ -57,7 +57,7 @@ class RdtnClient
 	wait = nil
       end
     end
-    rdebug(self, "RdtnClient::close -- closing socket #{@s}")
+    rdebug("RdtnClient::close -- closing socket #{@s}")
     @sendSocket.close if not @sendSocket.closed?
     @receiveSocket.close if not @receiveSocket.closed?
     @evDis.dispatch(:linkClosed, self) if @evDis
@@ -122,7 +122,7 @@ class RdtnClient
     begin
       doRead {|input| processData(input) }
     rescue SystemCallError    # lost TCP connection 
-      rerror(self, "RDTNClient::read" + $!)
+      rerror("RDTNClient::read" + $!)
     end
     # If we are here, doRead hit an error or the link was closed.
     self.close()              
@@ -145,7 +145,7 @@ class RdtnClient
   end
 
   def handleError(type, args, errorMessage)
-    rerror(self, "An error occured for #{type}: #{errorMessage}.")
+    rerror("An error occured for #{type}: #{errorMessage}.")
   end
 
   def generateMessageId

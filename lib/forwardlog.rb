@@ -70,17 +70,17 @@ module Bundling
 	else
 	  case entry.action
 	  when :forward 
-	    rdebug(self, "shouldAct? No, was already forwarded.")
+	    rdebug("shouldAct? No, was already forwarded.")
 	    false
 	  when :replicate
 	    ret=(entry.neighbor != neighbor and entry.link != link #and
 	     (singletonReceiver.nil? or entry.neighbor!=singletonReceiver))
 
-	    rdebug(self, "shouldAct? No, was already replicated to the right place.") unless ret
+	    rdebug("shouldAct? No, was already replicated to the right place.") unless ret
 	    ret
 	  when :incoming
 	    ret = (entry.neighbor.to_s != neighbor.to_s and entry.link != link)
-	    rdebug(self, "shouldAct? No, we have it from him (#{neighbor}).") unless ret
+	    rdebug("shouldAct? No, we have it from him (#{neighbor}).") unless ret
 	    ret
 	  end
 	end
