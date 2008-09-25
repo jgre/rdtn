@@ -176,20 +176,13 @@ class PriorityRouter < Router
       @queues.delete(l.remoteEid)
     end
     if @subHandler
-      @evSubRec = @evDis.subscribe(:subscriptionsReceived) do |neighborEid|
-	neighbor = @contactManager.findNeighborByEid(neighborEid)
-	if neighbor
-	  link = neighbor.curLink 
-	  #puts "SubRec #{neighborEid}, #{neighbor.eid}"
-	  if link
-	    #puts "(#{@config.localEid}) ProcQ1"
-	    processQueue(neighbor, link)
-	  else
-	    puts "(#{@config.localEid}) Could not find link to #{neighborEid}"
-	  end
-	else
-	  puts "(#{@config.localEid}) Could not find neighbor for #{neighborEid}"
-	end
+      @evSubRec = @evDis.subscribe(:subscriptionsReceived) do |neighbor|
+	link = @contactManager.findLink {|lnk| lnk.remoteEid == neighbor}
+        if link
+          processQueue(neighbor, link)
+        else
+          puts "(#{@config.localEid}) Could not find link to #{neighborEid}"
+        end
       end
     end
   end
@@ -213,8 +206,8 @@ class PriorityRouter < Router
 
   def processQueue(neighbor, link)
     #puts "(#{@config.localEid}) Setting link #{link} at #{RdtnTime.now.to_i}"
-    @queues[neighbor.eid.to_s].link = link 
-    @queues[neighbor.eid.to_s].forwardBundles
+    @queues[neighbor].link = link 
+    @queues[neighbor].forwardBundles
   end
 
   def localRegistration(rentry)
@@ -233,7 +226,7 @@ class PriorityRouter < Router
 
   def forward(bundle)
     matches=synchronize do 
-      @routes.find_all{|entry| entry.destination === bundle.destEid.to_s}
+      @routes.find_all{|entry| entry.match?(bundle.destEid)}
     end
     links = matches.map {|entry| entry.link(@contactManager)}
     doForward(bundle, links, :replicate)

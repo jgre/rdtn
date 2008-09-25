@@ -81,7 +81,7 @@ class TestPriorityRouter < Test::Unit::TestCase
     @routeTab.priorities.push(SubscriptionHopCountPrio.new(@config, @evDis, @subHandler))
     @routeTab.priorities.push(PopularityPrio.new(@config, @evDis, @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
-    @evDis.dispatch(:neighborContact, Neighbor.new(@link1.remoteEid), @link1)
+    @evDis.dispatch(:routeAvailable, RoutingEntry.new(@link1.remoteEid, @link1))
     @evDis.dispatch(:subscriptionsReceived, @link1.remoteEid)
 
     assert(@link1.received?(bndl))
@@ -102,7 +102,7 @@ class TestPriorityRouter < Test::Unit::TestCase
 						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])
     rdebug(self, "test_filter: dispatching :neighborContact")
-    @evDis.dispatch(:neighborContact, Neighbor.new("dtn://neighbor"), @link1)
+    @evDis.dispatch(:routeAvailable, RoutingEntry.new("dtn://neighbor", @link1))
 
     rdebug(self, "test_filter end")
     assert((not @link1.received?(bndl)))

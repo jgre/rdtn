@@ -61,7 +61,7 @@ class RoutingTable < Router
 
   def addEntry(routingEntry)
     rinfo(self, 
-      "Added route to #{routingEntry.destination.source} over #{routingEntry.link}.")
+      "Added route to #{routingEntry.destination} over #{routingEntry.link}.")
     synchronize { @routes.push(routingEntry) }
 
     # See if we can send stored bundles over this link.
@@ -79,7 +79,7 @@ class RoutingTable < Router
   def deleteEntry(link, dest = nil)
     synchronize do
       @routes.delete_if do |entry|
-	if entry.link(@contactManager).to_s == link.to_s and (not dest or dest.to_s == entry.destination.source)
+	if entry.link(@contactManager).to_s == link.to_s and (not dest or dest.to_s == entry.destination)
 	  true
 	else
 	  false
@@ -89,7 +89,7 @@ class RoutingTable < Router
   end
 
   def match(dest)
-    synchronize {@routes.find_all {|entry| entry.destination === dest} }
+    synchronize {@routes.find_all {|entry| entry.match?(dest)} }
   end
 
   def forward(bundle)

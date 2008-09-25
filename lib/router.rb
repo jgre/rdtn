@@ -25,7 +25,7 @@ class RoutingEntry
     	      :exclusive
 
   def initialize(dest, link, exclusive = false)
-    @destination = Regexp.new(dest.to_s)
+    @destination = dest
     @link = link
     @exclusive = exclusive
   end
@@ -42,7 +42,7 @@ class RoutingEntry
   end
 
   def match?(eid)
-    @destination === eid
+    Regexp.new(@destination) === eid
   end
 
 end

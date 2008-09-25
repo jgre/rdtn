@@ -55,9 +55,6 @@ class TestContactManager < Test::Unit::TestCase
     @config = RdtnConfig.new
   end
 
-  def teardown
-  end
-
   def test_insertion
     cm = ContactManager.new(@config, @evDis)
     link = CMockLink.new(@config, @evDis)
@@ -79,9 +76,9 @@ class TestContactManager < Test::Unit::TestCase
     eventRec  = false
     eid       = "dtn://test"
     cm = ContactManager.new(@config, @evDis)
-    @evDis.subscribe(:neighborContact) do |neighbor, link|
+    @evDis.subscribe(:routeAvailable) do |rentry|
       eventRec = true
-      assert_equal(eid, neighbor.eid)
+      assert_equal(eid, rentry.destination)
     end
     @evDis.subscribe(:linkCreated) do |cmlink|
       linkFound = true

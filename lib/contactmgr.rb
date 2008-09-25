@@ -22,71 +22,6 @@ require "eidscheme"
 require "monitor"
 require "rdtntime"
 
-class Neighbor
-
-  attr_accessor :eid,
-                :lastContact,
-		:downSince,
-		:nContacts,
-		:totalContactDuration,
-		:totalDowntime,
-		:curLink
-
-  def initialize(eid)
-    @eid                  = eid
-    @lastContact          = nil
-    @downSince            = nil
-    @nContacts            = 0
-    @totalContactDuration = 0
-    @totalDowntime        = 0
-    @curLink              = nil
-  end
-
-  def currentContactDuration
-    if @downSince or not @lastContact then 0
-    else RdtnTime.now - @lastContact
-    end
-  end
-
-  def currentDowntime
-    if @downSince then RdtnTime.now - @downSince
-    else 0
-    end
-  end
-
-  def contactStarts(link)
-    @lastContact    = RdtnTime.now
-    @totalDowntime += currentDowntime
-    @downSince      = nil
-    @nContacts     += 1
-    @curLink        = link
-  end
-
-  def contactEnds
-    @totalContactDuration += currentContactDuration
-    @downSince = RdtnTime.now
-    @curLink   = nil
-  end
-
-  def isContactOpen?
-    not @downSince
-  end
-
-  def averageContactDuration
-    if nContacts > 0
-      (@totalContactDuration + currentContactDuration)/ @nContacts
-    else 0
-    end
-  end
-
-  def averageDowntime
-    if nContacts > 0 then (@totalDowntime + currentDowntime) / @nContacts
-    else 0
-    end
-  end
-
-end
-
 class ContactManager < Monitor
 
   attr_reader :links
@@ -99,7 +34,6 @@ class ContactManager < Monitor
     @evDis = evDis
     @oppCount  = 0 # Counter for the name of opportunistic links.
     @links     = []
-    @neighbors = []
     @config.registerComponent(:contactManager, self)
 
     @evDis.subscribe(:linkCreated) do |*args| 
@@ -131,16 +65,6 @@ class ContactManager < Monitor
     end
   end
 
-  def findNeighbor(&block)
-    synchronize do
-      return @neighbors.find(&block)
-    end
-  end
-
-  def findNeighborByEid(eid)
-    findNeighbor {|n| n.eid.to_s == eid.to_s }
-  end
-
   private
  
   def linkCreated(link)
@@ -157,15 +81,10 @@ class ContactManager < Monitor
     synchronize do
       @links.delete(link)
     end
-    if link.remoteEid
-      neighbor = findNeighborByEid(link.remoteEid)
-      neighbor.contactEnds if neighbor
-    end
   end
 
   def opportunity(type, options, eid = nil)
-    neighbor = findNeighborByEid(eid)
-    return nil if eid and neighbor and neighbor.isContactOpen?
+    return nil if eid and findLink {|lnk| eid == lnk.remoteEid}
 
     clClasses = CLReg.instance.cl[type]
     if clClasses
@@ -196,15 +115,7 @@ class ContactManager < Monitor
 
   def linkOpen(link)
     if link.remoteEid
-      neighbor = findNeighborByEid(link.remoteEid)
-      if not neighbor
-	neighbor = Neighbor.new(link.remoteEid)
-	synchronize { @neighbors.push(neighbor) }
-      end
-      neighbor.contactStarts(link)
-      @evDis.dispatch(:neighborContact, neighbor, link)
-      @evDis.dispatch(:routeAvailable, RoutingEntry.new(
-				        link.remoteEid.to_s + ".*", link))
+      @evDis.dispatch(:routeAvailable, RoutingEntry.new(link.remoteEid, link))
     end
   end
 

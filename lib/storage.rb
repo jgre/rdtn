@@ -115,7 +115,7 @@ class Storage < Monitor
   end
 
   def getBundleMatchingDest(destEid, includeDeleted = false)
-    getBundleMatching(includeDeleted) {|bundle| bundle.destEid == destEid }
+    getBundleMatching(includeDeleted) {|bundle| bundle.destEid === Regexp.new(destEid) }
   end
 
   def getBundlesMatching(includeDeleted = false)
@@ -127,7 +127,7 @@ class Storage < Monitor
   end
 
   def getBundlesMatchingDest(destEid, includeDeleted = false)
-    getBundlesMatching(includeDeleted) {|bundle| destEid === bundle.destEid.to_s }
+    getBundlesMatching(includeDeleted) {|bundle| Regexp.new(destEid) === bundle.destEid.to_s }
   end
 
   def save
@@ -188,7 +188,6 @@ class Storage < Monitor
     Thread.new do
       while true
 	RdtnTime.rsleep(10) #FIXME variable timer
-	@evDis.dispatch(:timerTick)
 	
 	synchronize do
 	  deleteBundles(true) {|bundle| bundle.expired?}

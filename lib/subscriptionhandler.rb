@@ -390,7 +390,6 @@ class SubscriptionHandler
 							creationTimestamp, 
 							expires))
     @mySubs.addSubscription(sub)
-    @evDis.dispatch(:uriSubscribed, uri)
   end
 
   def subscribedUris
