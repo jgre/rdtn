@@ -72,6 +72,11 @@ module Sim
       end
     end
 
+    def events=(events)
+      @events = events
+      createNodes(@events.nodeCount) if @nodes.empty?
+    end
+
     def parseConfigFile(configFile = nil)
       configFile = configFile || @configFileName
       @config.merge!(open(configFile) {|f| YAML.load(f)})
@@ -105,7 +110,7 @@ module Sim
     end
 
     def loadEventdump(filename)
-      open(filename) {|f| @events = Marshal.load(f) }
+      open(filename) {|f| self.events = Marshal.load(f) }
     end
 
     def at(time)
@@ -145,7 +150,6 @@ module Sim
 
       RdtnTime.timerFunc = old_timer_func
 
-      #puts "Simulated #{@te.timer} seconds with #{@events.events.length} events"
       [@events, @log]
     end
 

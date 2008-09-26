@@ -50,6 +50,7 @@ module Sim
       @events = [] # [time, nodeId1, nodeId2, :simConnection|:simDisconnection]
       @time0  = 0  # All event before time0 will be ignored
       @cur_ev = 0  # The index of the current event
+      @nodes  = {}
     end
 
     def each(&blk)
@@ -58,11 +59,13 @@ module Sim
     end
 
     def addEvent(time, nodeId1, nodeId2, type)
+      @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
       @events.push(Event.new(time, nodeId1, nodeId2, type))
       self
     end
 
     def addEventSorted(time, nodeId1, nodeId2, type)
+      @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
       @events.each_with_index do |event, index|
 	if event.time > time
 	  @events.insert(index, Event.new(time, nodeId1, nodeId2, type))
@@ -83,17 +86,22 @@ module Sim
       self
     end
 
+    def nodeCount
+      @nodes.length
+    end
+
     def marshal_dump
-      [@events, @time0]
+      [@events, @time0, @nodes]
     end
 
     def marshal_load(lst)
       @events = lst[0]
       @time0  = lst[1]
+      @nodes  = lst[0]
     end
 
     def to_yaml_properties
-      %w{ @events @time0 }
+      %w{ @events @time0 @nodes }
     end
 
   end

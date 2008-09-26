@@ -92,7 +92,6 @@ module Sim
           g = Sim::Graph.new
           g.instance_eval(File.read(File.join(dir, @network.to_s + '.rb')))
           sim.events = g.events
-          sim.createNodes(g.nodes.length)
         end
 
         if @workload
