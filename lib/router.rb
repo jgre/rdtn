@@ -49,12 +49,11 @@ end
 
 class Router
 
-  def initialize(daemon)
-    @daemon   = daemon
-    @config   = daemon.config
-    @config.registerComponent(:router, self) {self.stop}
-    @evDis    = daemon.evDis
+  def initialize(config, evDis)
+    @config   = config
+    @evDis    = evDis
     @localReg = []
+    @config.registerComponent(:router, self) {self.stop}
 
     @rtEvAvailable = @evDis.subscribe(:routeAvailable) do |re|
       if re.link.is_a?(AppIF::AppProxy)

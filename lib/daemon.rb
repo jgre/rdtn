@@ -41,13 +41,14 @@ module RdtnDaemon
       @evDis = EventDispatcher.new
       @config = RdtnConfig.new(self)
       @config.localEid    = localEid if localEid
+      @config.registerComponent(:localSender, self)
 
       Bundling::ParserManager.registerEvents(@evDis)
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
       Storage.new(@config, @evDis)
       ContactManager.new(@config, @evDis)
       # Create a default router
-      RoutingTable.new(self)
+      RoutingTable.new(@config, @evDis)
       @configFileName     = File.join(File.dirname(__FILE__), "rdtn.conf")
       @localRegistrations = {} # EID -> AppProxy
       @links              = {}
@@ -147,7 +148,6 @@ module RdtnDaemon
              
       ifClass = CLReg.instance.cl[cl]
       if ifClass
-	options[:daemon] = self if ifClass[0] == AppIF::AppInterface
 	interface = ifClass[0].new(@config, @evDis, name, options)
 	@interfaces[name] = interface
 	interface 
@@ -165,7 +165,7 @@ module RdtnDaemon
 
       if routerClass
 	rdebug("Starting router: #{type}") 
-	routerClass.new(self, options)
+	routerClass.new(@config, @evDis, options)
       end
       @config.router
     end

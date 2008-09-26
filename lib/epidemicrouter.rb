@@ -3,8 +3,8 @@ require 'bundle'
 
 class EpidemicRouter < Router
 
-  def initialize(daemon, options = {})
-    super(daemon)
+  def initialize(config, evDis, options = {})
+    super(config, evDis)
     @contMgr     = @config.contactManager
     @vaccination = options[:vaccination]
 
@@ -33,7 +33,7 @@ class EpidemicRouter < Router
   def localDelivery(bundle, links)
     super
     if @vaccination && bundle.destinationIsSingleton? && !bundle.isVaccination?
-      @daemon.sendBundle(Vaccination.new(bundle).vaccinationBundle)
+      @config.localSender.sendBundle(Vaccination.new(bundle).vaccinationBundle)
     end
   end
 

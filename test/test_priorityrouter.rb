@@ -64,7 +64,7 @@ class TestPriorityRouter < Test::Unit::TestCase
     @link3 = TestPrioRoute::MockLink.new(@config, @evDis, "dtn:grunt3")
     Storage.new(@config, @evDis)
     @subHandler = SubscriptionHandler.new(@config, @evDis, nil)
-    @routeTab = PriorityRouter.new(@daemon)
+    @routeTab = PriorityRouter.new(@config, @evDis)
   end
 
   def teardown
@@ -97,7 +97,7 @@ class TestPriorityRouter < Test::Unit::TestCase
     end
 
     rdebug("Test Store #{store.object_id}")
-    @routeTab = PriorityRouter.new(@daemon)
+    @routeTab = PriorityRouter.new(@config, @evDis)
     @routeTab.filters.push(KnownSubscriptionFilter.new(@config, @evDis, 
 						       @subHandler))
     #@routeTab.forwardBundles(nil, [@link1])

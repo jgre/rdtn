@@ -70,7 +70,7 @@ class TestRoutetab < Test::Unit::TestCase
     @link3 = TestRtab::MockLink.new(@config, @evDis, "dtn:grunt3")
     Storage.new(@config, @evDis, nil, "store")
     @contactManager = TestRtab::MockContactManager.new(@link1)
-    @routeTab = RoutingTable.new(@daemon)
+    @routeTab = RoutingTable.new(@config, @evDis)
   end
 
   def teardown

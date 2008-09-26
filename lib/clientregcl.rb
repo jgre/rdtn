@@ -49,9 +49,8 @@ module AppIF
     include QueuedSender
     include QueuedReceiver
 
-    def initialize(config, evDis, daemon, sock)
+    def initialize(config, evDis, sock)
       super(config, evDis)
-      @daemon = daemon
       queuedReceiverInit(sock)
       queuedSenderInit(sock)
       receiverThread { read }
@@ -86,12 +85,12 @@ module AppIF
     end
 
     def sendBundle(msgId, bundle)
-      @daemon.sendBundle(bundle)
+      @config.localSender.sendBundle(bundle)
       [:ok, nil]
     end
 
     def sendDataTo(msgId, *args)
-      @daemon.sendDataTo(*args)
+      @config.localSender.sendDataTo(*args)
       [:ok, nil]
     end
 
@@ -107,19 +106,19 @@ module AppIF
 
     def applicationAck(msgId, bundleId)
       bundle = @config.store.getBundle(bundleId)
-      @daemon.applicationAck(bundle)
+      @config.localSender.applicationAck(bundle)
       [:ok, nil]
     end
 
     def register(msgId, eid)
-      @daemon.register(eid) do |bundle|
+      @config.localSender.register(eid) do |bundle|
 	sendPDU(:bundles, msgId, [bundle])
       end
       [:ok, nil]
     end
 
     def unregister(msgId, eid)
-      @daemon.unregister(eid)
+      @config.localSender.unregister(eid)
       [:ok, nil]
     end
 
@@ -166,7 +165,6 @@ module AppIF
       host = "localhost"
       port = RDTNAPPIFPORT
 
-      @daemon = options[:daemon]
       if options.has_key?(:host)
 	host = options[:host]
       end
@@ -194,7 +192,7 @@ module AppIF
     def whenAccept()
       while true
 	#FIXME deal with errors
-	@link= AppLink.new(@config, @evDis, @daemon, @s.accept())
+	@link= AppLink.new(@config, @evDis, @s.accept())
 	rdebug("created new AppProxy #{@link.object_id}")
       end
     end
