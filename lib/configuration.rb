@@ -190,7 +190,7 @@ class Object
   end
 
   def rinfo(*args)
-    @config.logger(self).debug(*args) if @config.is_a?(RdtnConfig)
+    @config.logger(self).info(*args) if @config.is_a?(RdtnConfig)
   end
 
   def rwarn(*args)
