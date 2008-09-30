@@ -10,13 +10,13 @@ class TestMaidenVoyage < Test::Unit::TestCase
     assert true
   end
 
-  simulation_context 'MaidenVoyage context' do
+  simulation_context 'MaidenVoyage simulation_context' do
 
     prepare do
       g = Sim::Graph.new
-      g.edge 1 => 2, :start => 1, :end => 60
+      g.edge 1 => 2, :start => 10, :end => 60
       sim.events = g.events
-      sim.createNodes(2)
+      sim.at(1) {sim.node(1).sendDataTo 'test', 'dtn://kasuari2/'; false}
     end
 
     should 'give access to a simulator instance' do
@@ -35,6 +35,16 @@ class TestMaidenVoyage < Test::Unit::TestCase
 
     should 'create a network model' do
       assert_instance_of TrafficModel, traffic_model
+    end
+
+    should 'provide appropriate start time values for the traffic model' do
+      assert_equal 9, traffic_model.totalDelay.to_i
+    end
+
+    should 'deliver bundles' do
+      assert_equal 1, traffic_model.numberOfBundles
+      assert_equal 1, traffic_model.numberOfExpectedBundles
+      assert_equal 1, traffic_model.deliveryRatio
     end
 
   end

@@ -76,7 +76,8 @@ module Sim
 
           @peerLink.receiveBundle(bundle, self)
         else
-          raise RuntimeError, "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
+          #rerror "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
+          @evDis.dispatch(:transmissionError, bundle, self)
         end
         false
       end
