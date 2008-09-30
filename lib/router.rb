@@ -100,13 +100,20 @@ class Router
 	end
 	fragments.each do |frag|
 	  frag.forwardLog.addEntry(action, :inflight, neighbor, link)
+
+          @evDis.subscribe(:transmissionError) do |b, l|
+            if b.bundleId == frag.bundleId and l == link
+              b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
+            end
+          end
+
 	  link.sendBundle(frag)
 	  rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
-      rescue ProtocolError, SystemCallError, IOError => err
-	bundle.forwardLog.updateEntry(action,:transmissionError,neighbor,link)
+      rescue ProtocolError, SystemCallError, IOError, RuntimeError => err
 	rerror("Routetab::doForward #{err}")
+        @evDis.dispatch(:transmissionError, bundle, link)
       end
     end
     return nil
