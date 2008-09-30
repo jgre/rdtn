@@ -67,10 +67,10 @@ module Sim
     def addEventSorted(time, nodeId1, nodeId2, type)
       @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
       @events.each_with_index do |event, index|
-	if event.time > time
-	  @events.insert(index, Event.new(time, nodeId1, nodeId2, type))
-	  return self
-	end
+        if event.time > time
+          @events.insert(index, Event.new(time, nodeId1, nodeId2, type))
+          return self
+        end
       end
       addEvent(time, nodeId1, nodeId2, type) # only when we could not find a 
                                              # place for the event
@@ -95,9 +95,7 @@ module Sim
     end
 
     def marshal_load(lst)
-      @events = lst[0]
-      @time0  = lst[1]
-      @nodes  = lst[0]
+      @events, @time0, @nodes = lst
     end
 
     def to_yaml_properties
