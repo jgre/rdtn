@@ -43,7 +43,7 @@ module Bundling
 
     def BundleWorkflow.registerEvents(config, evDis)
       evDis.subscribe(:bundleParsed) do |bundle|
-        if bundle
+        if bundle and !bundle.expired?
 	  bwf = BundleWorkflow.new(config, evDis, bundle)
 	  bwf.processBundle
 	end
