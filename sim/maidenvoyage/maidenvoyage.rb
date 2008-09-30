@@ -103,10 +103,11 @@ module Sim
           prep_blk.bind(binding).call
         end
 
+        t0 = Time.now
         events, log = sim.run
         @sim_run     = true
         MaidenVoyage.network_model = NetworkModel.new(events)
-        MaidenVoyage.traffic_model = TrafficModel.new(0, log)
+        MaidenVoyage.traffic_model = TrafficModel.new(t0, log)
       end
 
       def create_test_from_should_hash(should)
