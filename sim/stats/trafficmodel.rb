@@ -115,4 +115,12 @@ class TrafficModel
     @ctrlBundles.values.inject(0) {|sum, bundle| sum + bundle.size }
   end
 
+  def marshal_dump
+    [@t0, @bundles, Hash.new.merge(@regs)]
+  end
+
+  def marshal_load(lst)
+    @t0, @bundles, @regs = lst
+  end
+
 end

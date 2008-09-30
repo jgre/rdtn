@@ -72,4 +72,14 @@ class StatBundle
     delays.min
   end
 
+  def marshal_dump
+    [@bundleId, @dest, @src, @payload_size, @created, @multicast,
+      @transmissions, Hash.new.merge(@incidents)]
+  end
+
+  def marshal_load(lst)
+    @bundleId, @dest, @src, @payload_size, @created, @multicast,
+      @transmissions, @incidents = lst
+  end
+
 end
