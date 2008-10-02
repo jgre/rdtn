@@ -220,7 +220,11 @@ module Bundling
     end
 
     def expired?
-      RdtnTime.now.to_i > (creationTimestamp.to_i + lifetime.to_i + Time.gm(2000).to_i) 
+      RdtnTime.now.to_i > expires
+    end
+
+    def expires
+      (creationTimestamp.to_i + lifetime.to_i + Time.gm(2000).to_i)
     end
 
     def created
