@@ -23,22 +23,16 @@ module Sim
 
     attr_reader :timer
 
-    def initialize(config, evDis)
-      @config = config
-      @evDis  = evDis
+    def initialize(evDis)
+      @evDis = evDis
     end
 
-    def run(eventQueue, startTime = 0, duration = nil)
-      @t0 = Time.now - startTime
-      @timer = startTime
-      eventQueue.each_with_index do |event, i|
+    def run(eventQueue)
+      @t0    = Time.now
+      @timer = 0
+      while event = eventQueue.events.shift
         @timer = event.time
-
-        next if @timer < startTime
-
         event.dispatch(@evDis)
-
-        break if duration and @timer >= duration
       end
     end
 

@@ -25,40 +25,40 @@ require 'optparse'
 require 'timerengine'
 require 'yaml'
 require 'logentry'
+require 'traceparser'
+require 'stats/networkmodel'
+require 'stats/trafficmodel'
 
 module Sim
 
   class Core
 
-    attr_reader   :config, :nodes
+    attr_reader   :nodes, :duration
     attr_accessor :events
 
-    DEFAULT_CONF = {
-      "nnodes"      => 10,
-      "granularity" => 0.1,
-      "realTime"    => false,
-      "bytesPerSec" => 1024,
-    }
-
-    def initialize(dirName = nil)
+    def initialize
       @evDis = EventDispatcher.new
       # id -> NodeConnection
       @nodes = {}
-      @log   = []
-      @timerEventId = 0
-      @config = DEFAULT_CONF 
-      @config["dirName"] = dirName
-      # Hash of configuration options that should overwrite setting from the
-      # config file
-      @owConf = {}
-      if dirName
-	@owConf["dirName"] = dirName
-	Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
+
+      # Add singleton methods to the nodes object, so you can call
+      #   sim.nodes.router :epidemic
+      # and
+      #   sim.nodes.linkCapacity = 2048
+      # to set epidemic routing and a link capacity of 2048 bytes per second
+      # for all nodes simulated by the Sim::Core object sim.
+      def @nodes.router(type = nil, options = {})
+        each_value {|node| node.router(type, options)}
+      end
+      def @nodes.linkCapacity=(bytesPerSec)
+        each_value {|node| node.linkCapacity = bytesPerSec}
       end
 
-      @configFileName = File.join(File.dirname(__FILE__), 'sim.conf')
+      @log          = []
+      @timerEventId = 0
+
       @events = EventQueue.new
-      @te = TimerEngine.new(@config, @evDis)
+      @te     = TimerEngine.new(@evDis)
 
       @evDis.subscribe(:simConnection) do |nodeId1, nodeId2|
 	node1 = @nodes[nodeId1]
@@ -75,38 +75,15 @@ module Sim
     def events=(events)
       @events = events
       createNodes(@events.nodeCount) if @nodes.empty?
+      @duration = @events.events.last.time
     end
 
-    def parseConfigFile(configFile = nil)
-      configFile = configFile || @configFileName
-      @config.merge!(open(configFile) {|f| YAML.load(f)})
-      @config.merge!(@owConf)
-      if @config["eventdump"] and File.exist?(@config["eventdump"])
-	loadEventdump(@config["eventdump"])
-      elsif @config["traceParser"]
-	traceParser(@config["duration"], @config["granularity"],
-                    @config["traceParser"])
+    TRACEDIR = File.join(File.dirname(__FILE__), '../simulations/traces')
+    def trace(options = {})
+      if options[:tracefile]
+        options[:tracefile] = File.join(TRACEDIR, options[:tracefile])
       end
-      Dir.mkdir(@config["dirName"]) unless File.exist?(@config["dirName"])
-    end
-
-    def parseOptions(optParser = OptionParser.new)
-      optParser.on("-c", "--config FILE", "config file name") do |c|
-	@configFileName = c
-      end
-      optParser.on("-n", "--nnodes NODES", "Number of nodes") do |n|
-	@owConfg["nnodes"] = n.to_i
-      end
-      optParser.on("-d", "--duration SEONDS", 
-                   "Simulation duration in seconds") do |d|
-	@owConf["duration"] = d.to_f
-      end
-      optParser.on("-g", "--granularity SECONDS", 
-		   "Granularity in seconds") do |g|
-	@owConf["granularity"] = g.to_f
-      end
-      optParser.parse!(ARGV)
-      @config.merge!(@owConf)
+      self.events = Sim.traceParser(options)
     end
 
     def loadEventdump(filename)
@@ -140,13 +117,13 @@ module Sim
       @log.push(LogEntry.new(time, eventId, nodeId1, nodeId2, options))
     end
 
-    def run(duration = @config["duration"], startTime = 0)
-      rinfo("Starting simulation with #{@config["nnodes"]} simulation nodes starting at time #{startTime}. Duration: #{duration} seconds.")
-
+    def run
       old_timer_func     = RdtnTime.timerFunc
       RdtnTime.timerFunc = lambda {@te.time}
 
-      @te.run(@events, startTime, duration)
+      ev = @events.events.clone
+      @te.run(@events)
+      @events.events = ev
 
       RdtnTime.timerFunc = old_timer_func
 
@@ -154,21 +131,20 @@ module Sim
     end
 
     def createNodes(nodeNames = nil)
-      nodeNames = nodeNames || (1..@config["nnodes"]).to_a
       nodeNames = (1..nodeNames).to_a if nodeNames.class == Fixnum
-      nodeNames.each do |n|
-	@nodes[n] = Node.new(@config["dirName"], n, self,
-			     @config["bytesPerSec"],
-			     @config["rdtnConfPath"])
-      end
+      nodeNames.each {|n| @nodes[n] = Node.new(n, self)}
     end
 
     def time
       @te.timer if @te
     end
 
-    def router(type = nil, options = {})
-      @nodes.each_value {|node| node.router(type, options)}
+    SPECDIR = File.join(File.dirname(__FILE__), '../simulations/specs')
+
+    def specification(spec)
+      #instance_eval(File.read(File.join(SPECDIR, spec + '.rb')))
+      require File.join(SPECDIR, spec.to_s.downcase)
+      Module.const_get(spec).new(self)
     end
 
   end
@@ -176,15 +152,20 @@ module Sim
 end # module sim
 
 if $0 == __FILE__
-  dirName = File.join(Dir.getwd, 
-			  "experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-  sim = Sim::Core.new(dirName)
-  sim.parseOptions
-  sim.parseConfigFile
-  sim.createNodes
-  sim.run
-elsif $0 == "irb"
-  dirName = File.join(Dir.getwd, 
-			  "irb-experiment#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-  $sim = Sim::Core.new(dirName)
+  sim = Sim::Core.new
+  ARGV.each do |spec|
+    dirname = File.join(File.join(File.dirname(__FILE__),
+                                  '../simulations/results',
+                                  spec + Time.now.strftime('%Y%m%d-%H%M%S')))
+    FileUtils.mkdir(dirname)
+    t0 = Time.now
+    sim.specification(spec)
+    events, log = sim.run
+    network_model = NetworkModel.new(events)
+    traffic_model = TrafficModel.new(t0, log)
+
+    open(File.join(dirname, 'log'),     'w'){|f| Marshal.dump(log,           f)}
+    open(File.join(dirname, 'network'), 'w'){|f| Marshal.dump(network_model, f)}
+    open(File.join(dirname, 'traffic'), 'w'){|f| YAML.dump(traffic_model, f)}
+  end
 end

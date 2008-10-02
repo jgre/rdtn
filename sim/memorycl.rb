@@ -26,7 +26,7 @@ module Sim
   class MemoryLink < Link
 
     attr_accessor :remoteEid
-    attr_reader   :nodeId
+    attr_reader   :nodeId, :bytesPerSec
 
     def initialize(config, evDis, nodeId = nil, dest = nil, peerLink = nil,
 		   bytesPerSec = 1024, sim = nil)
@@ -93,6 +93,7 @@ module Sim
   class MemoryInterface < Interface
 
     attr_reader :nodeId
+    attr_accessor :bytesPerSec
 
     def initialize(config, evDis, name, options)
       @config      = config

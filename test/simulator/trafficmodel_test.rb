@@ -109,4 +109,41 @@ class TrafficModelTest < Test::Unit::TestCase
 
   end
 
+  context 'When signaling bundles are logged, TrafficModel' do
+
+    setup do
+      t0   = Time.now
+      @b1  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @vacc = Vaccination.new(@b1).vaccinationBundle
+      @log = [
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
+        Sim::LogEntry.new(0, :bundleCreated, 2, nil, :bundle => @vacc),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
+        Sim::LogEntry.new(2, :bundleForwarded, 2, 1, :bundle => @vacc),
+      ]
+      @tm  = TrafficModel.new(t0, @log)
+    end
+
+    should 'only count non-signaling bundles as "normal" bundles' do
+      assert_equal 1, @tm.numberOfBundles
+    end
+
+    should 'count signaling bundles' do
+      assert_equal 1, @tm.numberOfSignalingBundles
+    end
+
+    should 'not count vaccination bundles as expected' do
+      assert_equal 1, @tm.numberOfExpectedBundles
+    end
+
+    should 'not count vaccination bundles as delivered' do
+      assert_equal 1, @tm.numberOfDeliveredBundles
+    end
+
+    should 'not count vaccination bundles as transmissions' do
+      assert_equal 1, @tm.numberOfTransmissions
+    end
+
+  end
+
 end

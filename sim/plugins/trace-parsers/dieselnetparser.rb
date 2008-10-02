@@ -11,11 +11,9 @@ class DieselNetParser
 
   attr_reader :events
 
-  def initialize(duration, granularity, options)
-    @duration    = duration
-    @granularity = granularity
+  def initialize(options)
     @events      = Sim::EventQueue.new
-    open(options["tracefile"]) {|f| process(f)} if options.has_key?("tracefile")
+    open(options[:tracefile]) {|f| process(f)} if options.has_key?(:tracefile)
   end
 
   private

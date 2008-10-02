@@ -6,6 +6,7 @@ require 'test/unit'
 require 'shoulda'
 require 'statbundle'
 require 'bundle'
+require 'metablock'
 
 class StatBundleTest < Test::Unit::TestCase
 
@@ -76,6 +77,21 @@ class StatBundleTest < Test::Unit::TestCase
 
     should 'not be counted as delivered destination' do
       assert_equal 0, @sbndl.nDelivered
+    end
+
+  end
+
+  context 'Vaccination bundles' do
+
+    require 'epidemicrouter'
+
+    setup do
+      @vacc  = Vaccination.new(@bundle).vaccinationBundle
+      @sbndl = StatBundle.new(@t0, @vacc)
+    end
+
+    should 'be marked as signaling bundles' do
+      assert @sbndl.signaling?
     end
 
   end

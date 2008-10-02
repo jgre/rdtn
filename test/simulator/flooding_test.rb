@@ -12,7 +12,7 @@ class TestFlooding < Test::Unit::TestCase
     workload :single_sender_multicast
 
     prepare do
-      sim.router(:epidemic)
+      sim.nodes.router(:epidemic)
     end
 
     should 'transmit 30 bundles' do
@@ -35,7 +35,7 @@ class TestFlooding < Test::Unit::TestCase
     network :moving_intermediary
 
     prepare do
-      sim.router(:epidemic, :vaccination => true)
+      sim.nodes.router(:epidemic, :vaccination => true)
 
       sim.at(1){self.bndl=sim.node(1).sendDataTo 'test','dtn://kasuari4/';false}
       sim.node(4).register {}
@@ -45,8 +45,9 @@ class TestFlooding < Test::Unit::TestCase
       assert_equal 1, traffic_model.deliveryRatio
     end
 
-    should 'transmit 2 bundles (1 content, 1 vaccination)' do
-      assert_equal 2, traffic_model.numberOfBundles
+    should 'transmit 1 content bundles and 1 vaccination' do
+      assert_equal 1, traffic_model.numberOfBundles
+      assert_equal 1, traffic_model.numberOfSignalingBundles
     end
 
     should 'not replicate the bundle to all nodes' do

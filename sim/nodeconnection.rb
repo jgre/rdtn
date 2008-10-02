@@ -28,22 +28,17 @@ module Sim
   class Node < RdtnDaemon::Daemon
 
     attr_reader   :id, :links, :memIf
+    attr_accessor :bytesPerSec
+    alias linkCapacity= bytesPerSec=
     #attr_accessor :connections
 
-    def initialize(dirName, id, sim, bytesPerSec=1024, configPath=nil)
-      @id       = id
-      @sim      = sim
+    def initialize(id, sim)
+      @id          = id
+      @sim         = sim
       super("dtn://kasuari#{@id}/")
-      @nbundles = 0
-      @bytesPerSec = bytesPerSec
+      @nbundles    = 0
+      @bytesPerSec = 1024
 
-      if dirName
-        # Create logging environment for the node
-        subDirName = File.join(dirName, "kasuari#{@id}")
-        Dir.mkdir(subDirName) unless File.exist?(subDirName)
-      end
-
-      parseConfigFile(configPath) if configPath
       @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
                      :node=>self, :sim=>@sim)
     end
@@ -66,13 +61,6 @@ module Sim
     def sendBundle(bundle)
       @sim.log(:bundleCreated, @id, nil, :bundle => bundle)
       super
-    end
-
-    def createBundle(channel, size)
-      payload = "a" * size
-      bundle = Bundling::Bundle.new(payload, channel, @config.localEid)
-      bundle.lifetime = 86400
-      sendBundle(bundle)
     end
 
     def register(eid = nil, &handler)

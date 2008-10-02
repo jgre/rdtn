@@ -1,16 +1,26 @@
 module Sim
 
-  def self.traceParser(duration, granularity, options)
-    type      = options['type']
-    pluginDir = File.join(File.dirname(__FILE__), 'plugins/trace-parsers')
-    load File.join(pluginDir, type.downcase + '.rb')
-    parser    = Module.const_get(type).new(duration, granularity, options)
+  def self.eventDumpCurrent?(fname)
+    dumpfile = fname.to_s + ".rdtnsim"
+    File.exist? fname and File.exist? dumpfile and (File.mtime(dumpfile) > File.mtime(fname))
+  end
 
-    events = parser.events
-    if fname = options["tracefile"]
-      open(fname + ".rdtnsim", "w") {|f| Marshal.dump(events, f)}
+  def self.traceParser(options = {})
+    fname = options[:tracefile]
+    dumpfile = fname + ".rdtnsim"
+    if eventDumpCurrent? fname
+      open(dumpfile) {|f| Marshal.load(f)}
+    else
+      type      = options[:type]
+      pluginDir = File.join(File.dirname(__FILE__), 'plugins/trace-parsers')
+      require File.join(pluginDir, type.to_s.downcase + '.rb')
+      parser    = Module.const_get(type).new(options)
+
+      events = parser.events
+
+      open(dumpfile, "w") {|f| Marshal.dump(events, f)} if fname
+      events
     end
-    events
   end
 
 end
