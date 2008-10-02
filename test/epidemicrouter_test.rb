@@ -136,6 +136,8 @@ class TestEpidemicRouter < Test::Unit::TestCase
 
     setup do
       @bundle = Bundling::Bundle.new('test', 'dtn://dest', 'dtn://source')
+      @bundle.creationTimestamp = (RdtnTime.now - Time.gm(2000) - 50).to_i
+      @bundle.lifetime = 100
       @vacc   = Vaccination.new(@bundle).vaccinationBundle
     end
 
@@ -154,6 +156,10 @@ class TestEpidemicRouter < Test::Unit::TestCase
 
       assert_equal :contentType, md.ontologySymbol
       assert_equal Vaccination::ContentType, md.metadata
+    end
+
+    should 'expire at the same time as the original bundle' do
+      assert_equal @bundle.expires, @vacc.expires
     end
 
     should 'be recognized' do

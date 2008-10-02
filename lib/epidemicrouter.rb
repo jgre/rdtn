@@ -1,5 +1,6 @@
 require 'router'
 require 'bundle'
+require 'rdtntime'
 
 class EpidemicRouter < Router
 
@@ -59,6 +60,7 @@ class Vaccination
   def vaccinationBundle
     id = "#{@origBundle.srcEid}-#{@origBundle.creationTimestamp}-#{@origBundle.creationTimestampSeq}-#{@origBundle.fragmentOffset}"
     vacc = Bundling::Bundle.new(id, @origBundle.srcEid)
+    vacc.lifetime = @origBundle.expires - RdtnTime.now.to_i
     vacc.addBlock(MetadataBlock.new(vacc, ContentType, :contentType))
     vacc
   end
