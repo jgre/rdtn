@@ -138,10 +138,10 @@ module GenParser
       raise InputTooShort, length
     end
     result = case length
-	     when 1: data[0]
-	     when 2: data[0, length].unpack('n')[0]
-	     when 4: data[0, length].unpack('N')[0]
-	     when 8: data[0, length].unpack('Q')[0]
+	     when 1 then data[0]
+	     when 2 then data[0, length].unpack('n')[0]
+	     when 4 then data[0, length].unpack('N')[0]
+	     when 8 then data[0, length].unpack('Q')[0]
 	     else
 	       raise NotImplementedError, "Unsupported length for numbers: #{length} octets"
 	     end
