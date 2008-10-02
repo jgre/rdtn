@@ -111,8 +111,8 @@ class Router
 	  rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
-      rescue ProtocolError, SystemCallError, IOError, RuntimeError => err
-	rerror("Routetab::doForward #{err}")
+      rescue ProtocolError, SystemCallError, IOError => err
+	rerror("Router::doForward #{err.class}: #{err}")
         @evDis.dispatch(:transmissionError, bundle, link)
       end
     end

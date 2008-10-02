@@ -152,7 +152,7 @@ class Storage < Monitor
   def enforceLimit
     deleteBundles(true) do |bundle| 
       ret = bundle.expired?
-      rdebug("Deleting expired bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}") if ret
+      rdebug("Deleting expired bundle #{bundle.inspect}") if ret
       ret
     end
     #if @limit and @curSize > @limit
