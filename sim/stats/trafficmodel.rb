@@ -38,12 +38,12 @@ class TrafficModel
     end
   end
 
-  def controlBundle(node1, node2, inout, bundle, time)
-    @ctrlBundles[bundle.bundleId] = bundle unless @ctrlBundles[bundle.bundleId]
+  def regularBundles
+    @bundles.values.find_all {|b| !b.signaling?}
   end
 
   def numberOfBundles
-    @bundles.length
+    regularBundles.length
   end
 
   def delays
@@ -80,14 +80,14 @@ class TrafficModel
   end
 
   def numberOfExpectedBundles
-    @bundles.values.inject(0) do |sum, bundle|
+    regularBundles.inject(0) do |sum, bundle|
       sum + (bundle.multicast? ? @regs[bundle.dest].length : 1)
     end
   end
 
   def numberOfDeliveredBundles
-    @bundles.values.inject(0) do |sum, b|
-      sum + b.nDelivered((@regs[b.dest] + [b.dest]).uniq)
+    regularBundles.inject(0) do |sum, b|
+      sum + b.nDelivered(((@regs[b.dest] || []) + [b.dest]).uniq)
     end
   end
 
@@ -96,7 +96,7 @@ class TrafficModel
   end
 
   def numberOfTransmissions
-    @bundles.values.inject(0) {|sum, bundle| sum + bundle.transmissions}
+    regularBundles.inject(0) {|sum, bundle| sum + bundle.transmissions}
   end
 
   def transmissionsPerBundle
@@ -107,12 +107,12 @@ class TrafficModel
     end
   end
 
-  def numberOfControlBundles
-    @ctrlBundles.length
+  def signalingBundles
+    @bundles.values.find_all {|b| b.signaling?}
   end
 
-  def controlOverhead
-    @ctrlBundles.values.inject(0) {|sum, bundle| sum + bundle.size }
+  def numberOfSignalingBundles
+    signalingBundles.length
   end
 
   def marshal_dump
@@ -121,6 +121,11 @@ class TrafficModel
 
   def marshal_load(lst)
     @t0, @bundles, @regs = lst
+  end
+
+  def to_yaml_properties
+    @regs = Hash.new.merge(@regs)
+    %w{@t0 @bundles @regs}
   end
 
 end

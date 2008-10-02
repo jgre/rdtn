@@ -4,7 +4,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 class StatBundle
 
   attr_reader :bundleId, :dest, :src, :payload_size, :subscribers, :created,
-    :transmissions, :multicast
+    :transmissions, :multicast, :signaling
 
   def initialize(t0, bundle)
     @bundleId     = bundle.bundleId
@@ -17,10 +17,13 @@ class StatBundle
     @payload_size = bundle.payload.length
     @created      = bundle.created - t0.to_i
     @multicast    = !bundle.destinationIsSingleton?
+    @signaling    = bundle.isVaccination?
 
     @transmissions = 0
     @incidents     = Hash.new {|hash, key| hash[key] = []} # Node->list of times
   end
+
+  alias signaling? signaling
 
   def to_s
     "Bundle (#{@bundleId}): #{@src} -> #{@dest} (#{@payload_size} bytes)"
@@ -72,14 +75,10 @@ class StatBundle
     delays.min
   end
 
-  def marshal_dump
-    [@bundleId, @dest, @src, @payload_size, @created, @multicast,
-      @transmissions, Hash.new.merge(@incidents)]
-  end
-
-  def marshal_load(lst)
-    @bundleId, @dest, @src, @payload_size, @created, @multicast,
-      @transmissions, @incidents = lst
+  def to_yaml_properties
+    @incidents = Hash.new.merge(@incidents) if @incidents
+    %w{@bundleId @dest @src @payload_size @created @multicast 
+    @transmissions @incidents @signaling}
   end
 
 end
