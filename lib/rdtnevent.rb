@@ -53,7 +53,8 @@ class EventDispatcher < Monitor
   end
 
   def dispatch(eventId, *args)
-    @subscribers[eventId].each { |handler| handler.call(*args) }
+    handlers = @subscribers[eventId].clone
+    handlers.each {|handler| handler.call(*args)}
   end
 
 
