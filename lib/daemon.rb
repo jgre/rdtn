@@ -81,8 +81,9 @@ module RdtnDaemon
       sleep
     end
 
-    def sendDataTo(data, eid, senderTag = nil)
-      sendBundle(Bundling::Bundle.new(data, eid, makeLocalEid(senderTag)))
+    def sendDataTo(data, eid, senderTag = nil, options = {})
+      sendBundle(Bundling::Bundle.new(data, eid, makeLocalEid(senderTag),
+                                      options))
     end
 
     def sendBundle(bundle)
