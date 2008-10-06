@@ -14,19 +14,19 @@ OptionParser.accept(Date, /(\d{4})(\d{2})(\d{2})/) do |date, year, month, day|
   Time.local(year.to_i, month.to_i, day.to_i)
 end
 
-spec = "*"
 date = "*"
 time = "*"
 all  = false
 opts = OptionParser.new
-opts.on('-s', '--spec NAME')       {|s| spec = s}
 opts.on('-d', '--date DATE', Date) {|d| date = d.strftime('%Y%m%d')}
 opts.on('-t', '--time TIME', Time) {|t| time = t.strftime('%H%M%S')}
 opts.on('-a', '--all')             {all = true}
-opts.parse(ARGV)
+specs = opts.parse(ARGV)
+
+specs = "*" if specs.empty?
 
 RESDIR = File.join(File.dirname(__FILE__), '../simulations/results')
-expr   = File.join(RESDIR, "#{spec}#{date}-#{time}")
+expr   = File.join(RESDIR, "{#{specs.join(',')}}#{date}-#{time}")
 
 results = Dir.glob(expr).sort
 
