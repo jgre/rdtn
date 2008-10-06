@@ -147,25 +147,29 @@ module Sim
       Module.const_get(spec).new(self)
     end
 
+    def self.runBySpec(spec)
+      sim     = new
+      dirname = File.join(File.join(File.dirname(__FILE__),
+                                  '../simulations/results',
+                                  spec + Time.now.strftime('%Y%m%d-%H%M%S')))
+      FileUtils.mkdir(dirname)
+      t0 = Time.now
+      sim.specification(spec)
+      events, log   = sim.run
+      network_model = NetworkModel.new(events)
+      traffic_model = TrafficModel.new(t0, log)
+
+      open(File.join(dirname, 'log'),     'w'){|f|Marshal.dump(log,          f)}
+      open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
+      open(File.join(dirname, 'traffic'), 'w'){|f|   YAML.dump(traffic_model,f)}
+
+      dirname
+    end
+
   end
 
 end # module sim
 
 if $0 == __FILE__
-  sim = Sim::Core.new
-  ARGV.each do |spec|
-    dirname = File.join(File.join(File.dirname(__FILE__),
-                                  '../simulations/results',
-                                  spec + Time.now.strftime('%Y%m%d-%H%M%S')))
-    FileUtils.mkdir(dirname)
-    t0 = Time.now
-    sim.specification(spec)
-    events, log = sim.run
-    network_model = NetworkModel.new(events)
-    traffic_model = TrafficModel.new(t0, log)
-
-    open(File.join(dirname, 'log'),     'w'){|f| Marshal.dump(log,           f)}
-    open(File.join(dirname, 'network'), 'w'){|f| Marshal.dump(network_model, f)}
-    open(File.join(dirname, 'traffic'), 'w'){|f| YAML.dump(traffic_model, f)}
-  end
+  ARGV.each {|spec| Sim::Core.runBySpec(spec)}
 end
