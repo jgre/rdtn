@@ -7,7 +7,7 @@ require 'optparse'
 parallel = 1
 git      = false
 opts     = OptionParser.new
-opts.on('-p[=N]', '--parallel[=N]') {|n| parallel = n || 2}
+opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')              {git = true}
 specs    = opts.parse(ARGV)
 
@@ -20,8 +20,9 @@ end
 puts revision
 
 active_procs = []
-specs.each do |spec|
+until specs.empty?
   if active_procs.length < parallel
+    spec = specs.shift
     active_procs << fork do
       dirname = Sim::Core.runBySpec(spec)
       # write commit hash to dirname/revision
