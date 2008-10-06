@@ -3,23 +3,53 @@ $: << File.join(File.dirname(__FILE__), '../sim/stats/')
 require 'yaml'
 require 'networkmodel'
 require 'trafficmodel'
+require 'optparse'
+
+OptionParser.accept(Time, /(\d{2})(\d{2})(\d{2})/) do |time, hour, min, sec|
+  n = Time.now
+  Time.local(n.year, n.month, n.day, hour.to_i, min.to_i, sec.to_i)
+end
+OptionParser.accept(Date, /(\d{4})(\d{2})(\d{2})/) do |date, year, month, day|
+  puts "Date #{year}, #{month}, #{day}"
+  Time.local(year.to_i, month.to_i, day.to_i)
+end
+
+spec = "*"
+date = "*"
+time = "*"
+all  = false
+opts = OptionParser.new
+opts.on('-s', '--spec NAME')       {|s| spec = s}
+opts.on('-d', '--date DATE', Date) {|d| date = d.strftime('%Y%m%d')}
+opts.on('-t', '--time TIME', Time) {|t| time = t.strftime('%H%M%S')}
+opts.on('-a', '--all')             {all = true}
+opts.parse(ARGV)
 
 RESDIR = File.join(File.dirname(__FILE__), '../simulations/results')
-expr   = File.join(RESDIR, ARGV[0].to_s + '*')
-latest = Dir.glob(expr).sort.last
+expr   = File.join(RESDIR, "#{spec}#{date}-#{time}")
 
-exit 1 if latest.nil?
+results = Dir.glob(expr).sort
 
-puts "Opening stats for from #{latest}"
+exit 1 if results.empty?
 
-$network = open(File.join(latest, 'network')) {|f| Marshal.load(f)}
-$traffic = open(File.join(latest, 'traffic')) {|f| YAML.load(f)}
+results[(all ? 0 : -1)..-1].each do |dir|
+  networkfile = File.join(dir, 'network')
+  trafficfile = File.join(dir, 'traffic')
 
-if $0 == __FILE__
-  puts "#{$network.numberOfNodes} nodes"
-  puts "#{$traffic.numberOfBundles} bundles"
-  puts "#{$traffic.numberOfExpectedBundles} expected bundles"
-  puts "#{$traffic.numberOfDeliveredBundles} bundles delivered"
-  puts "#{$traffic.deliveryRatio * 100}% deliveryRatio"
-  puts "#{$traffic.numberOfTransmissions} transmissions"
+  next unless File.exist?(networkfile) and File.exist?(trafficfile)
+
+  puts "Opening stats for from #{dir}"
+
+  $network = open(networkfile) {|f| Marshal.load(f)}
+  $traffic = open(trafficfile) {|f| YAML.load(f)}
+
+  if $0 == __FILE__
+    puts "#{$network.numberOfNodes} nodes"
+    puts "#{$traffic.numberOfBundles} bundles"
+    puts "#{$traffic.numberOfExpectedBundles} expected bundles"
+    puts "#{$traffic.numberOfDeliveredBundles} bundles delivered"
+    puts "#{$traffic.deliveryRatio * 100}% deliveryRatio"
+    puts "#{$traffic.numberOfTransmissions} transmissions"
+    puts
+  end
 end
