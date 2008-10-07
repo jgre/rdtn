@@ -25,16 +25,14 @@ class MITParser
 
   attr_reader :events
 
-  def initialize(duration, granularity, options)
-    @duration    = duration
-    @granularity = granularity
+  def initialize(options)
     @events      = Sim::EventQueue.new
     @startTime   = options["startTime"] || 0
     @endTime     = options["endTime"]
     @startTime   = @startTime.to_i
     @endTime     = @endTime.to_i if @endTime
     puts "Start: #@startTime, End: #@endTime"
-    open(options["tracefile"]) {|f| process(f)} if options.has_key?("tracefile")
+    open(options[:tracefile]) {|f| process(f)} if options.has_key?(:tracefile)
   end
 
   private
