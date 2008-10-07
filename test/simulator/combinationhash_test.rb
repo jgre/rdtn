@@ -44,4 +44,9 @@ class TestCombinationHash < Test::Unit::TestCase
     assert_equal [{:a => 1, :b => 2}], ret
   end
 
+  should 'generate alternatives for hashes with one entry' do
+    ret = Sim.hash_combinations({:a => [1,2,3]})
+    assert_equal [{:a => 1}, {:a => 2}, {:a => 3}], ret
+  end
+
 end

@@ -3,7 +3,7 @@ module Sim
   def Sim::hash_combinations(hash)
     iterate = lambda do |keys|
       key, *rest = keys
-      unless (val = hash[key]).is_a?(Enumerable)
+      unless key and (val = hash[key]).is_a?(Enumerable)
         hash[key] = [val]
       end
       if key
