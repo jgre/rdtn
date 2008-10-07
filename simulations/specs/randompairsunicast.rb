@@ -1,7 +1,11 @@
-class DieselnetEpidemicUnicast
+class RandomPairsUnicast < Sim::Specification
 
-  def initialize(sim)
-    sim.trace :type => 'DieselNetParser', :tracefile => 'dieselnet_spring2007'
+  def execute(sim)
+    variants(:traces,
+      lambda {sim.trace(:type => 'DieselNetParser',
+                        :tracefile => 'dieselnet_spring2007')},
+      lambda {sim.trace(:type => 'MITParser', :tracefile => 'MITcontacts.txt')}
+    )
 
     puts "NNodes #{sim.nodes.length}"
     puts "Duration #{sim.duration} (#{sim.duration / (24*3600)} days)"
@@ -18,7 +22,8 @@ class DieselnetEpidemicUnicast
       src, dest = node_pairs[rand(node_pairs.length)]
       sim.node(src).sendDataTo data, "dtn://kasuari#{dest}/"
       puts "Day #{time / (3600*24)}" if (time % (3600*24)) == 0
-      time < sim.duration
+      time < sim.duration / 10
     end
   end
+
 end
