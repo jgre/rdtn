@@ -160,6 +160,9 @@ module Sim
       open(File.join(dirname, 'log'),     'w'){|f|Marshal.dump(log,          f)}
       open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
       open(File.join(dirname, 'traffic'), 'w'){|f|   YAML.dump(traffic_model,f)}
+      if sel = spec.selected
+        open(File.join(dirname, 'variant'), 'w'){|f| YAML.dump(sel,f)}
+      end
 
       dirname
     end

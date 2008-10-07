@@ -1,4 +1,6 @@
 require 'combinationhash'
+require 'rubygems'
+require 'ruby2ruby'
 
 module Sim
 
@@ -14,7 +16,7 @@ module Sim
 
   class Specification
 
-    attr_accessor :cur_variant, :vars
+    attr_accessor :cur_variant, :vars, :selected
 
     def initialize(var_idx = nil)
       @dry_run     = false
@@ -22,6 +24,7 @@ module Sim
       @vars        = [] # a list of hashes with each combination of values
       @cur_variant = nil
       @var_idx     = var_idx
+      @selected    = {}
     end
 
     def name
@@ -37,9 +40,10 @@ module Sim
 
     def variants(id, *vars)
       if @dry_run
-        @template[id] = vars
+        @template[id] = (0..vars.length-1)
       else
-        var = @cur_variant ? @cur_variant[id] : vars.first
+        var = @cur_variant ? vars[@cur_variant[id]] : vars.first
+        @selected[id] = var.is_a?(Proc) ? var.to_ruby : var
         var.is_a?(Proc) ? var.call : var
       end
     end

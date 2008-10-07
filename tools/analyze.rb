@@ -30,17 +30,22 @@ specs = "*" if specs.empty?
 RESDIR = File.join(File.dirname(__FILE__), '../simulations/results')
 expr   = File.join(RESDIR, "{#{specs.join(',')}}-#{variant}-#{date}-#{time}")
 
-results = Dir.glob(expr).sort
+results = Dir.glob(expr).sort_by {|dirname| File.mtime(dirname)}
 
 exit 1 if results.empty?
 
 results[(all ? 0 : -1)..-1].each do |dir|
   networkfile = File.join(dir, 'network')
   trafficfile = File.join(dir, 'traffic')
+  variantfile = File.join(dir, 'variant')
 
   next unless File.exist?(networkfile) and File.exist?(trafficfile)
 
   puts "Opening stats for from #{dir}"
+
+  if File.exist? variantfile
+    STDOUT.write(open(variantfile) {|f| f.read})
+  end
 
   $network = open(networkfile) {|f| Marshal.load(f)}
   $traffic = open(trafficfile) {|f| YAML.load(f)}
