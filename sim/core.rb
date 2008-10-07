@@ -28,6 +28,7 @@ require 'logentry'
 require 'traceparser'
 require 'stats/networkmodel'
 require 'stats/trafficmodel'
+require 'spec'
 
 module Sim
 
@@ -139,22 +140,19 @@ module Sim
       @te.timer if @te
     end
 
-    SPECDIR = File.join(File.dirname(__FILE__), '../simulations/specs')
-
-    def specification(spec)
-      #instance_eval(File.read(File.join(SPECDIR, spec + '.rb')))
-      require File.join(SPECDIR, spec.to_s.downcase)
-      Module.const_get(spec).new(self)
-    end
-
     def self.runBySpec(spec)
       sim     = new
+
+      spec = Specification.loadSpec(spec).new unless spec.is_a?(Specification)
+
       dirname = File.join(File.join(File.dirname(__FILE__),
                                   '../simulations/results',
-                                  spec + Time.now.strftime('%Y%m%d-%H%M%S')))
+                                  spec.name))
       FileUtils.mkdir(dirname)
       t0 = Time.now
-      sim.specification(spec)
+
+      spec.execute(sim)
+
       events, log   = sim.run
       network_model = NetworkModel.new(events)
       traffic_model = TrafficModel.new(t0, log)

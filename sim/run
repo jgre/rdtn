@@ -6,9 +6,11 @@ require 'optparse'
 
 parallel = 1
 git      = false
+variants = false
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
-opts.on('-g', '--git')              {git = true}
+opts.on('-g', '--git')                       {git      = true}
+opts.on('-v', '--with-variants')             {variants = true}
 specs    = opts.parse(ARGV)
 
 if git
@@ -17,7 +19,11 @@ if git
   revision = IO.popen("git log -n1") {|p| p.read}
 end
 
-puts revision
+if variants
+  specs = specs.inject([]) do |memo, spec|
+    memo + Sim::Specification.loadSpec(spec).createVariants
+  end
+end
 
 active_procs = []
 until specs.empty?
