@@ -31,9 +31,7 @@ module Sim
     def dry_run
       @dry_run = true
       execute(DummyObject.new)
-      puts @template.inspect
       @vars    = Sim.hash_combinations(@template)
-      puts "#{@vars.length} combinations"
       @dry_run = false
     end
 

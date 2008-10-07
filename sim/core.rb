@@ -148,7 +148,7 @@ module Sim
       dirname = File.join(File.join(File.dirname(__FILE__),
                                   '../simulations/results',
                                   spec.name))
-      FileUtils.mkdir(dirname)
+      FileUtils.mkdir_p(dirname)
       t0 = Time.now
 
       spec.execute(sim)
