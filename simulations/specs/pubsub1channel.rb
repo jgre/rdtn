@@ -30,7 +30,7 @@ class PubSub1Channel < Sim::Specification
     sim.at(3600 / variants(:sendRate, 1, 2, 10)) do |time|
       sim.node(sender).sendDataTo data, channel, nil, :multicast => true
       puts "#@var_idx Day #{time / (3600*24)}" if (time % (3600*24)) == 0
-      time < sim.duration / 15
+      time < sim.duration
     end
   end
 
