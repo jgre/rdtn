@@ -22,7 +22,7 @@ class RandomPairsUnicast < Sim::Specification
       src, dest = node_pairs[rand(node_pairs.length)]
       sim.node(src).sendDataTo data, "dtn://kasuari#{dest}/"
       puts "Day #{time / (3600*24)}" if (time % (3600*24)) == 0
-      time < sim.duration / 10
+      time < sim.duration
     end
   end
 
