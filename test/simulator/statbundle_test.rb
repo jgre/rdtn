@@ -37,6 +37,14 @@ class StatBundleTest < Test::Unit::TestCase
     assert_equal @bundle.created - @t0.to_i, @sbndl.created
   end
 
+  should 'take the lifetime from the RDTN bundle' do
+    assert_equal @bundle.lifetime, @sbndl.lifetime
+  end
+
+  should 'calculate the expiry time of the bundle' do
+    assert_equal @bundle.expires - @t0.to_i, @sbndl.expires.to_i
+  end
+
   context 'Delivered bundles' do
 
     setup do

@@ -4,7 +4,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 class StatBundle
 
   attr_reader :bundleId, :dest, :src, :payload_size, :subscribers, :created,
-    :transmissions, :multicast, :signaling
+    :lifetime, :transmissions, :multicast, :signaling
 
   def initialize(t0, bundle)
     @bundleId     = bundle.bundleId
@@ -16,6 +16,7 @@ class StatBundle
     @src          = $1.to_i if %r{dtn://kasuari(\d+)/?} =~ bundle.srcEid.to_s
     @payload_size = bundle.payload.length
     @created      = bundle.created - t0.to_i
+    @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?
     @signaling    = bundle.isVaccination?
 
@@ -30,6 +31,10 @@ class StatBundle
   end
 
   alias multicast? multicast
+
+  def expires
+    (@created + @lifetime).to_i
+  end
 
   def forwarded(time, sender, receiver)
     @transmissions += 1  
