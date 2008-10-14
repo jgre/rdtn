@@ -3,6 +3,9 @@ $:.unshift File.join(File.dirname(__FILE__))
 
 require 'statbundle'
 require 'core'
+require 'networkmodel'
+
+Struct.new('Registration', :node, :startTime, :endTime)
 
 class TrafficModel
 
@@ -21,7 +24,10 @@ class TrafficModel
       when :bundleForwarded
         @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
       when :registered
-        @regs[e.eid] << e.nodeId1
+        @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
+      when :unregistered
+        reg = @regs[e.eid].find {|r| r.node = e.nodeId1}
+	reg.endTime = e.time if reg
       end
     end
   end
@@ -79,15 +85,19 @@ class TrafficModel
     end
   end
 
-  def numberOfExpectedBundles
+  def numberOfExpectedBundles(net = nil)
     regularBundles.inject(0) do |sum, bundle|
-      sum + (bundle.multicast? ? @regs[bundle.dest].length : 1)
+      dists, paths = dijkstra(net, bundle.src, bundle.created.to_i) if net
+      dests = @regs[bundle.dest].find_all do |n|
+	bundle.expires > n.startTime and (n.endTime.nil? or bundle.created.to_i < n.endTime) and (dists.nil? or (dists[n.node] and dists[n.node] < bundle.lifetime))
+      end
+      sum + (bundle.multicast? ? dests.length : 1)
     end
   end
 
   def numberOfDeliveredBundles
     regularBundles.inject(0) do |sum, b|
-      sum + b.nDelivered(((@regs[b.dest] || []) + [b.dest]).uniq)
+      sum + b.nDelivered(((@regs[b.dest].map(&:node) || []) + [b.dest]).uniq)
     end
   end
 

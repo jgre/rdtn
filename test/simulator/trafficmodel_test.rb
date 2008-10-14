@@ -82,7 +82,7 @@ class TrafficModelTest < Test::Unit::TestCase
   context 'In a multicast scenario, TrafficModel' do
 
     setup do
-      t0   = Time.now
+      @t0   = Time.now
       @b1  = Bundling::Bundle.new('test', 'dtn://group/', 'dtn://kasuari1',
                                  :multicast => true)
       @log = [
@@ -92,18 +92,34 @@ class TrafficModelTest < Test::Unit::TestCase
         Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
         Sim::LogEntry.new(1, :bundleForwarded, 1, 3, :bundle => @b1),
       ]
-      @tm  = TrafficModel.new(t0, @log)
+      @tm  = TrafficModel.new(@t0, @log)
     end
 
     should 'count expected bundles' do
       assert_equal 2, @tm.numberOfExpectedBundles
     end
 
+    should 'not count expected bundles that expire before the registration is created' do
+      @log << Sim::LogEntry.new(3601, :registered, 4, nil, :eid=>'dtn://group/')
+      @tm  = TrafficModel.new(@t0, @log)
+      assert_equal 2, @tm.numberOfExpectedBundles
+    end
+
+    should 'not count expected bundles that are created after the resitration expires' do
+      b2  = Bundling::Bundle.new('testtest', 'dtn://group/', 'dtn://kasuari1',
+				 :multicast => true)
+      b2.creationTimestamp += 11
+      @log << Sim::LogEntry.new(10, :unregistered, 3, nil, :eid=>'dtn://group/')
+      @log << Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2)
+      @tm  = TrafficModel.new(@t0, @log)
+      assert_equal 3, @tm.numberOfExpectedBundles
+    end
+
     should 'count delivered bundles' do
       assert_equal 2, @tm.numberOfDeliveredBundles
     end
 
-    should 'calculate the delivery ration based on registrations' do
+    should 'calculate the delivery ratio based on registrations' do
       assert_equal 1, @tm.deliveryRatio
     end
 
