@@ -86,10 +86,26 @@ class TrafficModel
   end
 
   def numberOfExpectedBundles(net = nil)
+    def reg_before_expiry?(b, reg)
+      b.expires > reg.startTime
+    end
+    def created_during_reg?(b, reg)
+      reg.endTime.nil? or b.created.to_i < reg.endTime
+    end
+    def reachable_during_life?(b, reg, dists)
+      dists.nil? or (dists[reg.node] and dists[reg.node] < b.lifetime)
+    end
+    def reachable_during_reg?(b, reg, dists)
+      (dists.nil? or reg.endTime.nil? or
+       (dists[reg.node] and dists[reg.node] < (reg.endTime - b.created.to_i)))
+    end
+
     regularBundles.inject(0) do |sum, bundle|
       dists, paths = dijkstra(net, bundle.src, bundle.created.to_i) if net
-      dests = @regs[bundle.dest].find_all do |n|
-	bundle.expires > n.startTime and (n.endTime.nil? or bundle.created.to_i < n.endTime) and (dists.nil? or (dists[n.node] and dists[n.node] < bundle.lifetime))
+      dests = @regs[bundle.dest].find_all do |reg|
+	(reg_before_expiry?(bundle, reg) and created_during_reg?(bundle,reg) and
+	 reachable_during_life?(bundle, reg, dists) and
+	 reachable_during_reg?(bundle, reg, dists))
       end
       sum + (bundle.multicast? ? dests.length : 1)
     end

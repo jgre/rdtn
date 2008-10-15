@@ -13,7 +13,7 @@ class ReachabilityCheckTest < Test::Unit::TestCase
   context 'TrafficModel' do
 
     setup do
-      t0   = Time.now
+      @t0   = Time.now
       @b1  = Bundling::Bundle.new('test', 'dtn://group/', 'dtn://kasuari1',
 				  :multicast => true)
       @log = [
@@ -24,7 +24,7 @@ class ReachabilityCheckTest < Test::Unit::TestCase
 	Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
 	Sim::LogEntry.new(1, :bundleForwarded, 1, 3, :bundle => @b1),
       ]
-      @tm  = TrafficModel.new(t0, @log)
+      @tm  = TrafficModel.new(@t0, @log)
 
       @events = Sim::EventQueue.new
       @events.addEvent(0, 1, 2, :simConnection)
@@ -47,6 +47,11 @@ class ReachabilityCheckTest < Test::Unit::TestCase
     end
 
     should 'not count bundles for nodes that cannot be reached before the registration expires' do
+      @log << Sim::LogEntry.new(10, :unregistered, 4, nil, :eid=>'dtn://group/')
+      @events.addEvent(11, 1, 4, :simConnection)
+      @tm  = TrafficModel.new(@t0, @log)
+      @net = NetworkModel.new(@events)
+      assert_equal 2, @tm.numberOfExpectedBundles(@net)
     end
 
   end
