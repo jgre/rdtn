@@ -25,11 +25,11 @@ module Sim
 
     def initialize(evDis)
       @evDis = evDis
+      @timer = 0
     end
 
     def run(eventQueue)
       @t0    = Time.now
-      @timer = 0
       while event = eventQueue.events.shift
         @timer = event.time
         event.dispatch(@evDis)
