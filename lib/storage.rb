@@ -56,6 +56,7 @@ class Storage < Monitor
   end
 
   def each(includeDeleted = false)
+    deleteBundles(true) {|bundle| bundle.expired?}
     synchronize do
       @bundles.each {|b| yield(b) if not b.deleted? or includeDeleted }
     end
