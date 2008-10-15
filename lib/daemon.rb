@@ -124,6 +124,7 @@ module RdtnDaemon
     end
 
     def addLink(cl, name, options)
+      @links[name].close if @links[name]
       lnkClass = CLReg.instance.cl[cl]
       if lnkClass
 	link = lnkClass[1].new(@config, @evDis)
