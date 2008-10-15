@@ -53,7 +53,9 @@ class TrafficModel
   end
 
   def delays
-    @bundles.values.inject([]) {|cat, bundle| cat + bundle.delays}
+    @bundles.values.inject([]) do |cat, bundle|
+      cat + bundle.delays(@regs[bundle.dest].map(&:node))
+    end
   end
 
   def annotatedDelays
@@ -93,7 +95,7 @@ class TrafficModel
       reg.endTime.nil? or b.created.to_i < reg.endTime
     end
     def reachable_during_life?(b, reg, dists)
-      dists.nil? or (dists[reg.node] and dists[reg.node] < b.lifetime)
+      (dists.nil? or (dists[reg.node] and dists[reg.node] < b.lifetime))
     end
     def reachable_during_reg?(b, reg, dists)
       (dists.nil? or reg.endTime.nil? or
@@ -117,8 +119,8 @@ class TrafficModel
     end
   end
 
-  def deliveryRatio
-    numberOfDeliveredBundles / numberOfExpectedBundles.to_f
+  def deliveryRatio(net = nil)
+    numberOfDeliveredBundles / numberOfExpectedBundles(net).to_f
   end
 
   def numberOfTransmissions

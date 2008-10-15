@@ -123,6 +123,10 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 1, @tm.deliveryRatio
     end
 
+    should 'calculate the average delay of all delivered bundles' do
+      assert_equal 1, @tm.averageDelay
+    end
+
   end
 
   context 'When signaling bundles are logged, TrafficModel' do
