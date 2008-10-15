@@ -22,7 +22,7 @@ opts    = OptionParser.new
 opts.on('-d', '--date DATE', Date) {|d| date = d.strftime('%Y%m%d')}
 opts.on('-t', '--time TIME', Time) {|t| time = t.strftime('%H%M%S')}
 opts.on('-v', '--variant INDEX')   {|i| variant = i}
-opts.on('-a', '--all')             {all = true}
+opts.on('-a', '--all')             {all   = true}
 specs = opts.parse(ARGV)
 
 specs = ["*"] if specs.empty?
@@ -53,10 +53,14 @@ results[(all ? 0 : -1)..-1].each do |dir|
   if $0 == __FILE__
     puts "#{$network.numberOfNodes} nodes"
     puts "#{$traffic.numberOfBundles} bundles"
-    puts "#{$traffic.numberOfExpectedBundles} expected bundles"
     puts "#{$traffic.numberOfDeliveredBundles} bundles delivered"
-    puts "#{$traffic.deliveryRatio * 100}% deliveryRatio"
+    puts "Greedy Delivery Criterion:"
+    puts "  #{$traffic.numberOfExpectedBundles} expected bundles"
+    puts "  #{$traffic.deliveryRatio * 100}% deliveryRatio"
+    puts "Reachability Checking Delivery Criterion"
+    puts "  #{$traffic.numberOfExpectedBundles($network)} expected bundles"
+    puts "  #{$traffic.deliveryRatio($network) * 100}% deliveryRatio"
+    puts "#{$traffic.averageDelay} seconds average delay"
     puts "#{$traffic.numberOfTransmissions} transmissions"
-    puts
   end
 end
