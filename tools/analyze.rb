@@ -25,7 +25,7 @@ opts.on('-v', '--variant INDEX')   {|i| variant = i}
 opts.on('-a', '--all')             {all = true}
 specs = opts.parse(ARGV)
 
-specs = "*" if specs.empty?
+specs = ["*"] if specs.empty?
 
 RESDIR = File.join(File.dirname(__FILE__), '../simulations/results')
 expr   = File.join(RESDIR, "{#{specs.join(',')}}-#{variant}-#{date}-#{time}")
