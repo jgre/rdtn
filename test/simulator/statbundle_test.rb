@@ -34,7 +34,7 @@ class StatBundleTest < Test::Unit::TestCase
   end
 
   should 'keep the creation time relative to the start of the simulation' do
-    assert_equal @bundle.created - @t0.to_i, @sbndl.created
+    assert_equal @bundle.created.to_i - @t0.to_i, @sbndl.created
   end
 
   should 'take the lifetime from the RDTN bundle' do

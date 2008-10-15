@@ -3,8 +3,9 @@ $:.unshift File.join(File.dirname(__FILE__))
 
 class StatBundle
 
-  attr_reader :bundleId, :dest, :src, :payload_size, :subscribers, :created,
+  attr_reader :bundleId, :dest, :src, :payload_size, :created,
     :lifetime, :transmissions, :multicast, :signaling
+  attr_reader :incidents
 
   def initialize(t0, bundle)
     @bundleId     = bundle.bundleId
@@ -15,7 +16,7 @@ class StatBundle
     end
     @src          = $1.to_i if %r{dtn://kasuari(\d+)/?} =~ bundle.srcEid.to_s
     @payload_size = bundle.payload.length
-    @created      = bundle.created - t0.to_i
+    @created      = bundle.created.to_i - t0.to_i
     @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?
     @signaling    = bundle.isVaccination?
@@ -58,12 +59,12 @@ class StatBundle
     @incidents.length
   end
 
-  def delays
-    if delivered?
-      [@incidents[dest].min - @created.to_i]
-    else
-      []
+  def delays(destinations = [])
+    destinations << @dest if destinations.empty?
+    ret = destinations.map do |dest|
+      @incidents[dest].min - @created.to_i if delivered?(dest)
     end
+    ret.compact
   end
 
   def averageDelay
@@ -82,7 +83,7 @@ class StatBundle
 
   def to_yaml_properties
     @incidents = Hash.new.merge(@incidents) if @incidents
-    %w{@bundleId @dest @src @payload_size @created @multicast 
+    %w{@bundleId @dest @src @payload_size @created @lifetime @multicast
     @transmissions @incidents @signaling}
   end
 
