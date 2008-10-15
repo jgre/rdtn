@@ -61,11 +61,11 @@ class SetdestNode
 
 end
 
-class Contact
+class SDContact
 
   attr_accessor :node1, :node2, :times, :open
 
-  def Contact.getId(node1, node2)
+  def self.getId(node1, node2)
     return "#{node1.id}-#{node2.id}"
   end
 
@@ -177,9 +177,9 @@ class SetdestParser
     @nodes.each do |id1, node1| 
       @nodes.each do |id2, node2| 
         next if id1 >= id2
-        contId = Contact.getId(node1, node2)
+        contId = SDContact.getId(node1, node2)
         unless @contacts[contId]
-          @contacts[contId] = Contact.new(@contactDist, node1, node2)
+          @contacts[contId] = SDContact.new(@contactDist, node1, node2)
         end
         evType = @contacts[contId].calculateContact(newTime)
         unless evType == :unchanged
