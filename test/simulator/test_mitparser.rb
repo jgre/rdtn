@@ -41,7 +41,7 @@ class TestMITParser < Test::Unit::TestCase
   end
 
   def test_parse
-    parser = MITParser.new(nil, nil, "tracefile" => @path)
+    parser = MITParser.new(:tracefile => @path)
     ev = parser.events
     assert_equal(4, ev.events.length)
 
