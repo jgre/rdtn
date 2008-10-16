@@ -68,6 +68,11 @@ module Sim
       @sim.log(:registered, @id, nil, :eid => eid)
     end
 
+    def unregister(eid)
+      super
+      @sim.log(:unregistered, @id, nil, :eid => eid)
+    end
+
   end
 
 end # module
