@@ -55,10 +55,6 @@ class StatBundleTest < Test::Unit::TestCase
       assert @sbndl.delivered?
     end
 
-    should 'calculate the delay' do
-      assert_equal 15-@sbndl.created.to_i, @sbndl.averageDelay
-    end
-
     should 'count the number of recipients reached' do
       assert_equal 1, @sbndl.nDelivered
     end
