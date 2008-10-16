@@ -68,11 +68,16 @@ class Router
       links = @localReg.find_all {|re| re.match?(b.destEid)}.map {|re| re.link}
       localDelivery(b, links) unless links.empty?
     end
+
+    @rdEvClosed    = @evDis.subscribe(:linkClosed) do |link|
+      @localReg.delete_if {|re| re.link == link}
+    end
   end
 
   def stop
-    @evDis.unsubscribe(:routeAvailable, @rtEvAvailable)
+    @evDis.unsubscribe(:routeAvailable,  @rtEvAvailable)
     @evDis.unsubscribe(:bundleToForward, @rtEvToForward)
+    @evDis.unsubscribe(:linkClosed,      @rtEvClosed)
   end
 
   protected
