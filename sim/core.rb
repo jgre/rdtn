@@ -157,7 +157,6 @@ module Sim
       network_model = NetworkModel.new(events)
       traffic_model = TrafficModel.new(t0, log)
 
-      open(File.join(dirname, 'log'),     'w'){|f|Marshal.dump(log,          f)}
       open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
       open(File.join(dirname, 'traffic'), 'w'){|f|   YAML.dump(traffic_model,f)}
       if sel = spec.selected
