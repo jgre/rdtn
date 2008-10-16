@@ -33,7 +33,7 @@ module Sim
 
     def dry_run
       @dry_run = true
-      execute(DummyObject.new)
+      execute(Sim::Core.new)
       @vars    = Sim.hash_combinations(@template)
       @dry_run = false
     end
