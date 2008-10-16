@@ -26,7 +26,7 @@ class TrafficModel
       when :registered
         @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
       when :unregistered
-        reg = @regs[e.eid].find {|r| r.node = e.nodeId1}
+        reg = @regs[e.eid].find {|r| r.node == e.nodeId1}
 	reg.endTime = e.time if reg
       end
     end
@@ -54,7 +54,7 @@ class TrafficModel
 
   def delays
     @bundles.values.inject([]) do |cat, bundle|
-      cat + bundle.delays(@regs[bundle.dest].map(&:node))
+      cat + bundle.delays(@regs[bundle.dest])
     end
   end
 
@@ -114,9 +114,7 @@ class TrafficModel
   end
 
   def numberOfDeliveredBundles
-    regularBundles.inject(0) do |sum, b|
-      sum + b.nDelivered(((@regs[b.dest].map(&:node) || []) + [b.dest]).uniq)
-    end
+    regularBundles.inject(0) {|sum, b| sum + b.nDelivered(@regs[b.dest])}
   end
 
   def deliveryRatio(net = nil)

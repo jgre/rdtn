@@ -105,7 +105,7 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 2, @tm.numberOfExpectedBundles
     end
 
-    should 'not count expected bundles that are created after the resitration expires' do
+    should 'not count expected bundles that are created after the registration expires' do
       b2  = Bundling::Bundle.new('testtest', 'dtn://group/', 'dtn://kasuari1',
 				 :multicast => true)
       b2.creationTimestamp += 11
@@ -116,6 +116,24 @@ class TrafficModelTest < Test::Unit::TestCase
     end
 
     should 'count delivered bundles' do
+      assert_equal 2, @tm.numberOfDeliveredBundles
+    end
+
+    should 'not count delivered bundles that expire before the registration is created' do
+      @log << Sim::LogEntry.new(3601, :registered, 4, nil, :eid=>'dtn://group/')
+      @log << Sim::LogEntry.new(1, :bundleForwarded, 1, 4, :bundle => @b1)
+      @tm  = TrafficModel.new(@t0, @log)
+      assert_equal 2, @tm.numberOfDeliveredBundles
+    end
+
+    should 'not count delivered bundles that are created after the registration expires' do
+      b2  = Bundling::Bundle.new('testtest', 'dtn://group/', 'dtn://kasuari1',
+				 :multicast => true)
+      b2.creationTimestamp += 11
+      @log << Sim::LogEntry.new(10, :unregistered, 3, nil, :eid=>'dtn://group/')
+      @log << Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2)
+      @log << Sim::LogEntry.new(11, :bundleForwarded, 1, 3, :bundle => b2)
+      @tm  = TrafficModel.new(@t0, @log)
       assert_equal 2, @tm.numberOfDeliveredBundles
     end
 

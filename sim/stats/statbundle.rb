@@ -42,36 +42,36 @@ class StatBundle
     @incidents[receiver].push(time)
   end
 
-  def delivered?(destination = nil)
-    if destination.nil?
+  def delivered?(reg = nil)
+    if reg.nil?
       @incidents.has_key? @dest
     else
-      @incidents.has_key? destination
+      @incidents.has_key?(reg.node) and reg.startTime < expires and (reg.endTime.nil? or reg.endTime > @created)
     end
   end
 
-  def nDelivered(destinations = [])
-    destinations << @dest if destinations.empty?
-    destinations.inject(0) {|sum, dest| sum + (delivered?(dest) ? 1 : 0)}
+  def nDelivered(regs = [])
+    regs << Struct::Registration.new(@dest, 0) if regs.empty?
+    regs.inject(0) {|sum, reg| sum + (delivered?(reg) ? 1 : 0)}
   end
 
   def nReplicas
     @incidents.length
   end
 
-  def delays(destinations = [])
-    destinations << @dest if destinations.empty?
-    ret = destinations.map do |dest|
-      @incidents[dest].min - @created.to_i if delivered?(dest)
+  def delays(regs = [])
+    regs << Struct::Registration.new(@dest, 0) if regs.empty?
+    ret = regs.map do |reg|
+      @incidents[reg.node].min - @created.to_i if delivered?(reg)
     end
     ret.compact
   end
 
-  def averageDelay
-    return nil unless delivered?
-    delays.inject(0) {|sum, delay| sum + delay}
-    # FIXME multicast
-  end
+  #def averageDelay
+  #  return nil unless delivered?
+  #  delays.inject(0) {|sum, delay| sum + delay}
+  #  # FIXME multicast
+  #end
 
   def maxDelay
     delays.max
