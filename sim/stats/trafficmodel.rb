@@ -4,10 +4,13 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'statbundle'
 require 'core'
 require 'networkmodel'
+require 'memoize'
 
 Struct.new('Registration', :node, :startTime, :endTime)
 
 class TrafficModel
+
+  extend Memoize
 
   def initialize(t0, log)
     @t0      = t0
@@ -87,6 +90,10 @@ class TrafficModel
     end
   end
 
+  remember :memo_dijkstra do |graph, src, time|
+    dijkstra(graph, src, time)
+  end
+
   def numberOfExpectedBundles(net = nil)
     def reg_before_expiry?(b, reg)
       b.expires > reg.startTime
@@ -103,7 +110,7 @@ class TrafficModel
     end
 
     regularBundles.inject(0) do |sum, bundle|
-      dists, paths = dijkstra(net, bundle.src, bundle.created.to_i) if net
+      dists, paths = memo_dijkstra(net, bundle.src, bundle.created.to_i) if net
       dests = @regs[bundle.dest].find_all do |reg|
 	(reg_before_expiry?(bundle, reg) and created_during_reg?(bundle,reg) and
 	 reachable_during_life?(bundle, reg, dists) and
