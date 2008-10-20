@@ -549,9 +549,10 @@ module Bundling
   class Forwarder < TaskHandler
 
     def processBundle(bundle)
-      @evDis.subscribe(:bundleForwarded) do |bndl, link, action|
-	self.state = :processed if bundle.bundleId == bndl.bundleId
-      end
+      #@evDis.subscribe(:bundleForwarded) do |bndl, link, action|
+      #  self.state = :processed if bundle.bundleId == bndl.bundleId
+      #end
+      self.state = :processed
       @evDis.dispatch(:bundleToForward, bundle)
     end
 
@@ -590,7 +591,7 @@ def regWFTask(runlevel, klass)
 end
 
 regWFTask(10, Bundling::StoreHandler)
-regWFTask(20, Bundling::ReassemblyHandler)
-regWFTask(30, Bundling::CustodyHandler)
-regWFTask(40, Bundling::AdminRecHandler)
+#regWFTask(20, Bundling::ReassemblyHandler)
+#regWFTask(30, Bundling::CustodyHandler)
+#regWFTask(40, Bundling::AdminRecHandler)
 regWFTask(50, Bundling::Forwarder)

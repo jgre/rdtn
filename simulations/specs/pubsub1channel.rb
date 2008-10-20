@@ -24,7 +24,7 @@ class PubSub1Channel < Sim::Specification
     # seed the random number generator for deterministic results
     srand 42
     receivers.each do |n|
-      subtime,unsubtime=variants(:subscriptionInterval, [0, nil], 
+      subtime,unsubtime=variants(:subscriptionInterval, [0, nil],
 				 [t=rand(sim.duration), t+rand(sim.duration-t)])
       sim.at(subtime) {sim.node(n).register(channel) {}; false}
       sim.at(unsubtime) {sim.node(n).unregister(channel); false} if unsubtime

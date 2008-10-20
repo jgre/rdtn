@@ -90,11 +90,11 @@ module Bundling
       @idleSince = nil
       @bundle.incomingLink = link
 
-      @evDis.subscribe(:linkClosed) do |lnk|
-	if lnk == @link
-	  # TODO Do reactive fragmentation and cleanup
-	end
-      end
+      #@evDis.subscribe(:linkClosed) do |lnk|
+      #  if lnk == @link
+      #    # TODO Do reactive fragmentation and cleanup
+      #  end
+      #end
     end
 
     def doParse(queue)
