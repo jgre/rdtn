@@ -55,8 +55,8 @@ module Sim
         each_value {|node| node.linkCapacity = bytesPerSec}
       end
 
-      @log          = []
-      @timerEventId = 0
+      @traffic_model = TrafficModel.new(Time.now)
+      @timerEventId  = 0
 
       @events = EventQueue.new
       @te     = TimerEngine.new(@evDis)
@@ -115,7 +115,7 @@ module Sim
     end
 
     def log(eventId, nodeId1, nodeId2, options = {})
-      @log.push(LogEntry.new(time, eventId, nodeId1, nodeId2, options))
+      @traffic_model.event(LogEntry.new(time,eventId,nodeId1,nodeId2,options))
     end
 
     def run
@@ -128,7 +128,7 @@ module Sim
 
       RdtnTime.timerFunc = old_timer_func
 
-      [@events, @log]
+      [@events, @traffic_model]
     end
 
     def createNodes(nodeNames = nil)
@@ -153,9 +153,8 @@ module Sim
 
       spec.execute(sim)
 
-      events, log   = sim.run
+      events, traffic_model = sim.run
       network_model = NetworkModel.new(events)
-      traffic_model = TrafficModel.new(t0, log)
 
       open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
       open(File.join(dirname, 'traffic'), 'w'){|f|   YAML.dump(traffic_model,f)}

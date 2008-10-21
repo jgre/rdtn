@@ -59,6 +59,7 @@ module Sim
     end
 
     def sendBundle(bundle)
+      bundle.srcEid = makeLocalEid(bundle.srcEid)
       @sim.log(:bundleCreated, @id, nil, :bundle => bundle)
       super
     end

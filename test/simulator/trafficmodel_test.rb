@@ -85,14 +85,12 @@ class TrafficModelTest < Test::Unit::TestCase
       @t0   = Time.now
       @b1  = Bundling::Bundle.new('test', 'dtn://group/', 'dtn://kasuari1',
                                  :multicast => true)
-      @log = [
-        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
-        Sim::LogEntry.new(0, :registered, 2, nil, :eid => 'dtn://group/'),
-        Sim::LogEntry.new(0, :registered, 3, nil, :eid => 'dtn://group/'),
-        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
-        Sim::LogEntry.new(1, :bundleForwarded, 1, 3, :bundle => @b1),
-      ]
-      @tm  = TrafficModel.new(@t0, @log)
+      @tm = TrafficModel.new(@t0)
+      @tm.event(Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1))
+      @tm.event(Sim::LogEntry.new(0, :registered, 2, nil, :eid=>'dtn://group/'))
+      @tm.event(Sim::LogEntry.new(0, :registered, 3, nil, :eid=>'dtn://group/'))
+      @tm.event(Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1))
+      @tm.event(Sim::LogEntry.new(1, :bundleForwarded, 1, 3, :bundle => @b1))
     end
 
     should 'count expected bundles' do
@@ -100,8 +98,7 @@ class TrafficModelTest < Test::Unit::TestCase
     end
 
     should 'not count expected bundles that expire before the registration is created' do
-      @log << Sim::LogEntry.new(3601, :registered, 4, nil, :eid=>'dtn://group/')
-      @tm  = TrafficModel.new(@t0, @log)
+      @tm.event(Sim::LogEntry.new(3601, :registered,4,nil,:eid=>'dtn://group/'))
       assert_equal 2, @tm.numberOfExpectedBundles
     end
 
@@ -109,9 +106,8 @@ class TrafficModelTest < Test::Unit::TestCase
       b2  = Bundling::Bundle.new('testtest', 'dtn://group/', 'dtn://kasuari1',
 				 :multicast => true)
       b2.creationTimestamp += 11
-      @log << Sim::LogEntry.new(10, :unregistered, 3, nil, :eid=>'dtn://group/')
-      @log << Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2)
-      @tm  = TrafficModel.new(@t0, @log)
+      @tm.event(Sim::LogEntry.new(10, :unregistered,3,nil,:eid=>'dtn://group/'))
+      @tm.event(Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2))
       assert_equal 3, @tm.numberOfExpectedBundles
     end
 
@@ -120,9 +116,8 @@ class TrafficModelTest < Test::Unit::TestCase
     end
 
     should 'not count delivered bundles that expire before the registration is created' do
-      @log << Sim::LogEntry.new(3601, :registered, 4, nil, :eid=>'dtn://group/')
-      @log << Sim::LogEntry.new(1, :bundleForwarded, 1, 4, :bundle => @b1)
-      @tm  = TrafficModel.new(@t0, @log)
+      @tm.event(Sim::LogEntry.new(3601, :registered,4,nil,:eid=>'dtn://group/'))
+      @tm.event(Sim::LogEntry.new(1, :bundleForwarded,1,4,:bundle => @b1))
       assert_equal 2, @tm.numberOfDeliveredBundles
     end
 
@@ -130,10 +125,9 @@ class TrafficModelTest < Test::Unit::TestCase
       b2  = Bundling::Bundle.new('testtest', 'dtn://group/', 'dtn://kasuari1',
 				 :multicast => true)
       b2.creationTimestamp += 11
-      @log << Sim::LogEntry.new(10, :unregistered, 3, nil, :eid=>'dtn://group/')
-      @log << Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2)
-      @log << Sim::LogEntry.new(11, :bundleForwarded, 1, 3, :bundle => b2)
-      @tm  = TrafficModel.new(@t0, @log)
+      @tm.event(Sim::LogEntry.new(10, :unregistered,3,nil,:eid=>'dtn://group/'))
+      @tm.event(Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => b2))
+      @tm.event(Sim::LogEntry.new(11, :bundleForwarded, 1, 3, :bundle => b2))
       assert_equal 2, @tm.numberOfDeliveredBundles
     end
 

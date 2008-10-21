@@ -37,7 +37,7 @@ class TestFlooding < Test::Unit::TestCase
     prepare do
       sim.nodes.router(:epidemic, :vaccination => true)
 
-      sim.at(1){self.bndl=sim.node(1).sendDataTo 'test','dtn://kasuari4/';false}
+      sim.at(1){self.bndl=sim.node(1).sendDataTo 'test','dtn://kasuari4/'; puts "Bundle #{self.bndl.bundleId}";false}
       sim.node(4).register {}
     end
 

@@ -12,26 +12,28 @@ class TrafficModel
 
   extend Memoize
 
-  def initialize(t0, log)
+  def initialize(t0, log = nil)
     @t0      = t0
     @bundles = {} # bundleId -> StatBundle
     @regs    = Hash.new {|hash, key| hash[key] = []}
-    self.log = log
+    self.log = log if log
   end
 
   def log=(log)
-    log.each do |e|
-      case e.eventId
-      when :bundleCreated
-        @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
-      when :bundleForwarded
-        @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
-      when :registered
-        @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
-      when :unregistered
-        reg = @regs[e.eid].find {|r| r.node == e.nodeId1}
-	reg.endTime = e.time if reg
-      end
+    log.each {|e| event e}
+  end
+
+  def event(e)
+    case e.eventId
+    when :bundleCreated
+      @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
+    when :bundleForwarded
+      @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
+    when :registered
+      @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
+    when :unregistered
+      reg = @regs[e.eid].find {|r| r.node == e.nodeId1}
+      reg.endTime = e.time if reg
     end
   end
 
