@@ -41,12 +41,12 @@ module Sim
     def variants(id, *vars)
       if @dry_run
         @template[id] = (0..vars.length-1)
-        vars.first
+        var = vars.first
       else
         var = @cur_variant ? vars[@cur_variant[id]] : vars.first
         @selected[id] = var.is_a?(Proc) ? var.to_ruby : var
-        var.is_a?(Proc) ? var.call : var
       end
+      var.is_a?(Proc) ? var.call : var
     end
 
     def self.createVariants
