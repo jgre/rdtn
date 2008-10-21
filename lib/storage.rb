@@ -37,7 +37,7 @@ end
 class Storage < Monitor
 
   include Enumerable
-  attr_accessor :displacement, :directory, :limit
+  attr_accessor :displacement, :directory, :limit, :channelquota
 
   def initialize(config, evDis, limit = nil, dir = nil)
     super()
@@ -49,10 +49,14 @@ class Storage < Monitor
     @bundles = []
     @deleted = []
     @displacement = []
-    #Bundling::PayloadBlock.storePolicy = :random
+    @channelquota = nil
 
     @config.registerComponent(:store, self)
     #housekeeping
+  end
+
+  def length
+    @bundles.length
   end
 
   def each(includeDeleted = false)
@@ -102,6 +106,7 @@ class Storage < Monitor
       @evDis.dispatch(:bundleStored, bundle)
       rdebug("Stored bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
       enforceLimit
+      enforceChannelQuotas if @channelquota
     end
   end
 
@@ -150,6 +155,22 @@ class Storage < Monitor
   end
 
   private
+
+  def enforceChannelQuotas
+    channels = Hash.new {|hash, key| hash[key] = []}
+    delCandidates = []
+    @bundles.each {|bundle| channels[bundle.destEid] << bundle}
+    channels.each_value do |bundles|
+      if (diff = bundles.length - @channelquota) > 0
+	delCandidates += bundles.sort_by(&:creationTimestamp)[0, diff]
+      end
+    end
+
+    unless delCandidates.empty?
+      deleteBundles(true) {|bundle| delCandidates.include?(bundle)}
+    end
+  end
+
   def enforceLimit
     deleteBundles(true) do |bundle| 
       ret = bundle.expired?

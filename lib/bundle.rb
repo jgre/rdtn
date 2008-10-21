@@ -177,7 +177,7 @@ module Bundling
 	@@lastSeqNo = @creationTimestampSeq = 0
       end
       @@lastTimestamp = @creationTimestamp
-      @lifetime = options[:lifetime] || 3600
+      @lifetime = options.key?(:lifetime) ? options[:lifetime] : 3600
       @destEid  = destEid
       @srcEid   = srcEid
 
@@ -220,10 +220,11 @@ module Bundling
     end
 
     def expired?
-      RdtnTime.now.to_i > expires
+      @lifetime.nil? ? false : RdtnTime.now.to_i > expires
     end
 
     def expires
+      return nil if @lifetime.nil?
       (creationTimestamp.to_i + lifetime.to_i + Time.gm(2000).to_i)
     end
 
@@ -410,7 +411,7 @@ module Bundling
       pbb << Sdnv.encode(@custSspOff)
       pbb << Sdnv.encode(@creationTimestamp)
       pbb << Sdnv.encode(@creationTimestampSeq)
-      pbb << Sdnv.encode(@lifetime)
+      pbb << Sdnv.encode(@lifetime.to_i)
       pbb << Sdnv.encode(dict.length)
       pbb << dict
 
@@ -537,6 +538,7 @@ module Bundling
             next
           end
 
+	  @lifetime = nil if @lifetime == 0
           if @blocks.empty? or @blocks[-1].parserFinished?
             blockType = io.getc
             block = BundleBlockReg.instance.makeBlock(blockType, self)

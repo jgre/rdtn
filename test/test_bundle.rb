@@ -17,6 +17,8 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require "test/unit"
+require "rubygems"
+require "shoulda"
 require "yaml"
 require "bundle"
 
@@ -285,6 +287,31 @@ class TestBundle < Test::Unit::TestCase
     assert_equal(0b0000000, block.flags)
     assert((not block.replicateBlockForEveryFragment?))
 
+  end
+
+  should 'have a default lifetime of 1 hour' do
+    assert_equal 3600, Bundling::Bundle.new.lifetime
+  end
+
+  should 'calculate the expiration time based on the creation time' do
+    assert_equal Time.now.to_i + 3600, Bundling::Bundle.new.expires
+  end
+
+  should 'set the lifetime and expiry to nil when explicitly set in options' do
+    assert_nil Bundling::Bundle.new(nil, nil, nil, :lifetime => nil).lifetime
+    assert_nil Bundling::Bundle.new(nil, nil, nil, :lifetime => nil).expires
+  end
+
+  should 'not call a bundles expired, when lifetime is set to nil' do
+    assert !Bundling::Bundle.new(nil, nil, nil, :lifetime => nil).expired?
+  end
+
+  should 'be serializable when the lifetime is nil' do
+    b = Bundling::Bundle.new('test', 'dtn://dest/', 'dtn://src/',:lifetime=>nil)
+    b2= Bundling::Bundle.new
+    b2.parse(StringIO.new(b.to_s))
+    assert_equal b.bundleId, b2.bundleId
+    assert_nil b2.lifetime
   end
 
 end

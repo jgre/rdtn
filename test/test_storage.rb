@@ -43,6 +43,35 @@ class TestStorage < Test::Unit::TestCase
     assert_equal @store, @config.component(:store)
   end
 
+  context 'Storage with channel quotas' do
+
+    setup do
+      @store.channelquota = 5
+      @channel = 'dtn://channel1/'
+      5.times {|i| @store.storeBundle(Bundling::Bundle.new(i.to_s,@channel,nil,
+							   :lifetime => nil))}
+    end
+
+    should 'remove a bundle when the quota is exceeded' do
+      @store.storeBundle(Bundling::Bundle.new('6',@channel,nil,:lifetime=>nil))
+      assert_equal 5, @store.length
+    end
+
+    should 'not remove a bundle when the quota is not exceeded' do
+      @store.storeBundle(Bundling::Bundle.new('6', 'dtn://channel2/', nil,
+					      :lifetime => nil))
+      assert_equal 6, @store.length
+    end
+
+    should 'remove the oldest bundle when the quota is exceeded' do
+      b = Bundling::Bundle.new('6', @channel, nil, :lifetime => nil)
+      b.creationTimestamp -= 1000
+      @store.storeBundle(b)
+      assert_nil @store.getBundle(b.bundleId)
+    end
+
+  end
+
   def test_storage1
     pl = "test"
     idlist = []
