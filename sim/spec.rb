@@ -4,16 +4,6 @@ require 'ruby2ruby'
 
 module Sim
 
-  class DummyObject
-    def method_missing(name, *args)
-      self
-    end
-
-    def to_s
-      ''
-    end
-  end
-
   class Specification
 
     attr_accessor :cur_variant, :vars, :selected
