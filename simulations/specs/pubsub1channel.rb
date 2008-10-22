@@ -46,14 +46,14 @@ class PubSub1Channel < Sim::Specification
     variants(:lifetime,
 	     lambda {lifetime = 3600;   quota = nil},
 	     lambda {lifetime = 86400;  quota = nil},
-	     lambda {lifeimte = 432000; quota = nil},
+	     #lambda {lifeimte = 432000; quota = nil},
 	     lambda {lifetime = nil;    quota = 10},
 	     lambda {lifetime = nil;    quota = 20})
 
     # Assign the quotas to the stores of all nodes for the variants with quotas
     sim.nodes.values.each {|n| n.config.store.channelquota = quota} if quota
 
-    sim.at((3600 / variants(:sendRate, 1, 10)).to_i) do |time|
+    sim.at((3600 / variants(:sendRate, 1, 5)).to_i) do |time|
       b = sim.node(sender).sendDataTo(data, channel, nil, :multicast => true,
 				      :lifetime => lifetime)
       puts "#@var_idx Day #{time / (3600*24)}" if (time % (3600*24)) == 0
