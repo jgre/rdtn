@@ -34,7 +34,7 @@ class StatBundle
   alias multicast? multicast
 
   def expires
-    (@created + @lifetime).to_i
+    @lifetime.nil? ? nil : @created.to_i + @lifetime.to_i
   end
 
   def forwarded(time, sender, receiver)
