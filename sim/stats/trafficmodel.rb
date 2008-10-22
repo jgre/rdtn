@@ -99,10 +99,11 @@ class TrafficModel
   end
 
   remember :channel_content do |channel|
-    @bundles.values.find_all {|b| b.dest == channel}.sort_by(&:created).reverse
+    @bundles.values.find_all {|b| b.dest == channel}.sort_by(&:created)
   end
 
-  def numberOfExpectedBundles(options = {})
+  remember :numberOfExpectedBundles do |options|
+    options ||= {}
     net   = options[:net]
     quota = options[:quota]
 
@@ -119,11 +120,14 @@ class TrafficModel
       (dists.nil? or reg.endTime.nil? or
        (dists[reg.node] and dists[reg.node] < (reg.endTime - b.created.to_i)))
     end
+    def bundle_currency_interval(b, quota)
+      content       = channel_content(b.dest)
+      superseded_by = content[content.find_index(b)+quota]
+      [b.created, superseded_by ? superseded_by.created : nil]
+    end
     def in_quota?(b, reg, quota, sampling_rate = 3600)
-      (reg.startTime..reg.endTime || @duration).step(sampling_rate) do |time|
-	return true if channel_content(b.dest)[0, quota].include? b
-      end
-      false
+      int = bundle_currency_interval(b, quota)
+      (reg.endTime.nil? or reg.endTime > int[0]) and (int[1].nil? or reg.startTime < int[1])
     end
 
     regularBundles.inject(0) do |sum, bundle|
@@ -179,7 +183,7 @@ class TrafficModel
 
   def to_yaml_properties
     @regs = Hash.new.merge(@regs)
-    %w{@t0 @bundles @regs}
+    %w{@t0 @bundles @regs @duration}
   end
 
 end
