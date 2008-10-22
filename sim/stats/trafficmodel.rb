@@ -13,10 +13,11 @@ class TrafficModel
   extend Memoize
 
   def initialize(t0, log = nil)
-    @t0      = t0
-    @bundles = {} # bundleId -> StatBundle
-    @regs    = Hash.new {|hash, key| hash[key] = []}
-    self.log = log if log
+    @t0       = t0
+    @bundles  = {} # bundleId -> StatBundle
+    @regs     = Hash.new {|hash, key| hash[key] = []}
+    @duration = 0
+    self.log  = log if log
   end
 
   def log=(log)
@@ -24,6 +25,7 @@ class TrafficModel
   end
 
   def event(e)
+    @duration = [@duration, e.time].max
     case e.eventId
     when :bundleCreated
       @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
@@ -96,9 +98,16 @@ class TrafficModel
     dijkstra(graph, src, time)
   end
 
-  def numberOfExpectedBundles(net = nil)
+  remember :channel_content do |channel|
+    @bundles.values.find_all {|b| b.dest == channel}.sort_by(&:created).reverse
+  end
+
+  def numberOfExpectedBundles(options = {})
+    net   = options[:net]
+    quota = options[:quota]
+
     def reg_before_expiry?(b, reg)
-      b.expires > reg.startTime
+      b.expires.nil? or b.expires > reg.startTime
     end
     def created_during_reg?(b, reg)
       reg.endTime.nil? or b.created.to_i < reg.endTime
@@ -110,13 +119,23 @@ class TrafficModel
       (dists.nil? or reg.endTime.nil? or
        (dists[reg.node] and dists[reg.node] < (reg.endTime - b.created.to_i)))
     end
+    def in_quota?(b, reg, quota, sampling_rate = 3600)
+      (reg.startTime..reg.endTime || @duration).step(sampling_rate) do |time|
+	return true if channel_content(b.dest)[0, quota].include? b
+      end
+      false
+    end
 
     regularBundles.inject(0) do |sum, bundle|
       dists, paths = memo_dijkstra(net, bundle.src, bundle.created.to_i) if net
       dests = @regs[bundle.dest].find_all do |reg|
-	(reg_before_expiry?(bundle, reg) and created_during_reg?(bundle,reg) and
-	 reachable_during_life?(bundle, reg, dists) and
-	 reachable_during_reg?(bundle, reg, dists))
+	if quota
+	  in_quota?(bundle, reg, quota)
+	else
+	  (reg_before_expiry?(bundle, reg) and created_during_reg?(bundle,reg) and
+	   reachable_during_life?(bundle, reg, dists) and
+	   reachable_during_reg?(bundle, reg, dists))
+	end
       end
       sum + (bundle.multicast? ? dests.length : 1)
     end
@@ -126,8 +145,8 @@ class TrafficModel
     regularBundles.inject(0) {|sum, b| sum + b.nDelivered(@regs[b.dest])}
   end
 
-  def deliveryRatio(net = nil)
-    numberOfDeliveredBundles / numberOfExpectedBundles(net).to_f
+  def deliveryRatio(options = {})
+    numberOfDeliveredBundles / numberOfExpectedBundles(options).to_f
   end
 
   def numberOfTransmissions

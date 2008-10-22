@@ -37,13 +37,13 @@ class ReachabilityCheckTest < Test::Unit::TestCase
     end
 
     should 'not count expected bundles for unreachable nodes when reachability checks are available' do
-      assert_equal 2, @tm.numberOfExpectedBundles(@net)
+      assert_equal 2, @tm.numberOfExpectedBundles(:net => @net)
     end
 
     should 'not count expected bundles for node that cannot be reached before the bundle expires' do
       @events.addEvent(3601, 1, 4, :simConnection)
       @net = NetworkModel.new(@events)
-      assert_equal 2, @tm.numberOfExpectedBundles(@net)
+      assert_equal 2, @tm.numberOfExpectedBundles(:net => @net)
     end
 
     should 'count expected bundles that can arrive during the lifetime of the bundle' do
@@ -54,7 +54,7 @@ class ReachabilityCheckTest < Test::Unit::TestCase
       @net = NetworkModel.new(@events)
       @log << Sim::LogEntry.new(3601, :bundleCreated, 1, nil, :bundle => b2)
       @tm  = TrafficModel.new(@t0, @log)
-      assert_equal 5, @tm.numberOfExpectedBundles(@net)
+      assert_equal 5, @tm.numberOfExpectedBundles(:net => @net)
     end
 
     should 'not count bundles for nodes that cannot be reached before the registration expires' do
@@ -62,11 +62,11 @@ class ReachabilityCheckTest < Test::Unit::TestCase
       @events.addEvent(11, 1, 4, :simConnection)
       @tm  = TrafficModel.new(@t0, @log)
       @net = NetworkModel.new(@events)
-      assert_equal 2, @tm.numberOfExpectedBundles(@net)
+      assert_equal 2, @tm.numberOfExpectedBundles(:net => @net)
     end
 
     should 'base the calculation of the delivery ratio on expected bundles accounting for reachability' do
-      assert_equal 1, @tm.deliveryRatio(@net)
+      assert_equal 1, @tm.deliveryRatio(:net => @net)
     end
 
   end
