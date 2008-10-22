@@ -7,10 +7,11 @@ module Memoize
     meth = instance_method(name)
 
     define_method(name) do |*args|
-      if memory.has_key?(args)
-        memory[args]
+      id = args + [self]
+      if memory.has_key?(id)
+        memory[id]
       else
-        memory[args] = meth.bind(self).call(*args)
+        memory[id] = meth.bind(self).call(*args)
       end
     end
   end
