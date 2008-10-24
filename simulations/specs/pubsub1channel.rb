@@ -44,11 +44,11 @@ class PubSub1Channel < Sim::Specification
     lifetime = 0
     quota    = nil
     variants(:lifetime,
-	     lambda {lifetime = 3600;   quota = nil},
-	     lambda {lifetime = 86400;  quota = nil},
+	     #lambda {lifetime = 3600;   quota = nil},
+	     #lambda {lifetime = 86400;  quota = nil},
 	     #lambda {lifeimte = 432000; quota = nil},
-	     lambda {lifetime = nil;    quota = 10},
-	     lambda {lifetime = nil;    quota = 20})
+	     #lambda {lifetime = nil;    quota = 10},
+	     lambda {lifetime = nil;    quota = 15})
 
     # Assign the quotas to the stores of all nodes for the variants with quotas
     sim.nodes.values.each {|n| n.config.store.channelquota = quota} if quota
