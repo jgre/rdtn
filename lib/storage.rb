@@ -162,7 +162,7 @@ class Storage < Monitor
     @bundles.each {|bundle| channels[bundle.destEid] << bundle}
     channels.each_value do |bundles|
       if (diff = bundles.length - @channelquota) > 0
-	delCandidates += bundles.sort_by(&:creationTimestamp)[0, diff]
+	delCandidates += bundles.sort_by {|b| b.creationTimestamp}[0, diff]
       end
     end
 

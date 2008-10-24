@@ -99,7 +99,7 @@ class TrafficModel
   end
 
   remember :channel_content do |channel|
-    @bundles.values.find_all {|b| b.dest == channel}.sort_by(&:created)
+    @bundles.values.find_all {|b| b.dest == channel}.sort_by {|b| b.created}
   end
 
   remember :numberOfExpectedBundles do |options|
@@ -132,7 +132,7 @@ class TrafficModel
 
     regularBundles.inject(0) do |sum, bundle|
       dists, paths = memo_dijkstra(net, bundle.src, bundle.created.to_i) if net
-      dests = @regs[bundle.dest].find_all do |reg|
+      dests = (@regs[bundle.dest] || []).find_all do |reg|
 	if quota
 	  in_quota?(bundle, reg, quota)
 	else
