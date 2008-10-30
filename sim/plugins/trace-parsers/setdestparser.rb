@@ -121,11 +121,11 @@ class SetdestParser
 
   attr_reader :events
 
-  def initialize(duration, granularity, options)
-    @duration    = duration
-    @granularity = granularity
-    @traceFile   = open(options["tracefile"]) if options.has_key?("tracefile")
-    @contactDist = options["contactDistance"] || 250
+  def initialize(options)
+    #@duration    = duration
+    @granularity = options[:granularity] || 1
+    @traceFile   = open(options[:tracefile]) if options.has_key?(:tracefile)
+    @contactDist = options[:contactDistance] || 250
     @offset      = nil
     @diff        = nil
     @nodes       = {}
@@ -140,9 +140,14 @@ class SetdestParser
   def preprocess
     puts "Preprocessing trace file..."
     timer = 0.0
-    while timer < @duration
-      advanceTime(timer)
-      timer += @granularity
+    #while timer < @duration
+    begin
+      loop do
+	advanceTime(timer)
+	timer += @granularity
+      end
+    rescue EOFError => err
+      puts "End of file"
     end
     @traceFile.close
     #open(@eventdumpFile, 'w') {|f| Marshal.dump(@events, f)} if @eventdumpFile
@@ -154,21 +159,18 @@ class SetdestParser
     # for the parser
     #@offset = newTime.to_f unless @offset
 
-    begin
-      loop do 
-        @diff = parseLine(@traceFile.readline) unless @diff
-        if @diff
-          break if @diff[1] > newTime.to_f
-          if @diff[1] < (newTime.to_f - @granularity)
-            rerror("Error: times are not ordered (#{@diff[1]} < #{newTime})")
-          end
-          rdebug("Line #{@traceFile.lineno}") if (@traceFile.lineno % 100) == 0
-          @nodes[@diff[0]].dest  = @diff[2]
-          @nodes[@diff[0]].speed = @diff[3]
-          @diff = nil
-        end
+    loop do 
+      @diff = parseLine(@traceFile.readline) unless @diff
+      if @diff
+	break if @diff[1] > newTime.to_f
+	if @diff[1] < (newTime.to_f - @granularity)
+	  rerror("Error: times are not ordered (#{@diff[1]} < #{newTime})")
+	end
+	rdebug("Line #{@traceFile.lineno}") if (@traceFile.lineno % 100) == 0
+	@nodes[@diff[0]].dest  = @diff[2]
+	@nodes[@diff[0]].speed = @diff[3]
+	@diff = nil
       end
-    rescue EOFError => err
     end
 
     @nodes.each do |id, node|
