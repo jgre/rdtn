@@ -114,7 +114,7 @@ class TrafficModel
       reg.endTime.nil? or b.created.to_i < reg.endTime
     end
     def reachable_during_life?(b, reg, dists)
-      (dists.nil? or (dists[reg.node] and dists[reg.node] < b.lifetime))
+      (dists.nil? or (dists[reg.node] and (b.lifetime.nil? or dists[reg.node] < b.lifetime)))
     end
     def reachable_during_reg?(b, reg, dists)
       (dists.nil? or reg.endTime.nil? or

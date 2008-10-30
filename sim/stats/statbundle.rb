@@ -46,12 +46,12 @@ class StatBundle
     if reg.nil?
       @incidents.has_key? @dest
     else
-      @incidents.has_key?(reg.node) and reg.startTime < expires and (reg.endTime.nil? or reg.endTime > @created)
+      @incidents.has_key?(reg.node) and (expires.nil? or reg.startTime < expires) and (reg.endTime.nil? or reg.endTime > @created)
     end
   end
 
-  def nDelivered(regs = [])
-    regs << Struct::Registration.new(@dest, 0) if regs.empty?
+  def nDelivered(regs = nil)
+    regs = [Struct::Registration.new(@dest, 0)] if regs.nil? or regs.empty?
     regs.inject(0) {|sum, reg| sum + (delivered?(reg) ? 1 : 0)}
   end
 
@@ -59,8 +59,8 @@ class StatBundle
     @incidents.length
   end
 
-  def delays(regs = [])
-    regs << Struct::Registration.new(@dest, 0) if regs.empty?
+  def delays(regs = nil)
+    regs = [Struct::Registration.new(@dest, 0)] if regs.nil? or regs.empty?
     ret = regs.map do |reg|
       @incidents[reg.node].min - @created.to_i if delivered?(reg)
     end
