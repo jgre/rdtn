@@ -1,3 +1,8 @@
 *.rbc
 *.rdtnsim
 simulations/results
+*.aux
+*.bbl
+*.blg
+*.log
+doc/tech-report/rdtn-tr.pdf
