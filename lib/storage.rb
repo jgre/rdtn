@@ -56,7 +56,7 @@ class Storage < Monitor
   end
 
   def length
-    @bundles.length
+    @bundles.find_all{|b| !b.deleted?}.length
   end
 
   def each(includeDeleted = false)
@@ -167,7 +167,7 @@ class Storage < Monitor
     end
 
     unless delCandidates.empty?
-      deleteBundles(true) {|bundle| delCandidates.include?(bundle)}
+      deleteBundles(false) {|bundle| delCandidates.include?(bundle)}
     end
   end
 
