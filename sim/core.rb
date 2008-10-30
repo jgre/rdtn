@@ -29,6 +29,7 @@ require 'traceparser'
 require 'stats/networkmodel'
 require 'stats/trafficmodel'
 require 'spec'
+require 'graph'
 
 module Sim
 
