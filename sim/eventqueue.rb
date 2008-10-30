@@ -66,14 +66,19 @@ module Sim
 
     def addEventSorted(time, nodeId1, nodeId2, type)
       @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
+      idx = nil
       @events.each_with_index do |event, index|
-        if event.time > time
-          @events.insert(index, Event.new(time, nodeId1, nodeId2, type))
-          return self
-        end
+	if event.time > time
+	  idx = index
+	  break
+	end
       end
-      addEvent(time, nodeId1, nodeId2, type) # only when we could not find a 
-                                             # place for the event
+      if idx
+	@events.insert(idx, Event.new(time, nodeId1, nodeId2, type))
+      else
+	addEvent(time, nodeId1, nodeId2, type) # only when we could not find a
+	                                       # place for the event
+      end
       self
     end
 
