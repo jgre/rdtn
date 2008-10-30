@@ -2,6 +2,8 @@ class PubSub1Channel < Sim::Specification
 
   def execute(sim)
     sim.trace(variants(:traces,
+            {:type => 'MITParser', :tracefile => 'jgre-wdm1_ConnectivityDtnsim2Report'},
+            {:type => 'SetdestParser', :tracefile => 'scen-s1-10000x10000-n100-m1-M19-p50-1'},
             {:type => 'DieselNetParser', :tracefile => 'dieselnet_spring2007'}))
              #{:type => 'MITParser',       :tracefile => 'MITcontacts.txt'}))
 
@@ -23,12 +25,12 @@ class PubSub1Channel < Sim::Specification
 
     # seed the random number generator for deterministic results
     srand 42
-    rnd = variants(:random_intervals, false, true)
+    subs_lifetime = variants(:subscription_lifetime, 3600, 86400, 432000, nil)
     receivers.each do |n|
-      interval = rnd ? [t=rand(sim.duration), t+rand(sim.duration-t)] : [0, nil]
+      interval = [t=rand(sim.duration-subs_lifetime.to_i), subs_lifetime ? t+subs_lifetime : nil]
       subtime,unsubtime=variants(:subscriptionInterval, interval)
 
-      sim.at(subtime) {sim.node(n).register(channel) {}; false}
+      sim.at(subtime)   {sim.node(n).register(channel){}; false}
       sim.at(unsubtime) {sim.node(n).unregister(channel); false} if unsubtime
     end
 
@@ -56,7 +58,7 @@ class PubSub1Channel < Sim::Specification
     sim.at((3600 / variants(:sendRate, 1, 5)).to_i) do |time|
       b = sim.node(sender).sendDataTo(data, channel, nil, :multicast => true,
 				      :lifetime => lifetime)
-      puts "#@var_idx Day #{time / (3600*24)}" if (time % (3600*24)) == 0
+      puts "#@var_idx Hour #{time / (3600)}" if (time % (3600)) == 0
       time < sim.duration
     end
 
