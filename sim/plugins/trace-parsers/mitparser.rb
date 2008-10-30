@@ -37,16 +37,16 @@ class MITParser
 
   private
 
-  MIT_RE = /@(\d+) (\d+) <-> (\d+) (up|down)/
+  MIT_RE = /@(\d+)(\.\d+)? (\d+) <-> (\d+) (up|down)/
 
   def process(file)
     puts "Processing MIT reality mining data..."
     file.each do |line|
       if MIT_RE =~ line
         time  = $1.to_i
-        node1 = $2.to_i
-        node2 = $3.to_i
-        type  = case $4
+        node1 = $3.to_i
+        node2 = $4.to_i
+        type  = case $5
                 when "up"   then :simConnection
                 when "down" then :simDisconnection
                 end
