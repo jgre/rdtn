@@ -29,8 +29,10 @@ module Bundling
     end
 
     def addEntry(action, status, neighbor, link = nil, time = RdtnTime.now)
+      # We convert the time to an integer and back again, as the microseconds do
+      # not survive serialization.
       @logEntries.push(Struct::ForwardLogEntry.new(action, status, neighbor, 
-						   link, time))
+						   link, Time.at(time.to_i)))
     end
 
     def updateEntry(action, status, neighbor, link = nil, time = RdtnTime.now)

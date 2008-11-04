@@ -314,4 +314,12 @@ class TestBundle < Test::Unit::TestCase
     assert_nil b2.lifetime
   end
 
+  should 'not be modified when a deep copy is modified' do
+    b  = Bundling::Bundle.new('right','dtn://dest/','dtn://src/',:lifetime=>nil)
+    b2 = b.deepCopy
+    b2.payload = 'wrong'
+    assert_equal 'right', b.payload
+    assert_equal 'wrong', b2.payload
+  end
+
 end

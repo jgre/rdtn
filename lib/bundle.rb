@@ -541,6 +541,7 @@ module Bundling
 	  @lifetime = nil if @lifetime == 0
           if @blocks.empty? or @blocks[-1].parserFinished?
             blockType = io.getc
+	    blockType = blockType.ord if blockType.respond_to?(:ord)
             block = BundleBlockReg.instance.makeBlock(blockType, self)
             addBlock(block)
           end
@@ -628,10 +629,10 @@ module Bundling
     def deepCopy
       ret = Bundle.new
       ret.forwardLog = @forwardLog.deepCopy
-      ret.blocks = @blocks.map {|block| block.clone}
+      ret.blocks = @blocks.map {|block| block.deepCopy(ret)}
       instance_variables.each do |var|
-        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var)
-          ret.instance_variable_set(var, instance_variable_get(var))
+        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var.to_s)
+          ret.instance_variable_set(var.to_s, instance_variable_get(var.to_s))
         end
       end
       return ret
@@ -667,7 +668,7 @@ module Bundling
 
     def dumpFields
       instance_variables.find_all do |var|
-        var != "@genParserFields" and var != "@incomingLink"
+        var.to_s != "@genParserFields" and var.to_s != "@incomingLink"
       end
     end
 
@@ -726,6 +727,16 @@ module Bundling
     def initialize(bundle)
       @flags   = 0
       @bundle  = bundle
+    end
+
+    def deepCopy(bundle)
+      ret = self.class.new(bundle)
+      instance_variables.each do |var|
+        unless %w{@genParserFields}.include?(var)
+          ret.instance_variable_set(var, instance_variable_get(var))
+	end
+      end
+      ret
     end
 
     def replicateBlockForEveryFragment=(set)
