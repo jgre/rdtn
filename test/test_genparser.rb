@@ -59,7 +59,7 @@ class TestGenParser< Test::Unit::TestCase
     input = f0+f1+f2+f3+f4
     mp = MyParser.new
     assert_nothing_raised {mp.parse(input)}
-    assert_equal(f0[0], mp.f0)
+    assert_equal(f0[0].chr, mp.f0.chr)
     assert_equal(f1, mp.f1)
     assert_equal(f2, mp.f2)
     assert_equal(f3, mp.f3)

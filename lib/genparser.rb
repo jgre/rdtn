@@ -138,7 +138,7 @@ module GenParser
       raise InputTooShort, length
     end
     result = case length
-	     when 1 then data[0]
+	     when 1 then data[0].respond_to?(:ord) ? data[0].ord : data[0]
 	     when 2 then data[0, length].unpack('n')[0]
 	     when 4 then data[0, length].unpack('N')[0]
 	     when 8 then data[0, length].unpack('Q')[0]
@@ -157,7 +157,7 @@ module GenParser
     else
       length = data.length
     end
-    data.slice!(-1) if data[-1] == 0
+    data.slice!(-1) if data[-1] == 0 or data[-1] == "\0"
     return data, length
   end
 
