@@ -108,7 +108,12 @@ class TestFluteConvergenceLayer < Test::Unit::TestCase
 	   "Bundle file was not created")
     File.open(@@outDirname + "/#{bundle.object_id}.bundle") do |file|
       data = file.read
-      assert_equal(bundle.to_s, data)
+      serialized_bundle = bundle.to_s
+      if data.respond_to?(:force_encoding)
+	data.force_encoding('UTF-8')
+	serialized_bundle.force_encoding('UTF-8')
+      end
+      assert_equal(serialized_bundle, data)
     end
     #FIXME: test contents of metadata file
     #File.open(@@outDirname + "/#{bundle.object_id}.meta") do |file|
