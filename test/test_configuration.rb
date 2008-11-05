@@ -41,9 +41,9 @@ class TestConfiguration < Test::Unit::TestCase
     tcpOK = udpOK = fluteOK = false
     @evDis.subscribe(:linkCreated) do |link|
       case link.class.name
-      when "TCPCL::TCPLink":     tcpOK   = true
-      when "UDPCL::UDPLink":     udpOK   = true
-      when "FluteCL::FluteLink": fluteOK = true
+      when "TCPCL::TCPLink"     then tcpOK   = true
+      when "UDPCL::UDPLink"     then udpOK   = true
+      when "FluteCL::FluteLink" then fluteOK = true
       end
     end
     CLs.each_with_index {|cl, i| @config.link(cl, "link#{i}", :policy => :onDemand) unless cl == :client}
