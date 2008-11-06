@@ -34,7 +34,7 @@ module Sim
         var = vars.first
       else
         var = @cur_variant ? vars[@cur_variant[id]] : vars.first
-        @selected[id] = var.is_a?(Proc) ? var.to_ruby : var
+        @selected[id] = (var.is_a?(Proc) and var.respond_to?(:to_ruby)) ? var.to_ruby : var
       end
       var.is_a?(Proc) ? var.call : var
     end
