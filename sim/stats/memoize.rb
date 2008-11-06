@@ -3,7 +3,6 @@ module Memoize
   def remember(name, &block)
     memory = {}
 
-    define_method(name, &block)
     meth = instance_method(name)
 
     define_method(name) do |*args|

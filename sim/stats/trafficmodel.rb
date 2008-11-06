@@ -94,16 +94,17 @@ class TrafficModel
     end
   end
 
-  remember :memo_dijkstra do |graph, src, time|
+  def memo_dijkstra(graph, src, time)
     dijkstra(graph, src, time)
   end
+  remember :memo_dijkstra
 
-  remember :channel_content do |channel|
+  def channel_content(channel)
     @bundles.values.find_all {|b| b.dest == channel}.sort_by {|b| b.created}
   end
+  remember :channel_content
 
-  remember :numberOfExpectedBundles do |options|
-    options ||= {}
+  def numberOfExpectedBundles(options = {})
     net   = options[:net]
     quota = options[:quota]
 
@@ -144,6 +145,7 @@ class TrafficModel
       sum + (bundle.multicast? ? dests.length : 1)
     end
   end
+  remember :numberOfExpectedBundles
 
   def numberOfDeliveredBundles
     regularBundles.inject(0) {|sum, b| sum + b.nDelivered(@regs[b.dest])}
