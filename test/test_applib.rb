@@ -50,17 +50,16 @@ class TestAppLib < Test::Unit::TestCase
 
     bundleOrig="dtn://bla.fasel"
 
-    eventSent = false
     b=Bundling::Bundle.new(@bundleContent, bundleOrig, @config.localEid)
+    brec = nil
 
     @evDis.subscribe(:bundleParsed) do |bundle|
-      assert_equal(b.to_s, bundle.to_s)
-      eventSent = true
+      brec = bundle
     end
     @client.sendBundle(b)
 
     sleep(1)
-    assert(eventSent)
+    assert_equal(b.to_s, brec.to_s)
   end
 
   def test_send_data

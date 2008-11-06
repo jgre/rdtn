@@ -412,10 +412,10 @@ module Bundling
       pbb << Sdnv.encode(@creationTimestamp)
       pbb << Sdnv.encode(@creationTimestampSeq)
       pbb << Sdnv.encode(@lifetime.to_i)
-      pbb << Sdnv.encode(dict.length)
+      pbb << Sdnv.encode(dict.bytesize)
       pbb << dict
 
-      @blockLength = pbb.length
+      @blockLength = pbb.bytesize
       data << Sdnv.encode(@blockLength)
       data << pbb
 
@@ -436,13 +436,13 @@ module Bundling
 	if not rbDict.include?(scheme)
 	  strDict << scheme + "\0"
 	  rbDict[scheme] = offset
-	  offset = strDict.length
+	  offset = strDict.bytesize
 	end
 	res = self.send(schemeOff, rbDict[scheme])
 	if not rbDict.include?(ssp)
 	  strDict << ssp + "\0"
 	  rbDict[ssp] = offset
-	  offset = strDict.length
+	  offset = strDict.bytesize
 	end
 	self.send(sspOff, rbDict[ssp])
       end
@@ -540,8 +540,7 @@ module Bundling
 
 	  @lifetime = nil if @lifetime == 0
           if @blocks.empty? or @blocks[-1].parserFinished?
-            blockType = io.getc
-	    blockType = blockType.ord if blockType.respond_to?(:ord)
+            blockType = io.respond_to?(:getbyte) ? io.getbyte : io.getc
             block = BundleBlockReg.instance.makeBlock(blockType, self)
             addBlock(block)
           end
@@ -578,7 +577,7 @@ module Bundling
     end
 
     def bundleSize
-      return to_s.length
+      return to_s.bytesize
     end
 
     def Bundle.reassemble(fragment1, fragment2)
@@ -588,7 +587,7 @@ module Bundling
       if fragment1.fragmentOffset > fragment2.fragmentOffset
 	fragment1, fragment2 = fragment2, fragment1
       end
-      if fragment1.fragmentOffset + fragment1.payload.length < fragment2.fragmentOffset
+      if fragment1.fragmentOffset + fragment1.payload.bytesize < fragment2.fragmentOffset
 	raise FragmentGap
       end
 
@@ -596,7 +595,7 @@ module Bundling
       res = fragment1.deepCopy
 
       res.payload = fragment1.payload[0,fragment2.fragmentOffset] + fragment2.payload
-      if res.payload.length == res.aduLength
+      if res.payload.bytesize == res.aduLength
 	res.fragment = false
 	res.aduLength = res.fragmentOffset = nil
       end
@@ -642,8 +641,8 @@ module Bundling
       ret = Bundle.new(nil, nil, nil, :incomingLink => incomingLink)
       ret.blocks = @blocks.map {|block| block.clone}
       instance_variables.each do |var|
-        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var)
-          ret.instance_variable_set(var, instance_variable_get(var))
+        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var.to_s)
+          ret.instance_variable_set(var.to_s, instance_variable_get(var.to_s))
         end
       end
       return ret
@@ -679,7 +678,7 @@ module Bundling
     # smaller we err a bit on the high side here.
 
     def headerSize
-      self.bundleSize - self.payload.length
+      self.bundleSize - self.payload.bytesize
     end
 
     # Returns two bundles. The first is no greater that targetSize bytes
@@ -700,7 +699,7 @@ module Bundling
       if not self.fragment?
 	fragment1.fragmentOffset = 0
 	fragment2.fragmentOffset = offset
-	fragment1.aduLength = fragment2.aduLength = self.payload.length
+	fragment1.aduLength = fragment2.aduLength = self.payload.bytesize
       else
 	# If we are fragmenting a bundle that is already a fragment the total
 	# ADU is unchanged and the offset of the first fragment is the same as
@@ -819,6 +818,7 @@ module Bundling
       data << Bundle::PAYLOAD_BLOCK
       data << flags
       data << Sdnv.encode(self.payloadLength)
+      self.payload.force_encoding(data.encoding) if data.respond_to?(:encoding)
       data << self.payload
       return data
     end
@@ -840,14 +840,14 @@ module Bundling
       when :memory
 	@payload = pl
       when :random
-	@payloadLength = pl.length if pl
+	@payloadLength = pl.bytesize if pl
 	@payload       = nil
       end
     end
 
     def payloadLength
       if @payloadLength then @payloadLength
-      else @payload.length end
+      else @payload.bytesize end
     end
 
     def PayloadBlock.storePolicy=(policy)

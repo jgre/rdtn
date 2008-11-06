@@ -66,22 +66,24 @@ class TestTCPConvergenceLayer < Test::Unit::TestCase
     interface=TCPCL::TCPInterface.new(@config, @evDis, "tcp0", 
 				      :host => "localhost", :port => 3456)
     link=TCPCL::TCPLink.new(@config, @evDis)
-    link.open("link1", :host => "localhost", :port => 3456)
 
     bundleSent = false
     mon = Monitor.new
     @evDis.subscribe(:linkOpen) do |link|
-      mon.synchronize do
-	link.sendBundle(inBundle) unless bundleSent
-	bundleSent = true
+      if link.name == 'link1'
+	mon.synchronize do
+	  link.sendBundle(inBundle) unless bundleSent
+	  bundleSent = true
+	end
       end
     end
+    link.open("link1", :host => "localhost", :port => 3456)
     sleep(2)
     link.close
     interface.close
     
     assert_equal(@config.localEid.to_s, link.remoteEid.to_s)
-    assert_equal(inBundle.length, outBundle.length)
+    assert_equal(inBundle.bytesize, outBundle.bytesize)
     
     assert_equal(true, link.connection[:acks])
     interface.links.each do |link|

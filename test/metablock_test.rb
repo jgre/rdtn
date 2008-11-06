@@ -14,7 +14,8 @@ class TestMetadataBlock < Test::Unit::TestCase
 
   should 'serialize and parse itself' do
     sio = StringIO.new(@meta.to_s)
-    assert_equal MetadataBlock::METADATA_BLOCK, sio.getc
+    byte = sio.respond_to?(:getbyte) ? sio.getbyte : sio.getc
+    assert_equal MetadataBlock::METADATA_BLOCK, byte
 
     meta2 = MetadataBlock.new(@bundle)
     meta2.parse(sio)

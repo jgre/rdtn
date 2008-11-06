@@ -18,6 +18,14 @@
 require "stringio"
 require "sdnv"
 
+unless ''.respond_to? :bytesize
+  class String
+    def bytesize
+      self.length
+    end
+  end
+end
+
 module GenParser
 
   module ClassMethods
@@ -46,12 +54,13 @@ module GenParser
         end
 
         decode = params[:decode] || lambda do |io, len|
+	  mypos = io.pos
           dat = io.read(len)
-          if not dat or dat.length < length
-            dlen = dat ? dat.length : 0
+          if not dat or dat.bytesize < length
+            dlen = dat ? dat.bytesize : 0
             raise InputTooShort, len - dlen
           end
-          [dat, dat.length]
+          [dat, dat.bytesize]
         end
 
         check = lambda do |dat|
@@ -134,11 +143,11 @@ module GenParser
       raise TypeError, "Need to know the length of Numeric value"
     end
     data = sio.read(length)
-    if not data or data.length < length
+    if not data or data.bytesize < length
       raise InputTooShort, length
     end
     result = case length
-	     when 1 then data[0].respond_to?(:ord) ? data[0].ord : data[0]
+	     when 1 then data.respond_to?(:bytes) ? data.bytes.first : data[0]
 	     when 2 then data[0, length].unpack('n')[0]
 	     when 4 then data[0, length].unpack('N')[0]
 	     when 8 then data[0, length].unpack('Q')[0]
@@ -151,11 +160,11 @@ module GenParser
   def GenParser.decodeNullTerminated(sio, length=nil)
     oldPos = sio.pos
     data = sio.gets(0.chr)
-    if length and data.length > length
+    if length and data.bytesize > length
       data.slice!(length, -1) # Cut off the unwanted end
       sio.pos = oldPos+length
     else
-      length = data.length
+      length = data.bytesize
     end
     data.slice!(-1) if data[-1] == 0 or data[-1] == "\0"
     return data, length

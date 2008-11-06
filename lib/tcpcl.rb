@@ -73,7 +73,6 @@ module TCPCL
     
     def initialize(evDis, tcpLink)
       super(evDis, tcpLink)
-      
     end
 
     def localEid=(eid)
@@ -145,7 +144,9 @@ module TCPCL
       if io.eof?
 	raise InputTooShort, 1
       end
-      typeCode = (io.getc & 0xf0) >> 4 # First 4 bits
+      # First 4 bits
+      byte = (io.respond_to?(:getbyte) ? io.getbyte : io.getc)
+      typeCode = (byte & 0xf0) >> 4
       nextState = case typeCode
                   when TCPLink::DATA_SEGMENT 
 		    ReceivingState.new(@evDis, @tcpLink)
@@ -185,10 +186,11 @@ module TCPCL
     end
 
     def flags=(data)
-      @sFlag = data[0] & 0x2 # The 7th bit
-      @eFlag = data[0] & 0x1 # The last bit
+      chr = data.respond_to?(:bytes) ? data.bytes.first : data[0]
+      @sFlag = chr & 0x2 # The 7th bit
+      @eFlag = chr & 0x1 # The last bit
     end
-    
+
     def bundleData(data)
       @tcpLink.handleBundleData(@sFlag != 0, @eFlag != 0, data)
     end
@@ -443,7 +445,8 @@ module TCPCL
 	return unless data 
 
 	buf << ((TCPLink::DATA_SEGMENT << 4) | flags)
-	buf << Sdnv.encode(data.length)
+	buf << Sdnv.encode(data.bytesize)
+	data.force_encoding(buf.encoding) if data.respond_to?(:encoding)
 	buf << data
 	sendQueueAppend(buf)
       end
