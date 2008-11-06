@@ -40,7 +40,7 @@ class TestMITParser < Test::Unit::TestCase
   end
 
   def test_parse
-    parser = DieselNetParser.new(nil, nil, "tracefile" => @path)
+    parser = DieselNetParser.new(:tracefile => @path)
     ev = parser.events
     assert_equal(6, ev.events.length)
 
