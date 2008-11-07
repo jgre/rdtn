@@ -2,18 +2,20 @@ class PubSub1Channel < Sim::Specification
 
   def execute(sim)
     sim.trace(variants(:traces,
+            {:type => 'MITParser', :tracefile => 'random_walk_ConnectivityDtnsim2Report'},
             {:type => 'MITParser', :tracefile => 'jgre-wdm1_ConnectivityDtnsim2Report'},
-            {:type => 'SetdestParser', :tracefile => 'scen-s1-10000x10000-n100-m1-M19-p50-1'},
+            #{:type => 'SetdestParser', :tracefile => 'scen-s1-10000x10000-n100-m1-M19-p50-1'},
             {:type => 'DieselNetParser', :tracefile => 'dieselnet_spring2007'}))
-             #{:type => 'MITParser',       :tracefile => 'MITcontacts.txt'}))
+            #{:type => 'MITParser',       :tracefile => 'MITcontacts.txt'}))
 
     sim.nodes.linkCapacity = (11 * 10**6 / 8).to_i
     sim.nodes.router :epidemic
 
     channel = 'dtn://channel1/'
 
-    receiver_count = variants(:receiver_count, lambda {sim.nodes.length/2},
-                              lambda {sim.nodes.length})
+    #receiver_count = variants(:receiver_count, lambda {sim.nodes.length/2},
+    #                          lambda {sim.nodes.length})
+    receiver_count = sim.nodes.length
     # Load a randomized list of node IDs
     shuffled_nodes = YAML.load_file('simulations/specs/shuffled_nodes.yml')
 
@@ -43,22 +45,20 @@ class PubSub1Channel < Sim::Specification
 
     # Define variations for expiry: 1hour, 1day, 5days, a quota of 10 items, and
     # a quota of 20 items.
-    lifetime = 0
-    quota    = nil
-    variants(:lifetime,
-	     #lambda {lifetime = 3600;   quota = nil},
-	     #lambda {lifetime = 86400;  quota = nil},
-	     #lambda {lifeimte = 432000; quota = nil},
-	     #lambda {lifetime = nil;    quota = 10},
-	     lambda {lifetime = nil;    quota = 15})
+    lifetime, quota = variants(:lifetime_quota,
+			       [lifetime = 3600,   quota = nil],
+			       [lifetime = 86400,  quota = nil],
+			       [lifeimte = 432000, quota = nil],
+			       #[lifetime = nil,    quota = 10],
+			       [lifetime = nil,    quota = 15])
 
     # Assign the quotas to the stores of all nodes for the variants with quotas
     sim.nodes.values.each {|n| n.config.store.channelquota = quota} if quota
 
-    sim.at((3600 / variants(:sendRate, 1, 5)).to_i) do |time|
+    sim.at((3600 / variants(:sendRate, 6)).to_i) do |time|
       b = sim.node(sender).sendDataTo(data, channel, nil, :multicast => true,
 				      :lifetime => lifetime)
-      puts "#@var_idx Hour #{time / (3600)}" if (time % (3600)) == 0
+      puts "#@var_idx Day #{time / (3600*24)}" if (time % (3600*24)) == 0
       time < sim.duration
     end
 
