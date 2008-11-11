@@ -46,7 +46,7 @@ class Storage < Monitor
     @limit = limit
     @directory = dir
     @curSize = 0
-    @bundles = []
+    @bundles = {}
     @deleted = []
     @displacement = []
     @channelquota = nil
@@ -56,20 +56,18 @@ class Storage < Monitor
   end
 
   def length
-    @bundles.find_all{|b| !b.deleted?}.length
+    @bundles.values.compact.length
   end
 
   def each(includeDeleted = false)
-    deleteBundles(true) {|bundle| bundle.expired?}
+    deleteBundles(true) {|bundle| bundle.expired? unless bundle.nil?}
     synchronize do
-      @bundles.each {|b| yield(b) if not b.deleted? or includeDeleted }
+      @bundles.values.each {|b| yield(b) if !b.nil? or includeDeleted }
     end
   end
 
   def allIds
-    bids = @bundles.map {|bundle| bundle.bundleId}
-    delbids = @deleted.map {|bundle| bundle.bundleId}
-    bids + delbids
+    @bundles.keys
   end
 
   def getBundle(bundleId)
@@ -82,12 +80,13 @@ class Storage < Monitor
 
   def deleteBundles(purge = false, &handler)
     synchronize do 
-      bundles = @bundles.find_all(&handler)
+      bundles = @bundles.values.find_all(&handler)
       bundles.each do |bundle|
 	@curSize -= bundle.payloadLength
 	bundle.delete
+	@bundles[bundle.bundleId] = nil
 	@evDis.dispatch(:bundleRemoved, bundle)
-	@bundles.delete(bundle) if purge
+	@bundles.delete(bundle.bundleId) if purge
       end
     end
   end
@@ -98,11 +97,11 @@ class Storage < Monitor
     end
     synchronize do
       @curSize += bundle.payloadLength
-      if dup = @bundles.find {|b| b.bundleId == bundle.bundleId}
-	dup.forwardLog.merge(bundle.forwardLog)
+      if dup = @bundles[bundle.bundleId]
+	dup.forwardLog.merge(bundle.forwardLog) unless dup.nil?
 	raise BundleAlreadyStored, bundle.bundleId
       end
-      @bundles.push(bundle)
+      @bundles[bundle.bundleId] = bundle
       @evDis.dispatch(:bundleStored, bundle)
       rdebug("Stored bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")
       enforceLimit
@@ -117,7 +116,7 @@ class Storage < Monitor
   end
 
   def getBundleMatching
-    synchronize { @bundles.find {|b| yield(b) unless b.deleted?} }
+    synchronize{@bundles.values.find {|b| yield(b) unless b.nil? or b.deleted?}}
   end
 
   def getBundleMatchingDest(destEid, includeDeleted = false)
@@ -126,7 +125,7 @@ class Storage < Monitor
 
   def getBundlesMatching(includeDeleted = false)
     synchronize do 
-      @bundles.find_all do |bundle|
+      @bundles.values.find_all do |bundle|
 	yield(bundle) if (not bundle.deleted?) or includeDeleted
       end
     end
@@ -159,7 +158,7 @@ class Storage < Monitor
   def enforceChannelQuotas
     channels = Hash.new {|hash, key| hash[key] = []}
     delCandidates = []
-    @bundles.each {|bundle| channels[bundle.destEid] << bundle}
+    @bundles.values.each {|bundle| channels[bundle.destEid] << bundle}
     channels.each_value do |bundles|
       if (diff = bundles.length - @channelquota) > 0
 	delCandidates += bundles.sort_by {|b| b.creationTimestamp}[0, diff]
@@ -193,7 +192,7 @@ class Storage < Monitor
     
     delCandidates = []
     delSize       = 0
-    @bundles.reverse_each do |bundle|
+    @bundles.values.reverse_each do |bundle|
       break unless @limit and (@curSize - delSize) > @limit
       unless bundle.deleted? or bundle.retentionConstraints?
 	rdebug("Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")

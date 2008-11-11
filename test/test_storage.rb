@@ -145,8 +145,8 @@ class TestStorage < Test::Unit::TestCase
 
     ret1 = @store.getBundle(id1)
     ret2 = @store.getBundle(id2)
-    assert_equal(51, ret2.payload.length)
-    assert_nil(ret1)
+    assert((ret1.nil? or ret2.nil?))
+    assert((!ret1.nil? or !ret2.nil?))
   end
 
   def test_duplicates
