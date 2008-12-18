@@ -59,10 +59,15 @@ class StatBundle
     @incidents.length
   end
 
-  def delays(regs = nil)
+  def delays(regs = nil, considerReg = false)
     regs = [Struct::Registration.new(@dest, 0)] if regs.nil? or regs.empty?
     ret = regs.map do |reg|
-      @incidents[reg.node].min - @created.to_i if delivered?(reg)
+      if delivered?(reg)
+	start=considerReg?[@created.to_i,reg.startTime.to_i].max : @created.to_i
+	# If the bundle arrived at the node before it registered (can happen due
+	# to flooding), the delay is considered to be 0 not a negative number.
+	[0, @incidents[reg.node].min - start].max
+      end
     end
     ret.compact
   end

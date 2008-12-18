@@ -8,6 +8,27 @@ require 'memoize'
 
 Struct.new('Registration', :node, :startTime, :endTime)
 
+def ruby_version_geq(target)
+  tg  = []
+  cur = []
+  if /(\d+)\.(\d+).(\d+)/ =~ target
+    tg = [$1, $2, $3]
+  end
+  if /(\d+)\.(\d+).(\d+)/ =~ RUBY_VERSION
+    cur = [$1, $2, $3]
+  end
+  tg.each_with_index {|val, i| return false unless cur[i].to_i >= val.to_i}
+  true
+end
+
+unless ruby_version_geq("1.8.7")
+  class Array
+    def find_index(obj)
+      self.each_with_index {|entry, i| return i if entry == obj}
+    end
+  end
+end
+
 class TrafficModel
 
   extend Memoize
@@ -59,9 +80,9 @@ class TrafficModel
     regularBundles.length
   end
 
-  def delays
+  def delays(considerReg = false)
     @bundles.values.inject([]) do |cat, bundle|
-      cat + bundle.delays(@regs[bundle.dest])
+      cat + bundle.delays(@regs[bundle.dest], considerReg)
     end
   end
 
@@ -69,15 +90,23 @@ class TrafficModel
     @bundles.values.map {|bundle| [bundle.bundleId, bundle.delays]}
   end
 
-  def totalDelay
-    delays.inject(0) {|sum, delay| sum + delay}
+  def totalDelay(considerReg = false)
+    delays(considerReg).inject(0) {|sum, delay| sum + delay}
   end
 
-  def averageDelay
+  def averageDelay(considerReg = false)
     if delays.empty?
       0
     else
-      totalDelay / delays.length.to_f
+      totalDelay(considerReg) / delays.length.to_f
+    end
+  end
+
+  def medianDelay(considerReg = false)
+    if delays.empty?
+      0
+    else
+      delays(considerReg).sort[delays.length / 2]
     end
   end
 
