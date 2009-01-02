@@ -11,8 +11,7 @@ require 'analysis'
 
 class AnalyzeTest < Test::Unit::TestCase
 
-
-  context 'Plotting the results for an experiment with two variables' do
+  context 'Analyzing the results for an experiment with two variables' do
 
     setup do
       @variants = [
@@ -21,11 +20,20 @@ class AnalyzeTest < Test::Unit::TestCase
 	[{:a => 1, :b => 5}, NetworkModel.new, TrafficModel.new(0)],
 	[{:a => 2, :b => 5}, NetworkModel.new, TrafficModel.new(0)]
       ]
-      @analysis = Analysis.new(@variants)
 
-      @datasets = @analysis.plot_results(:dataset => :a, :x_axis => :b) do |dataset, x, network_model, traffic_model|
+      @datasets = Analysis.analyze(@variants, :dataset => :a, :x_axis => :b) do |dataset, x, network_model, traffic_model|
 	[network_model, traffic_model]
       end
+    end
+
+    should 'produce datasets identified by variable :a that map variable :b to the network model and the traffic model' do
+      expectation = [
+	Struct::Dataset.new({:a => 1}, [[4, @variants[0][1], @variants[0][2]],
+			                [5, @variants[2][1], @variants[2][2]]]),
+	Struct::Dataset.new({:a => 2}, [[4, @variants[1][1], @variants[1][2]],
+			                [5, @variants[3][1], @variants[3][2]]])
+      ]
+      assert_equal expectation, @datasets
     end
 
     should 'produce two datasets' do
@@ -48,6 +56,23 @@ class AnalyzeTest < Test::Unit::TestCase
        	@datasets.inject([]) {|memo, ds| memo + ds.values.map {|v| v[1..-1]}}
     end
 
+  end
+
+  context 'Putting Struct::Dataset into a string' do
+
+    setup do
+      @ds = Struct::Dataset.new({:a => 1},[[4, 1000, 1200],
+				           [5, 500,   900]])
+      @str = @ds.to_s
+    end
+
+    should 'give an ASCII table' do
+      expected = <<END_OF_STRING
+4 1000 1200
+5 500 900
+END_OF_STRING
+      assert_equal expected, @str
+    end
   end
 
 end
