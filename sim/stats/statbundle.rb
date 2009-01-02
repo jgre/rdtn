@@ -63,7 +63,7 @@ class StatBundle
     regs = [Struct::Registration.new(@dest, 0)] if regs.nil? or regs.empty?
     ret = regs.map do |reg|
       if delivered?(reg)
-	start=considerReg?[@created.to_i,reg.startTime.to_i].max : @created.to_i
+	start=considerReg ? [@created.to_i,reg.startTime.to_i].max : @created.to_i
 	# If the bundle arrived at the node before it registered (can happen due
 	# to flooding), the delay is considered to be 0 not a negative number.
 	[0, @incidents[reg.node].min - start].max
