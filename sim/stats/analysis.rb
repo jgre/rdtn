@@ -30,16 +30,26 @@ module Analysis
   # 
   # The function returns a list of datasets (Struct::Dataset).
   def self.analyze(variants, options)
-    ds  = options[:dataset]
+    get_ds = lambda do |entry|
+      ret = {}
+      if (ds = options[:dataset]).is_a? Enumerable
+	ds.each {|ds_id| ret[ds_id] = entry[ds_id]}
+      else
+	ret[ds] = entry[ds]
+      end
+      ret
+    end
+
     ret = []
-    variants.sort_by{|v| v[0][ds]}.each do |variant|
-      cur_ds_val = variant[0][ds]
+    variants.sort_by{|v| [get_ds[v[0]].to_s, v[0][options[:x_axis]].to_s]}.each do |variant|
+      cur_ds_val = get_ds[variant[0]]
       set        = ret.last
-      if set.nil? or set.dataset[ds] != cur_ds_val
-	ret << set = Struct::Dataset.new({ds => variant[0][ds]}, [])
+      if set.nil? or get_ds[set.dataset] != cur_ds_val
+	ret << set = Struct::Dataset.new(cur_ds_val, [])
       end
       x = variant[0][options[:x_axis]]
-      set.values << [x] + yield(ds, x, variant[1], variant[2])
+      y = yield(cur_ds_val, x, variant[1], variant[2])
+      set.values << [x] + y unless y.nil?
     end
     ret
   end

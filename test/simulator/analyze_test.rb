@@ -75,4 +75,47 @@ END_OF_STRING
     end
   end
 
+  context 'Analyzing the results for an experiment with three variables' do
+    setup do
+      @variants = [
+	[{:a => 1, :b => 4, :c => 42.5}, NetworkModel.new, TrafficModel.new(0)],
+	[{:a => 1, :b => 4, :c => 42},   NetworkModel.new, TrafficModel.new(0)],
+	[{:a => 2, :b => 4, :c => 43},   NetworkModel.new, TrafficModel.new(0)],
+	[{:a => 1, :b => 5, :c => 44},   NetworkModel.new, TrafficModel.new(0)],
+	[{:a => 2, :b => 5, :c => 45},   NetworkModel.new, TrafficModel.new(0)]
+      ]
+
+      @datasets = Analysis.analyze(@variants, :dataset => [:a, :b], :x_axis => :c) do |dataset, x, network_model, traffic_model|
+	[network_model, traffic_model]
+      end
+    end
+
+    should 'produce datasets identified by variables :a and :b that map variable :c to the network model and the traffic model' do
+      expectation = [
+	Struct::Dataset.new({:a => 1, :b => 4},
+			    [[42,   @variants[1][1], @variants[1][2]],
+			     [42.5, @variants[0][1], @variants[0][2]]]),
+	Struct::Dataset.new({:a => 1, :b => 5},
+			    [[44, @variants[3][1], @variants[3][2]]]),
+	Struct::Dataset.new({:a => 2, :b => 4},
+			    [[43, @variants[2][1], @variants[2][2]]]),
+	Struct::Dataset.new({:a => 2, :b => 5},
+			    [[45, @variants[4][1], @variants[4][2]]])
+      ]
+      assert_equal expectation, @datasets
+    end
+
+  end
+
+  should 'cope with empty datasets' do
+    @variants = [[{:a => 1, :b => 4},   NetworkModel.new, TrafficModel.new(0)],
+                 [{:a => 1, :b => nil}, NetworkModel.new, TrafficModel.new(0)]]
+    @datasets = Analysis.analyze(@variants, :dataset => :a, :x_axis => :b) do |dataset, x, network_model, traffic_model|
+      [network_model, traffic_model] unless x.nil?
+    end
+    expectation = [
+      Struct::Dataset.new({:a => 1}, [[4, @variants[0][1], @variants[0][2]]])
+    ]
+    assert_equal expectation, @datasets
+  end
 end
