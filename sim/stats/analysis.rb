@@ -41,7 +41,13 @@ module Analysis
     end
 
     ret = []
-    variants.sort_by{|v| [get_ds[v[0]].to_s, v[0][options[:x_axis]].to_s]}.each do |variant|
+    # The datasets are sorted as strings as they might contain different
+    # datatypes and even be nil. The wrong order of numeric values does not
+    # matter since the sorting is only done to have equal values next to each
+    # other.
+    # The x values are sorted as floats, as they must be sorted in the datasets
+    # so that they can be plotted properly.
+    variants.sort_by{|v| [get_ds[v[0]].to_s, v[0][options[:x_axis]].to_f]}.each do |variant|
       cur_ds_val = get_ds[variant[0]]
       set        = ret.last
       if set.nil? or get_ds[set.dataset] != cur_ds_val

@@ -109,12 +109,14 @@ END_OF_STRING
 
   should 'cope with empty datasets' do
     @variants = [[{:a => 1, :b => 4},   NetworkModel.new, TrafficModel.new(0)],
-                 [{:a => 1, :b => nil}, NetworkModel.new, TrafficModel.new(0)]]
+                 [{:a => 1, :b => nil}, NetworkModel.new, TrafficModel.new(0)],
+                 [{:a => 1, :b => 20},  NetworkModel.new, TrafficModel.new(0)]]
     @datasets = Analysis.analyze(@variants, :dataset => :a, :x_axis => :b) do |dataset, x, network_model, traffic_model|
       [network_model, traffic_model] unless x.nil?
     end
     expectation = [
-      Struct::Dataset.new({:a => 1}, [[4, @variants[0][1], @variants[0][2]]])
+      Struct::Dataset.new({:a => 1}, [[4,  @variants[0][1], @variants[0][2]],
+			              [20, @variants[2][1], @variants[2][2]]])
     ]
     assert_equal expectation, @datasets
   end
