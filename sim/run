@@ -6,12 +6,18 @@ require 'optparse'
 
 parallel = 1
 git      = false
-variants = false
+variants = true
+analysis = false
+analysis_only = false
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')                       {git      = true}
-opts.on('-v', '--with-variants')             {variants = true}
-specs    = opts.parse(ARGV)
+opts.on('-v', '--without-variants')          {variants = false}
+opts.on('-a', '--analysis')                  {analysis = true}
+opts.on('-A', '--analysis-only')             {analysis = analysis_only = true}
+spec = opts.parse(ARGV).first
+
+# FIXME error message if no spec is given
 
 if git
   system("git commit -a")
@@ -19,24 +25,34 @@ if git
   revision = IO.popen("git log -n1") {|p| p.read}
 end
 
-if variants
-  specs = specs.inject([]) do |memo, spec|
-    memo + Sim::Specification.loadSpec(spec).createVariants
+unless analysis_only
+  dir = File.join(File.dirname(__FILE__),
+	 "../simulations/results/#{spec}-#{Time.now.strftime('%Y%m%d-%H%M%S')}")
+
+  FileUtils.mkdir_p dir
+
+  specs = Sim::Specification.loadSpec(spec).createVariants if variants
+
+  active_procs = []
+  until specs.empty?
+    #if active_procs.length < parallel
+    s = specs.shift
+    #active_procs << fork do
+    dirname = Sim::Core.runBySpec(s, dir)
+    # write commit hash to dirname/revision
+    open(File.join(dirname, "revision"), "w") {|f| f.write(revision.to_s)}
+    #end
+    #else
+    #  active_procs.delete(Process.wait)
+    #end
   end
+
+  Process.waitall
+else
+  dir = Dir.glob(File.join(File.dirname(__FILE__),
+	 "../simulations/results/#{spec}-*")).sort_by{|d| File.mtime(d)}.last
 end
 
-active_procs = []
-until specs.empty?
-  if active_procs.length < parallel
-    spec = specs.shift
-    active_procs << fork do
-      dirname = Sim::Core.runBySpec(spec)
-      # write commit hash to dirname/revision
-      open(File.join(dirname, "revision"), "w") {|f| f.write(revision.to_s)}
-    end
-  else
-    active_procs.delete(Process.wait)
-  end
+if analysis
+  Sim::Core.analyzeBySpec(spec, dir)
 end
-
-Process.waitall

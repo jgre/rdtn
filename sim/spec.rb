@@ -35,9 +35,16 @@ module Sim
       else
         var = @cur_variant ? vars[@cur_variant[id]] : vars.first
       end
-      ret = var.is_a?(Proc) ? var.call : var
-      @selected[id] = (var.is_a?(Proc) and var.respond_to?(:to_ruby)) ? var.to_ruby : ret
-      ret
+      case var
+      when Proc
+	@selected[id] = var.respond_to?(:to_ruby) ? var.to_ruby : ret
+	var.call
+      when Array
+	@selected[id] = var # store both the value and the description for evaluations.
+	var[0] # return the value of a [value, description] pair
+      else
+	@selected[id] = var
+      end
     end
 
     def self.createVariants

@@ -30,6 +30,7 @@ require 'stats/networkmodel'
 require 'stats/trafficmodel'
 require 'spec'
 require 'graph'
+require 'analysis'
 
 module Sim
 
@@ -141,15 +142,14 @@ module Sim
       @te.timer if @te
     end
 
-    def self.runBySpec(spec)
+    def self.runBySpec(spec, dir)
       sim     = new
 
       spec = Specification.loadSpec(spec).new unless spec.is_a?(Specification)
 
-      dirname = File.join(File.join(File.dirname(__FILE__),
-                                  '../simulations/results',
-                                  spec.name))
+      dirname = File.join(dir, spec.name)
       FileUtils.mkdir_p(dirname)
+
       t0 = Time.now
 
       spec.execute(sim)
@@ -164,6 +164,31 @@ module Sim
       end
 
       dirname
+    end
+
+    def self.analyzeBySpec(spec, base_dir)
+      spec_obj = Specification.loadSpec(spec).new
+      dirname  = File.join(base_dir, spec + '*')
+
+      variants = Dir.glob(dirname).map do |dir|
+	networkfile = File.join(dir, 'network')
+	trafficfile = File.join(dir, 'traffic')
+	variantfile = File.join(dir, 'variant')
+
+	next unless File.exist?(networkfile) and File.exist?(trafficfile) and File.exist? variantfile
+
+	puts "Opening stats for from #{dir}"
+
+	variant = open(variantfile) {|f| YAML.load(f)}
+	network = open(networkfile) {|f| Marshal.load(f)}
+	traffic = open(trafficfile) {|f| YAML.load(f)}
+
+	[variant, network, traffic]
+      end
+
+      Analysis.new(variants, :experiment=>File.basename(base_dir)) do |analysis|
+	spec_obj.analyze(analysis)
+      end
     end
 
   end

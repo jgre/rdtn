@@ -61,6 +61,7 @@ module Sim
       pl.close if pl
       @bytesToSend = 0
       # TODO what happens with queued bundles?
+      # FIXME log amount of futile transmissions
     end
 
     def sendBundle(bundle)
@@ -78,6 +79,7 @@ module Sim
         else
           #rerror "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
           @evDis.dispatch(:transmissionError, bundle, self)
+	  # FIXME log amount of futile transmissions
         end
         false
       end
