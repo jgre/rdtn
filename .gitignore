@@ -1,6 +1,7 @@
 *.rbc
 *.rdtnsim
 simulations/results
+simulations/analysis
 *.aux
 *.bbl
 *.blg
