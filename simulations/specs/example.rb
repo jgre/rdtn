@@ -6,7 +6,11 @@ class Example < Sim::Specification
     sim.events = g.events
     sim.nodes.router :epidemic
 
-    data = 'a' * variants(:size, 1024, 1024000)
+    bogus = variants(:bogus, 1, nil)
+    quatsch = variants(:quatsch, 'bla', 'fasel', 'nil')
+
+    #data = 'a' * variants(:size, [1024, '1KB'], [1024000, '1000KB'])
+    data = 'a'
 
     sim.at(variants(:sendRate, 3600, 360)) do |time|
       sim.node(1).sendDataTo(data, 'dtn://kasuari2/')
@@ -14,4 +18,21 @@ class Example < Sim::Specification
       time < 3600*24
     end
   end
+
+  def analyze(analysis)
+    analysis.x_axis  = :sendRate
+    analysis.gnuplot = true
+
+    analysis.configure_plot do |plot|
+      plot.ylabel "# Bundles"
+      plot.xlabel "Send Rate"
+    end
+
+    analysis.plot :combine => :quatsch do |dataset|
+      dataset.values do |row, x, network_model, traffic_model|
+	row.value "delivered", traffic_model.numberOfDeliveredBundles
+      end
+    end
+  end
+
 end
