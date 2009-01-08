@@ -4,60 +4,175 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'networkmodel'
 require 'trafficmodel'
 
-Struct.new('Dataset', :dataset, :values)
+class Dataset
+  attr_accessor :dataset, :rows
+  attr_reader   :dat_conf
 
-class Struct::Dataset
-  def to_s
-    values.inject("") {|memo, val| memo + val.join(" ") + "\n"}
+  class Row
+    attr_accessor :x, :network, :traffic
+    attr_reader   :values, :errors
+
+    def initialize(x, network, traffic)
+      @x = x
+      @network = network
+      @traffic = traffic
+      @values  = {}
+      @errors  = {}
+    end
+
+    def value(name, val = nil)
+      @values[name] = val if val
+      @values[name]
+    end
+
+    def std_error(name, val = nil)
+      @errors[name] = val if val
+      @errors[name]
+    end
+
+    def to_s
+      "#@x #{@values.values.join(' ')}"
+    end
+
+    def dump
+      [x] + @values.values
+    end
+
   end
+
+  def initialize(dataset = {})
+    @dataset = dataset
+    @rows    = []
+  end
+
+  def to_s
+    @rows.inject("") {|memo, row| memo+"#{row.to_s}\n"}
+  end
+
+  def dump
+    [@dataset, @rows.map {|row| row.dump}]
+  end
+
+  def sort!
+    @rows = @rows.sort_by {|row| row.x.to_f}
+  end
+
+  def values(options = {}, &compute_values)
+    @rows.each      {|row| compute_values[row, row.x, row.network, row.traffic]}
+    @rows.delete_if {|row| row.values.empty?}
+  end
+
+  def configure_data(&configure)
+    @dat_conf = configure
+  end
+
 end
 
-module Analysis
+class Analysis
 
-  # Generate a list of datasets from the results of one or more experiment runs.
-  # The output can be plotted e.g. with GnuPlot.
+  attr_accessor :dataset, :x_axis, :gnuplot
+  attr_reader   :datasets
+
   # variants is a list of lists with the following structure:
   # * A Hash of the configuration of the run of an experiment (e.g. {:a => 1,
   #   :b1 =>} where :a and :b are variables in the the experiment),
   # * the network model of the experiment run,
   # * the traffic model of the experiment run.
-  # options can contain values for :dataset which identifies the top level
-  # variable, and :x_axis with identifes the variable that serves a x axis.
-  # A block must be passed with takes the dataset identifier, the x value, the
-  # network model, and the traffic model es parameters. The block should return
-  # the y value or an array of values to be considered results for the given x
-  # value.
-  # 
-  # The function returns a list of datasets (Struct::Dataset).
-  def self.analyze(variants, options)
-    get_ds = lambda do |entry|
-      ret = {}
-      if (ds = options[:dataset]).is_a? Enumerable
-	ds.each {|ds_id| ret[ds_id] = entry[ds_id]}
-      else
-	ret[ds] = entry[ds]
-      end
-      ret
+  def initialize(variants, options = {}, &configure)
+    @variants   = variants
+    @datasets   = []
+    @experiment = options[:experiment] || 'test'
+    configure[self]
+  end
+
+  def configure_plot(&configure)
+    @plot_conf = configure
+  end
+
+  def plot(options = {}, &configure)
+    # Sort variants into a hash where all variant variables except for the x
+    # values are keys.
+    variant_hash = Hash.new {|h, k| h[k] = []}
+    @variants.each do |variant|
+      variant_id = Hash.new.merge(variant[0])
+      variant_id.delete(@x_axis)
+      variant_id.each {|key, val| variant_id[key] = val.last if val.is_a? Array}
+      variant_hash[YAML.dump(variant_id)] << variant
     end
 
-    ret = []
-    # The datasets are sorted as strings as they might contain different
-    # datatypes and even be nil. The wrong order of numeric values does not
-    # matter since the sorting is only done to have equal values next to each
-    # other.
-    # The x values are sorted as floats, as they must be sorted in the datasets
-    # so that they can be plotted properly.
-    variants.sort_by{|v| [get_ds[v[0]].to_s, v[0][options[:x_axis]].to_f]}.each do |variant|
-      cur_ds_val = get_ds[variant[0]]
-      set        = ret.last
-      if set.nil? or get_ds[set.dataset] != cur_ds_val
-	ret << set = Struct::Dataset.new(cur_ds_val, [])
+    # Datasets that will be combined in one plot, are sorted into ds_hash with
+    # the same key. That key is the variant_id without the combination id.
+    ds_hash = Hash.new{|h, k| h[k] = []}
+    variant_hash.each do |vid, variants|
+      variant_id = YAML.load(vid)
+      key = Hash.new.merge(variant_id)
+      key.delete(options[:combine])
+      ds_hash[YAML.dump(key)] << (set = Dataset.new(variant_id))
+      variants.each do |variant|
+	set.rows << Dataset::Row.new(variant[0][@x_axis],variant[1],variant[2])
       end
-      x = variant[0][options[:x_axis]]
-      y = yield(cur_ds_val, x, variant[1], variant[2])
-      set.values << [x] + y unless y.nil?
+      set.sort!
+
+      configure[set]
     end
-    ret
+
+    @datasets = ds_hash.values.flatten
+
+    if @gnuplot
+      require 'gnuplot'
+
+      dirname = File.join(File.dirname(__FILE__),
+			"../../simulations/analysis/#{@experiment}")
+      FileUtils.mkdir_p dirname
+
+      ds_hash.each do |k, combined_sets|
+	key = YAML.load(k)
+
+	ds_name = key.to_s.gsub(/[\":\{\}\/ ,]/, "")
+	fname   = File.join(dirname, ds_name + '.svg')
+
+	Gnuplot.open do |gp|
+	  Gnuplot::Plot.new(gp) do |plot|
+	    plot.title    key
+	    plot.terminal 'svg'
+	    plot.output   fname
+
+	    @plot_conf[plot] if @plot_conf
+
+	    combined_sets.each do |dataset|
+	      combine = options[:combine]
+
+	      x = dataset.rows.map {|row| row.x}
+
+	      ys     = Hash.new {|h, k| h[k] = []}
+	      errors = Hash.new {|h, k| h[k] = []}
+	      dataset.rows.each do |row|
+		row.values.each {|k, val| ys[k]    << val}
+		row.errors.each {|k, val| errors[k] << val}
+	      end
+
+	      ys.each do |name, y|
+		error = errors[name]
+		plot.data << Gnuplot::DataSet.new([x, y, error]) do |ds|
+		  ds.title="#{combine ? dataset.dataset[combine] : key} #{name}"
+		  ds.with = error.nil? ? "linespoints" : "yerrorlines"
+		  dataset.dat_conf[ds] if dataset.dat_conf
+		end
+	      end
+	    end
+	  end
+	end
+      end
+    end
+  end
+
+  def self.dump(datasets, name)
+    dir = File.join(File.dirname(__FILE__),"../../simulations/analysis/#{name}")
+    FileUtils.mkdir_p dir
+    datasets.each do |ds|
+      fname = ds.dataset.to_s.gsub(/[\":\{\}\/ ,]/, "")
+      open(File.join(dir, fname), 'w') {|f| f.write(ds.to_s)}
+    end
   end
 
 end
