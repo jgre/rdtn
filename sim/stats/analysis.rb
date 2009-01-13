@@ -57,14 +57,9 @@ class Dataset
     @rows = @rows.sort_by {|row| row.x.to_f}
   end
 
-  def values(options = {}, &compute_values)
-    @rows.each      {|row| compute_values[row, row.x, row.network, row.traffic]}
-    @rows.delete_if {|row| row.values.empty?}
-  end
-
-  def configure_data(&configure)
-    @dat_conf = configure
-  end
+  #def configure_data(&configure)
+  #  @dat_conf = configure
+  #end
 
 end
 
@@ -89,77 +84,92 @@ class Analysis
     @plot_conf = configure
   end
 
-  def plot(options = {}, &configure)
+  def configure_data(options = {}, &configure)
+    x_axis = options[:x_axis]
     # Sort variants into a hash where all variant variables except for the x
     # values are keys.
     variant_hash = Hash.new {|h, k| h[k] = []}
     @variants.each do |variant|
       variant_id = Hash.new.merge(variant[0])
-      variant_id.delete(@x_axis)
+      variant_id.delete(x_axis)
       variant_id.each {|key, val| variant_id[key] = val.last if val.is_a? Array}
       variant_hash[YAML.dump(variant_id)] << variant
     end
 
     # Datasets that will be combined in one plot, are sorted into ds_hash with
     # the same key. That key is the variant_id without the combination id.
-    ds_hash = Hash.new{|h, k| h[k] = []}
+    @ds_hash = Hash.new{|h, k| h[k] = []}
     variant_hash.each do |vid, variants|
       variant_id = YAML.load(vid)
       key = Hash.new.merge(variant_id)
       key.delete(options[:combine])
-      ds_hash[YAML.dump(key)] << (set = Dataset.new(variant_id))
+      @ds_hash[YAML.dump(key)] << (set = Dataset.new(variant_id))
       variants.each do |variant|
-	set.rows << Dataset::Row.new(variant[0][@x_axis],variant[1],variant[2])
+	row = Dataset::Row.new(variant[0][x_axis],variant[1],variant[2])
+	configure[row, row.x, row.network, row.traffic]
+	set.rows << row
       end
+      set.rows.delete_if {|row| row.values.empty?}
       set.sort!
 
-      configure[set]
     end
 
-    @datasets = ds_hash.values.flatten
+    @datasets = @ds_hash.values.flatten
+  end
 
-    if @gnuplot
-      require 'gnuplot'
+  def plot(options = {}, &plot_conf)
+    require 'gnuplot'
 
-      dirname = File.join(File.dirname(__FILE__),
+    y_axis = options[:y_axis]
+    x_axis = options[:x_axis]
+
+    dirname = File.join(File.dirname(__FILE__),
 			"../../simulations/analysis/#{@experiment}")
-      FileUtils.mkdir_p dirname
+    FileUtils.mkdir_p dirname
 
-      ds_hash.each do |k, combined_sets|
-	key = YAML.load(k)
+    @ds_hash.each do |k, combined_sets|
+      key = YAML.load(k)
 
-	ds_name = key.to_s.gsub(/[\":\{\}\/ ,]/, "")
-	fname   = File.join(dirname, ds_name + '.svg')
+      ds_name = (key.to_s + y_axis.to_s).gsub(/[\":\{\}\/ ,]/, "")
+      fname   = File.join(dirname, ds_name + '.svg')
 
-	Gnuplot.open do |gp|
-	  Gnuplot::Plot.new(gp) do |plot|
-	    plot.title    key
-	    plot.terminal 'svg'
-	    plot.output   fname
+      only_once = options[:only_once] || []
 
-	    @plot_conf[plot] if @plot_conf
+      Gnuplot.open do |gp|
+	Gnuplot::Plot.new(gp) do |plot|
+	  plot.title    key
+	  plot.terminal 'svg'
+	  plot.output   fname
 
-	    combined_sets.each do |dataset|
-	      combine = options[:combine]
+	  @plot_conf[plot] if @plot_conf
 
-	      x = dataset.rows.map {|row| row.x}
+	  combined_sets.each do |dataset|
+	    combine = options[:combine]
 
-	      ys     = Hash.new {|h, k| h[k] = []}
-	      errors = Hash.new {|h, k| h[k] = []}
-	      dataset.rows.each do |row|
-		row.values.each {|k, val| ys[k]    << val}
-		row.errors.each {|k, val| errors[k] << val}
-	      end
+	    x = dataset.rows.map {|row| row.x}
 
-	      ys.each do |name, y|
-		error = errors[name]
-		plot.data << Gnuplot::DataSet.new([x, y, error]) do |ds|
+	    ys     = Hash.new {|h, k| h[k] = []}
+	    errors = Hash.new {|h, k| h[k] = []}
+	    dataset.rows.each do |row|
+	      row.values.each {|k, val| ys[k]     << val if y_axis.include?(k)}
+	      row.errors.each {|k, val| errors[k] << val}
+	    end
+
+	    ys.each do |name, y|
+	      error = errors[name]
+	      plot.data << Gnuplot::DataSet.new([x, y, error]) do |ds|
+		if only_once.include?(name)
+		  ds.title = name
+		else
 		  ds.title="#{combine ? dataset.dataset[combine] : key} #{name}"
-		  ds.with = error.nil? ? "linespoints" : "yerrorlines"
-		  dataset.dat_conf[ds] if dataset.dat_conf
 		end
+		ds.with = error.empty? ? "linespoints" : "yerrorlines"
+		dataset.dat_conf[ds] if dataset.dat_conf
 	      end
 	    end
+
+	    y_axis -= only_once
+
 	  end
 	end
       end

@@ -15,20 +15,18 @@ class AnalyzeTest < Test::Unit::TestCase
 
     setup do
       @variants = [
-	[{:a => 1, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
-	[{:a => 2, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
-	[{:a => 1, :b => 5}, NetworkModel.new, TrafficModel.new(0)],
-	[{:a => 2, :b => 5}, NetworkModel.new, TrafficModel.new(0)]
+        [{:a => 1, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
+        [{:a => 2, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
+        [{:a => 1, :b => 5}, NetworkModel.new, TrafficModel.new(0)],
+        [{:a => 2, :b => 5}, NetworkModel.new, TrafficModel.new(0)]
       ]
 
       @analysis = Analysis.new(@variants) do |analysis|
-	analysis.x_axis  = :b
-	analysis.plot do |dataset|
-	  dataset.values do |row, x, network, traffic|
-	    row.value "1", network
-	    row.value "2", traffic
-	  end
-	end
+        analysis.x_axis  = :b
+	analysis.configure_data :x_axis => :b do |row, x, network, traffic|
+	  row.value "1", network
+	  row.value "2", traffic
+        end
       end
       @datasets = @analysis.datasets
     end
@@ -70,7 +68,7 @@ class AnalyzeTest < Test::Unit::TestCase
     setup do
       @ds = Dataset.new({:a => 1})
       @ds.rows = [Dataset::Row.new(4, nil, nil),
-	          Dataset::Row.new(5, nil, nil)]
+                  Dataset::Row.new(5, nil, nil)]
       @ds.rows[0].value "a", 1000
       @ds.rows[0].value "b", 1200
       @ds.rows[1].value "a", 500
@@ -98,13 +96,10 @@ END_OF_STRING
       ]
 
       @analysis = Analysis.new(@variants) do |analysis|
-	analysis.x_axis  = :c 
-	analysis.plot do |dataset|
-	  dataset.values do |row, x, network_model, traffic_model|
-	    row.value "1", network_model
-	    row.value "2", traffic_model
-	  end
-	end
+	analysis.configure_data :x_axis => :c do |row, x, network_model, traffic_model|
+	  row.value "1", network_model
+	  row.value "2", traffic_model
+        end
       end
       @datasets = @analysis.datasets
     end
@@ -127,20 +122,17 @@ END_OF_STRING
                  [{:a => 1, :b => nil}, NetworkModel.new, TrafficModel.new(0)],
                  [{:a => 1, :b => 20},  NetworkModel.new, TrafficModel.new(0)]]
     @analysis = Analysis.new(@variants) do |analysis|
-      analysis.x_axis  = :b
-      analysis.plot do |dataset|
-	dataset.values do |row, x, network_model, traffic_model|
-	  unless x.nil?
-	    row.value "1", network_model
-	    row.value "2", traffic_model
-	  end
+      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
+	unless x.nil?
+	  row.value "1", network_model
+	  row.value "2", traffic_model
 	end
       end
     end
     @datasets = @analysis.datasets
     expectation = [
       [{:a => 1}, [[4,  @variants[0][1], @variants[0][2]],
-	           [20, @variants[2][1], @variants[2][2]]]]
+                   [20, @variants[2][1], @variants[2][2]]]]
     ]
     assert_equal expectation, @datasets.map {|ds| ds.dump}
   end
@@ -150,13 +142,10 @@ END_OF_STRING
                  [{:a=>2,:b=> nil},NetworkModel.new,TrafficModel.new(0)],
                  [{:a=>2,:b=> 20},NetworkModel.new,TrafficModel.new(0)]]
     @analysis = Analysis.new(@variants) do |analysis|
-      analysis.x_axis  = :b
-      analysis.plot do |dataset|
-	dataset.values do |row, x, network_model, traffic_model|
-	  unless x.nil?
-	    row.value "1", network_model
-	    row.value "2", traffic_model
-	  end
+      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
+	unless x.nil?
+	  row.value "1", network_model
+	  row.value "2", traffic_model
 	end
       end
     end
@@ -172,11 +161,8 @@ END_OF_STRING
     @variants = [[{:a=>1, :b => 4}, NetworkModel.new, TrafficModel.new(0)]]
     @analysis = Analysis.new(@variants) do |analysis|
 
-      analysis.x_axis  = :b
-      analysis.plot do |dataset|
-	dataset.values do |row, x, network_model, traffic_model|
-	  row.value "1", network_model unless x.nil?
-	end
+      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
+	row.value "1", network_model unless x.nil?
       end
     end
     @datasets = @analysis.datasets
@@ -208,73 +194,62 @@ END_OF_STRING
 
     should 'create an svg file' do
       @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-	analysis.x_axis  = :bundles
-	analysis.gnuplot = true
+        analysis.x_axis  = :bundles
+        analysis.gnuplot = true
 
-	analysis.configure_plot do |plot|
-	  plot.ylabel "Why?"
-	  plot.xlabel "What?"
-	end
-	analysis.plot do |dataset|
-	  
-	  dataset.configure_data do |ds|
-	    ds.with = "linespoints"
-	    ds.title = "Test Title"
-	  end
-	  dataset.values do |row, x, network_model, traffic_model|
-	    row.value "1", rand unless x.nil?
-	  end
-	end
+        analysis.configure_plot do |plot|
+          plot.ylabel "Why?"
+          plot.xlabel "What?"
+        end
+        analysis.configure_data :x_axis => :bundles do |row, x, network_model, traffic_model|
+	  row.value "1", rand unless x.nil?
+        end
+	analysis.plot :x_axis => :bundles, :y_axis => ["1"]
       end
-      assert File.exist?(File.join(@dir, 'scen1routingepidemic.svg'))
-      assert File.exist?(File.join(@dir, 'scen2routingepidemic.svg'))
-      assert File.exist?(File.join(@dir, 'scen1routingDPSP.svg'))
-      assert File.exist?(File.join(@dir, 'scen2routingDPSP.svg'))
+      assert File.exist?(File.join(@dir, 'scen1routingepidemic1.svg'))
+      assert File.exist?(File.join(@dir, 'scen2routingepidemic1.svg'))
+      assert File.exist?(File.join(@dir, 'scen1routingDPSP1.svg'))
+      assert File.exist?(File.join(@dir, 'scen2routingDPSP1.svg'))
     end
 
     should 'combine datasets into one plot when the :combine option is set' do
       @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.x_axis  = :bundles
-        analysis.gnuplot = true
-        analysis.plot :combine => :routing do |dataset|
-          dataset.values do |row, x, network_model, traffic_model|
-            row.value "1", rand unless x.nil?
-          end
+        analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
+	  row.value "1", rand unless x.nil?
         end
+	analysis.plot :x_axis => :bundles, :y_axis => ["1"]
       end
-      assert_same_elements [File.join(@dir, 'scen1.svg'), File.join(@dir, 'scen2.svg')], Dir.glob("#{@dir}/*.svg")
+      assert_same_elements [File.join(@dir, 'scen11.svg'), File.join(@dir, 'scen21.svg')], Dir.glob("#{@dir}/*.svg")
     end
 
     should 'combine data with different values into one plot' do
       @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.x_axis  = :bundles
-        analysis.gnuplot = true
-        analysis.plot :combine => :routing do |dataset|
-          dataset.values :y_axis => 'delivered bundles' do |row, x, network_model, traffic_model|
-            unless x.nil?
-              row.value "delivered", x
-              row.value "delay",     x + 10
-            end
-          end
-        end
+        analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
+	  unless x.nil?
+	    row.value "delivered", x
+	    row.value "delay",     x + 10
+	  end
+	end
+	analysis.plot :x_axis => :bundles, :y_axis => ["delivered", "delay"]
       end
-      assert_same_elements [File.join(@dir, 'scen1.svg'), File.join(@dir, 'scen2.svg')], Dir.glob("#{@dir}/*.svg")
+      assert_same_elements [File.join(@dir, 'scen1delivereddelay.svg'),
+	File.join(@dir, 'scen2delivereddelay.svg')],
+       	Dir.glob("#{@dir}/*.svg")
     end
 
     should 'plot errorbars, if the standard error is supplied' do
       @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
         analysis.x_axis  = :bundles
-        analysis.gnuplot = true
-        analysis.plot :combine => :routing do |dataset|
-          dataset.values :y_axis => 'delivered bundles' do |row, x, network_model, traffic_model|
-            unless x.nil?
-              row.value "delay", x + 10
-	      row.std_error "delay", 10
-            end
-          end
-        end
+	analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
+	  unless x.nil?
+	    row.value     "delay", x + 10
+	    row.std_error "delay", 10
+	  end
+	end
+        analysis.plot :x_axis => :bundles, :y_axis => ["delay"] #do |dataset|
+        #end
       end
-      assert_same_elements [File.join(@dir, 'scen1.svg'), File.join(@dir, 'scen2.svg')], Dir.glob("#{@dir}/*.svg")
+      assert_same_elements [File.join(@dir, 'scen1delay.svg'), File.join(@dir, 'scen2delay.svg')], Dir.glob("#{@dir}/*.svg")
     end
 
   end
