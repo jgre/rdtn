@@ -52,7 +52,7 @@ class Dagstuhl < Sim::Specification
 
     # Define variations for expiry: 1hour, 1day, 5days, a quota of 10 items, and
     # a quota of 20 items.
-    lifetime = variants(:lifetime, 3600, 86400, 432000, nil)
+    lifetime = variants(:lifetime, 3600, 21600, 43200, nil)
 			       #[lifetime = 3600,   quota = nil])
 			       #[lifetime = 86400,  quota = nil],
 			       #[lifeimte = 432000, quota = nil],
