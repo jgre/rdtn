@@ -65,12 +65,12 @@ module Sim
     end
 
     def sendBundle(bundle)
-      @bytesQueued += bundle.payload.length
+      @bytesQueued += bundle.payload.bytesize
       bundle.payload =~ /^(\d+) /
       bundleIndex = $1
       @sim.after(@bytesQueued / @bytesPerSec.to_f) do
         if @peerLink
-          @bytesQueued -= bundle.payload.length
+          @bytesQueued -= bundle.payload.bytesize
 
           @evDis.dispatch(:bundleForwarded, bundle, self)
           @sim.log(:bundleForwarded, @nodeId, @dest, :bundle => bundle)

@@ -1,6 +1,6 @@
 require 'combinationhash'
 require 'rubygems'
-require 'ruby2ruby'
+#require 'ruby2ruby'
 
 module Sim
 

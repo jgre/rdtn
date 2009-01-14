@@ -80,7 +80,7 @@ class Storage < Monitor
 
   def deleteBundles(purge = false, &handler)
     synchronize do 
-      bundles = @bundles.values.find_all(&handler)
+      bundles = @bundles.values.compact.find_all(&handler)
       bundles.each do |bundle|
 	@curSize -= bundle.payloadLength
 	bundle.delete
@@ -172,7 +172,7 @@ class Storage < Monitor
 
   def enforceLimit
     deleteBundles(true) do |bundle| 
-      ret = bundle.expired?
+      ret = bundle.nil? or bundle.expired?
       rdebug("Deleting expired bundle #{bundle.inspect}") if ret
       ret
     end
@@ -192,7 +192,7 @@ class Storage < Monitor
     
     delCandidates = []
     delSize       = 0
-    @bundles.values.reverse_each do |bundle|
+    @bundles.values.compact.reverse_each do |bundle|
       break unless @limit and (@curSize - delSize) > @limit
       unless bundle.deleted? or bundle.retentionConstraints?
 	rdebug("Deleting bundle #{bundle.bundleId}: #{bundle.srcEid} -> #{bundle.destEid}")

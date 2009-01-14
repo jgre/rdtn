@@ -56,6 +56,9 @@ module Sim
       def @nodes.linkCapacity=(bytesPerSec)
         each_value {|node| node.linkCapacity = bytesPerSec}
       end
+      def @nodes.storage_limit=(limit)
+	each_value {|node| node.config.store.limit = limit}
+      end
 
       @traffic_model = TrafficModel.new(Time.now)
       @timerEventId  = 0
