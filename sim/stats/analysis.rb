@@ -120,9 +120,6 @@ class Analysis
   def plot(options = {}, &plot_conf)
     require 'gnuplot'
 
-    y_axis = options[:y_axis]
-    x_axis = options[:x_axis]
-
     dirname = File.join(File.dirname(__FILE__),
 			"../../simulations/analysis/#{@experiment}")
     FileUtils.mkdir_p dirname
@@ -130,10 +127,13 @@ class Analysis
     @ds_hash.each do |k, combined_sets|
       key = YAML.load(k)
 
+      y_axis = options[:y_axis].clone
+      x_axis = options[:x_axis]
+
       ds_name = (key.to_s + y_axis.to_s).gsub(/[\":\{\}\/ ,]/, "")
       fname   = File.join(dirname, ds_name + '.svg')
 
-      only_once = options[:only_once] || []
+      only_once = (options[:only_once] || []).clone
 
       Gnuplot.open do |gp|
 	Gnuplot::Plot.new(gp) do |plot|
