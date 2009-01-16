@@ -73,6 +73,7 @@ class Router
     @rdEvClosed    = @evDis.subscribe(:linkClosed) do |link|
       @localReg.delete_if {|re| re.link == link}
     end
+
   end
 
   def stop
@@ -110,25 +111,18 @@ class Router
       rdebug("Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
       singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
       if bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
-	if defined?(link.maxBundleSize) and link.maxBundleSize
-	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
-	else
-	  fragments = [bundle]
-	end
-	fragments.each do |frag|
-	  frag.forwardLog.addEntry(action, :inflight, neighbor, link)
+	bundle.forwardLog.addEntry(action, :inflight, neighbor, link)
 
-	  # FIXME: unsubscribe
-	  @evDis.subscribe(:transmissionError) do |b, l|
-	    if b.bundleId == frag.bundleId and l == link
-	      b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
-	    end
+	# FIXME: unsubscribe
+	@evDis.subscribe(:transmissionError) do |b, l|
+	  if b.bundleId == bundle.bundleId and l == link
+	    b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
 	  end
-
-	  link.sendBundle(frag)
-	  rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
-	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
+
+	link.sendBundle(bundle)
+	rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
+	@evDis.dispatch(:bundleForwarded, bundle, link, action)
       end
     rescue ProtocolError, SystemCallError, IOError => err
       rerror("Router::doForward #{err.class}: #{err}")
