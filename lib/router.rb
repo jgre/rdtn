@@ -53,6 +53,7 @@ class Router
     @config   = config
     @evDis    = evDis
     @localReg = []
+    @queues   = Hash.new {|h, k| h[k] = []}
     @config.registerComponent(:router, self) {self.stop}
 
     @rtEvAvailable = @evDis.subscribe(:routeAvailable) do |re|
@@ -84,20 +85,31 @@ class Router
 
   def localDelivery(bundle, links)
     action = bundle.destinationIsSingleton? ? :forward : :replicate
-    doForward(bundle, links, action)
+    enqueue(bundle, links, action)
   end
- 
-  # Forward a bundle. Takes a bundle and a list of links. Returns nil.
-  # modified to optionally drop random bundles
-  def doForward(bundle, links, action = :forward)
+
+  # Add a bundle to the forwarding queues. Takes a bundle and a list of links.
+  # Returns nil. For each link in links, sends the bundle to the CL if the link
+  # is not busy, otherwise adds it to the queue to be sent when the link is
+  # ready.
+  def enqueue(bundle, links, action = :forward)
     links.each do |link|
-      begin
-	neighbor   = link.remoteEid
-	rdebug("Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
-	singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
-	unless bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
-	  next
-	end
+      if link.busy?
+	@queues[link] << [bundle, action]
+      else
+	doForward(bundle, link, action)
+      end
+    end
+  end
+
+  private
+
+  def doForward(bundle, link, action = :forward)
+    begin
+      neighbor   = link.remoteEid
+      rdebug("Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
+      singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
+      if bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
 	if defined?(link.maxBundleSize) and link.maxBundleSize
 	  fragments = bundle.fragmentMaxSize(link.maxBundleSize)
 	else
@@ -106,20 +118,21 @@ class Router
 	fragments.each do |frag|
 	  frag.forwardLog.addEntry(action, :inflight, neighbor, link)
 
-          @evDis.subscribe(:transmissionError) do |b, l|
-            if b.bundleId == frag.bundleId and l == link
-              b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
-            end
-          end
+	  # FIXME: unsubscribe
+	  @evDis.subscribe(:transmissionError) do |b, l|
+	    if b.bundleId == frag.bundleId and l == link
+	      b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
+	    end
+	  end
 
 	  link.sendBundle(frag)
 	  rinfo("Forwarded bundle (dest: #{bundle.destEid}) over #{link.name}.")
 	  @evDis.dispatch(:bundleForwarded, frag, link, action)
 	end
-      rescue ProtocolError, SystemCallError, IOError => err
-	rerror("Router::doForward #{err.class}: #{err}")
-        @evDis.dispatch(:transmissionError, bundle, link)
       end
+    rescue ProtocolError, SystemCallError, IOError => err
+      rerror("Router::doForward #{err.class}: #{err}")
+      @evDis.dispatch(:transmissionError, bundle, link)
     end
     return nil
   end

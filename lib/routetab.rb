@@ -67,7 +67,7 @@ class RoutingTable < Router
     store = @config.store
     if store
       bundles = store.getBundlesMatchingDest(routingEntry.destination)
-      bundles.each {|bundle| doForward(bundle, [routingEntry.link])}
+      bundles.each {|bundle| enqueue(bundle, [routingEntry.link])}
     end
   end
 
@@ -108,7 +108,7 @@ class RoutingTable < Router
     exclusiveLink = matches.find {|entry| entry.exclusive}
     matches = [exclusiveLink] if exclusiveLink
     links = matches.map {|entry| entry.link(@contactManager)}
-    doForward(bundle, links)
+    enqueue(bundle, links)
     return nil
   end
 

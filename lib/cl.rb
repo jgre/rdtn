@@ -84,7 +84,8 @@ class Link
   # Returns true, if this link is actively performing a taks.
   # The default implementation checks, if there are any sender threads running.
   def busy?
-    return @senderThread.any? {|thr| thr.alive?}
+    !@senderThreads.empty?
+    #return @senderThreads.any? {|thr| thr.alive?}
   end
 
   # Close the link. If +wait+ is not +nil+, the method waits for the given
