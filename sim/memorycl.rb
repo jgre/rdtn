@@ -64,6 +64,10 @@ module Sim
       # FIXME log amount of futile transmissions
     end
 
+    def busy?
+      @bytesQueued > 0
+    end
+
     def sendBundle(bundle)
       @bytesQueued += bundle.payload.bytesize
       bundle.payload =~ /^(\d+) /

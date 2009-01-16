@@ -74,11 +74,17 @@ class Router
       @localReg.delete_if {|re| re.link == link}
     end
 
+    @rtEvForwarded = @evDis.subscribe(:bundleForwarded) do |b, link|
+      unless (nextBundle, nextAction = @queues[link].shift).nil?
+	doForward(nextBundle, link, nextAction)
+      end
+    end
   end
 
   def stop
     @evDis.unsubscribe(:routeAvailable,  @rtEvAvailable)
     @evDis.unsubscribe(:bundleToForward, @rtEvToForward)
+    @evDis.unsubscribe(:bundleForwarded, @rtEvForwarded)
     @evDis.unsubscribe(:linkClosed,      @rtEvClosed)
   end
 
