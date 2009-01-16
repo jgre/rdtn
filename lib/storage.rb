@@ -62,7 +62,7 @@ class Storage < Monitor
   def each(includeDeleted = false)
     deleteBundles(true) {|bundle| bundle.expired? unless bundle.nil?}
     synchronize do
-      @bundles.values.each {|b| yield(b) if !b.nil? or includeDeleted }
+      @bundles.values.compact.each {|b| yield(b) if !b.nil? or includeDeleted }
     end
   end
 
@@ -116,7 +116,7 @@ class Storage < Monitor
   end
 
   def getBundleMatching
-    synchronize{@bundles.values.find {|b| yield(b) unless b.nil? or b.deleted?}}
+    synchronize{@bundles.values.compact.find {|b| yield(b) unless b.nil? or b.deleted?}}
   end
 
   def getBundleMatchingDest(destEid, includeDeleted = false)
@@ -125,7 +125,7 @@ class Storage < Monitor
 
   def getBundlesMatching(includeDeleted = false)
     synchronize do 
-      @bundles.values.find_all do |bundle|
+      @bundles.values.compact.find_all do |bundle|
 	yield(bundle) if (not bundle.deleted?) or includeDeleted
       end
     end
@@ -158,7 +158,7 @@ class Storage < Monitor
   def enforceChannelQuotas
     channels = Hash.new {|hash, key| hash[key] = []}
     delCandidates = []
-    @bundles.values.each {|bundle| channels[bundle.destEid] << bundle}
+    @bundles.values.compact.each {|bundle| channels[bundle.destEid] << bundle}
     channels.each_value do |bundles|
       if (diff = bundles.length - @channelquota) > 0
 	delCandidates += bundles.sort_by {|b| b.creationTimestamp}[0, diff]
