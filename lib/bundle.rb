@@ -197,6 +197,7 @@ module Bundling
       if link = options[:incomingLink]
         neighbor = link ? link.remoteEid : nil
         @forwardLog.addEntry(:incoming, :transmitted, neighbor, link)
+	@incomingLink = link
       end
 
       if payload
