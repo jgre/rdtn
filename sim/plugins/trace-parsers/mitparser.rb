@@ -31,7 +31,6 @@ class MITParser
     @endTime     = options["endTime"]
     @startTime   = @startTime.to_i
     @endTime     = @endTime.to_i if @endTime
-    puts "Start: #@startTime, End: #@endTime"
     open(options[:tracefile]) {|f| process(f)} if options.has_key?(:tracefile)
   end
 
@@ -40,7 +39,6 @@ class MITParser
   MIT_RE = /@(\d+)(\.\d+)? (\d+) <-> (\d+) (up|down)/
 
   def process(file)
-    puts "Processing MIT reality mining data..."
     file.each do |line|
       if MIT_RE =~ line
         time  = $1.to_i
@@ -55,8 +53,6 @@ class MITParser
         end
       end
     end
-    puts "#{@events.events.length} events"
-    puts "Processing done."
   end
 
 end
