@@ -81,9 +81,9 @@ module Sim
 
           @peerLink.receiveBundle(bundle, self)
         else
-          #rerror "(Node#{@nodeId}) Broken MemoryLink to #{@dest}, #{self}"
           @evDis.dispatch(:transmissionError, bundle, self)
 	  # FIXME log amount of futile transmissions
+	  @sim.log(:transmissionError, @nodeId, @dest, :bundle => bundle)
         end
         false
       end

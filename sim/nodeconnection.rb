@@ -41,6 +41,13 @@ module Sim
 
       @memIf = addIf(:memory, "mem0", :nodeId=>@id, :bytesPerSec=>bytesPerSec,
                      :node=>self, :sim=>@sim)
+
+      @evDis.subscribe(:bundleStored) do |bundle|
+	@sim.log(:bundleStored, @id, nil, :bundle => bundle)
+      end
+      @evDis.subscribe(:bundleRemoved) do |bundle|
+	@sim.log(:bundleRemoved, @id, nil, :bundle => bundle)
+      end
     end
 
     def process(nSec)

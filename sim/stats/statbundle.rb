@@ -1,5 +1,8 @@
 $:.unshift File.join(File.dirname(__FILE__), "..")
+$:.unshift File.join(File.dirname(__FILE__), "../../lib")
 $:.unshift File.join(File.dirname(__FILE__))
+
+require 'dpsp'
 
 class StatBundle
 
@@ -19,7 +22,7 @@ class StatBundle
     @created      = bundle.created.to_i - t0.to_i
     @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?
-    @signaling    = bundle.isVaccination?
+    @signaling    = bundle.isVaccination? || bundle.isSubscriptionBundle?
 
     @transmissions = 0
     @incidents     = Hash.new {|hash, key| hash[key] = []} # Node->list of times
@@ -84,6 +87,16 @@ class StatBundle
 
   def minDelay
     delays.min
+  end
+
+  def marshal_dump
+    [@bundleId, @dest, @src, @payload_size, @created, @lifetime, @multicast,
+      @transmissions, Hash.new.merge(@incidents), @signaling]
+  end
+
+  def marshal_load(lst)
+    @bundleId, @dest, @src, @payload_size, @created, @lifetime, @multicast,
+      @transmissions, @incidents, @signaling = lst
   end
 
   def to_yaml_properties

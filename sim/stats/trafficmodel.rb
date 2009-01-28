@@ -34,11 +34,14 @@ class TrafficModel
   extend Memoize
 
   def initialize(t0, log = nil)
-    @t0       = t0
-    @bundles  = {} # bundleId -> StatBundle
-    @regs     = Hash.new {|hash, key| hash[key] = []}
-    @duration = 0
-    self.log  = log if log
+    @t0        = t0
+    @bundles   = {} # bundleId -> StatBundle
+    @regs      = Hash.new {|hash, key| hash[key] = []}
+    # node -> list of buffer use samples [time, buffer size]
+    @bufferUse = Hash.new {|hash, key| hash[key] = []}
+    @duration  = 0
+    @errors    = 0
+    self.log   = log if log
   end
 
   def log=(log)
@@ -51,12 +54,23 @@ class TrafficModel
     when :bundleCreated
       @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
     when :bundleForwarded
+      @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle) unless @bundles[e.bundle.bundleId]
       @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
     when :registered
       @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
     when :unregistered
       reg = @regs[e.eid].find {|r| r.node == e.nodeId1}
       reg.endTime = e.time if reg
+    when :bundleStored
+      lastEntry = @bufferUse[e.nodeId1].last
+      lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
+      @bufferUse[e.nodeId1] << [e.time, lastSize + e.bundle.payload.bytesize]
+    when :bundleRemoved
+      lastEntry = @bufferUse[e.nodeId1].last
+      lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
+      @bufferUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
+    when :transmissionError
+      @errors += 1
     end
   end
 
@@ -204,17 +218,40 @@ class TrafficModel
     signalingBundles.length
   end
 
+  def bufferUse(samplingRate, node = nil)
+    if node.nil?
+      #uses = @bufferUse.keys.map {|node| bufferUse(samplingRate, node).mean}
+      #[uses.sort_by {|use| use}.last]
+      @bufferUse.keys.inject([]) {|memo,node| memo+bufferUse(samplingRate,node)}
+    else
+      ret      = []
+      i        = 0
+      uses     = @bufferUse[node].sort_by {|time, size| time}
+      samplingRate.step(@duration, samplingRate) do |time|
+        until uses[i].nil? or uses[i][0] > time; i += 1; end
+        ret << uses[i-1][1]
+      end
+      ret
+      #@bufferUse[node].map {|u| u[1]}
+    end
+  end
+
+  def numberOfTransmissionErrors
+    @errors
+  end
+
   def marshal_dump
-    [@t0, @bundles, Hash.new.merge(@regs)]
+    [@t0, @bundles, Hash.new.merge(@regs), @duration,Hash.new.merge(@bufferUse), @errors]
   end
 
   def marshal_load(lst)
-    @t0, @bundles, @regs = lst
+    @t0, @bundles, @regs, @duration, @bufferUse, @errors = lst
   end
 
   def to_yaml_properties
     @regs = Hash.new.merge(@regs)
-    %w{@t0 @bundles @regs @duration}
+    @bufferUse = Hash.new.merge(@bufferUse)
+    %w{@t0 @bundles @regs @duration @bufferUse @errors}
   end
 
 end

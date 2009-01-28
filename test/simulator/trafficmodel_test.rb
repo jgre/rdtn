@@ -178,4 +178,62 @@ class TrafficModelTest < Test::Unit::TestCase
 
   end
 
+  context 'When storage events are logged, TrafficModel' do
+
+    setup do
+      t0   = Time.now
+      @b1  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @b2  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @log = [
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b2),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b2),
+        Sim::LogEntry.new(1, :bundleStored, 2, nil,  :bundle => @b1),
+        Sim::LogEntry.new(1, :bundleStored, 2, nil,  :bundle => @b2),
+        Sim::LogEntry.new(100, :bundleRemoved, 2, nil,  :bundle => @b1),
+        Sim::LogEntry.new(250, :bundleRemoved, 2, nil,  :bundle => @b2),
+      ]
+      @tm  = TrafficModel.new(t0, @log)
+    end
+
+    should 'have a list of samples of the buffer use' do
+      assert_kind_of Array, @tm.bufferUse(10)
+      assert_equal 25, @tm.bufferUse(10).length
+    end
+
+    should 'list the current size of the buffer for each sampling time' do
+      assert_equal [8, 4, 4, 4, 0], @tm.bufferUse(50)
+    end
+
+    should 'list the current size of the buffer for each node' do
+      @tm.event(Sim::LogEntry.new(0, :bundleStored, 1, nil, :bundle => @b1))
+      assert_same_elements [4, 4, 4, 4, 4, 8, 4, 4, 4, 0], @tm.bufferUse(50)
+    end
+
+  end
+
+  context 'When transmission errors are logged, TrafficModel' do
+
+    setup do
+      t0   = Time.now
+      @b1  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @log = [
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
+        Sim::LogEntry.new(1, :transmissionError, 1, 3, :bundle => @b1),
+        Sim::LogEntry.new(4, :transmissionError, 1, 4, :bundle => @b1),
+      ]
+      @tm  = TrafficModel.new(t0, @log)
+    end
+
+    should 'not include the failed transmissions in the transmission count' do
+      assert_equal 1, @tm.numberOfTransmissions
+    end
+
+    should 'count transmission errors' do
+      assert_equal 2, @tm.numberOfTransmissionErrors
+    end
+
+  end
 end
