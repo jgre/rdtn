@@ -19,6 +19,7 @@ class RdtnTime
 
   @@timerFunc = lambda {Time.now}
   @@sleepFunc = lambda {|sec| sleep(sec)}
+  @@scheduleFunc = lambda {|sec, handler|} # FIXME default for non-sim RDTN
 
   def RdtnTime.timerFunc=(func)
     @@timerFunc = func
@@ -42,6 +43,14 @@ class RdtnTime
 
   def RdtnTime.rsleep(sec = nil)
     @@sleepFunc.call(sec)
+  end
+
+  def RdtnTime.scheduleFunc=(func)
+    @@scheduleFunc = func
+  end
+
+  def RdtnTime.schedule(sec, &handler)
+    @@scheduleFunc.call(sec, &handler)
   end
 
 end

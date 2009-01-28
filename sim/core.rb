@@ -63,6 +63,8 @@ module Sim
 	# FIXME
       end
 
+      RdtnTime.scheduleFunc = lambda {|sec, &handler| after(sec, &handler)}
+
       @traffic_model = TrafficModel.new(Time.now)
       @timerEventId  = 0
 
@@ -105,7 +107,7 @@ module Sim
       @events.addEventSorted(time, nil, nil, sym)
       ev = @evDis.subscribe(sym) do |t|
 	repeat = yield(t)
-	if repeat
+	if repeat and (t + time) <= @duration
 	  @events.addEventSorted(t + time, nil, nil, sym)
 	else
 	  @evDis.unsubscribe(sym, ev)
