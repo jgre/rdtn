@@ -11,16 +11,23 @@ class DPSPRouter < Router
   def initialize(config, evDis, options = {})
     super(config, evDis)
     @contMgr   = @config.contactManager
-    @subSet    = SubscriptionSet.new config, evDis
+    subsRange  = options[:subsRange] || 1
+    @subSet    = SubscriptionSet.new config, evDis, subsRange
     @neighbors = {}
     @prios     = options[:prios]   || []
     @filters   = options[:filters] || []
 
+    RdtnTime.schedule(3600) do |time|
+      @subSet.housekeeping!
+      @neighbors.each_value {|subSet| subSet.housekeeping!}
+      true
+    end
+
     @evToForward = @evDis.subscribe(:bundleToForward) do |b|
       if b.isSubscriptionBundle?
 	link = b.incomingLink
-	@neighbors[link] = true #subset = YAML.load(b.payload)
-	#@subSet.import subset
+	@neighbors[link] = subset = YAML.load(b.payload)
+	@subSet.import subset
 	if link and store = @config.store and !link.is_a?(AppIF::AppProxy)
 	  bulkEnqueue(store.to_a, link, :replicate)
 	end
@@ -65,7 +72,7 @@ class DPSPRouter < Router
   SUBSCRIBE_EID = 'dtn:subscribe/'
 
   def subscriptionBundle
-    dump = '' #YAML.dump(@subSet)
+    dump = YAML.dump(@subSet)
     Bundling::Bundle.new dump, SUBSCRIBE_EID, @config.localEid
   end
 
