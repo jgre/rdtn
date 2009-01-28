@@ -22,13 +22,128 @@ require 'rdtnevent'
 module Sim
 
   class Event
-    attr_accessor :time, :nodeId1, :nodeId2, :type
+    attr_accessor :time, :nodeId1, :nodeId2, :type, :left, :right, :parent, :balance
+    #include Comparable
 
     def initialize(time, nodeId1, nodeId2, type)
       @time    = time
       @nodeId1 = nodeId1
       @nodeId2 = nodeId2
       @type    = type
+      @left    = nil 
+      @right   = nil 
+      @parent  = nil
+      @balance = 0
+    end
+
+    def link(a)
+      (a == -1) ? @left : @right
+    end
+
+    def set_link(a, node)
+      if a == -1
+	@left = node
+      else
+	@right = node
+      end
+      node.parent = self if node
+    end
+
+    #def <=>(ev)
+    #  @time <=> ev.time
+    #end
+
+    def inspect
+      @time.to_s
+    end
+
+    def self.insert(root, ev)
+      return ev if root.nil?
+
+      # create a special HEAD node that keeps a reference to the root
+      head = Event.new(nil, nil, nil, nil)
+      head.right  = root
+      root.parent = head
+
+      cur       = root
+      rebalance = root
+      loop do
+	if ev.time < cur.time
+	  # move to the left subtree
+	  if cur.left.nil?
+	    cur.left  = ev
+	    ev.parent = cur
+	    break
+	  end
+	  cur    = cur.left
+	else
+	  # move to the right subtree
+	  if cur.right.nil?
+	    cur.right = ev
+	    ev.parent = cur
+	    break
+	  end
+	  cur    = cur.right
+	end
+	rebalance = cur if cur.balance != 0
+      end
+
+      # adjust balance factors
+      a = (ev.time < rebalance.time) ? -1 : 1
+      r = cur = rebalance.link(a)
+      until cur == ev
+	if ev.time < cur.time
+	  cur.balance = -1
+	  cur = cur.left
+	else
+	  cur.balance = 1
+	  cur = cur.right
+	end
+      end
+
+      # balancing act
+      if rebalance.balance == 0
+	# tree has gotten higher
+	rebalance.balance = a
+      elsif rebalance.balance == -a
+	# tree has gotten more balanced
+	rebalance.balance = 0
+      elsif rebalance.balance == a
+	subtree_root = rebalance.parent
+	# tree has gotten out of balance
+	if r.balance == a
+	  # single rotation
+	  cur = r
+	  rebalance.set_link(a, r.link(-a))
+	  r.set_link(-a, rebalance)
+	  rebalance.balance = r.balance = 0
+	elsif r.balance == -a
+	  # double rotation
+	  cur = r.link(-a)
+	  r.set_link(-a, cur.link(a))
+	  cur.set_link(a, r)
+	  rebalance.set_link(a, cur.link(-a))
+	  cur.set_link(-a, rebalance)
+	  rebalance.balance, r.balance = case cur.balance
+					 when a  then [-a, 0]
+					 when 0  then [ 0, 0]
+					 when -a then [ 0, a]
+					 end
+	  cur.balance = 0
+	end
+
+	# fix the rebalanced subtree to the rest of the tree
+	cur.parent = subtree_root
+	if rebalance == subtree_root.right
+	  subtree_root.right = cur
+	  cur.parent = subtree_root
+	else 
+	  subtree_root.left  = cur
+	end
+      end
+
+      # return the root
+      head.right
     end
 
     def dispatch(evDis)
@@ -47,48 +162,110 @@ module Sim
     include Enumerable
 
     def initialize(time0 = 0)
-      @events = [] # [time, nodeId1, nodeId2, :simConnection|:simDisconnection]
+      #@events = []
+      @events = nil # Linked List
       @time0  = 0  # All event before time0 will be ignored
       @cur_ev = 0  # The index of the current event
       @nodes  = {}
     end
 
     def each(&blk)
-      @events.each(&blk)
+      def go_down(node)
+	node.left.nil? ? node : go_down(node.left)
+      end
+      def go_right(node, from)
+	if node.nil?
+	  nil
+	elsif from.nil?
+	  go_down(node)
+	elsif from == node.right
+	  go_right(node.parent, node)
+	elsif node == from
+	  node.right.nil? ? go_right(node.parent, node) : go_down(node.right)
+	else
+	  node
+	end
+      end
+
+      cur = go_right(@events, nil)
+      until cur.nil?
+	yield cur
+	cur = go_right(cur, cur)
+      end
+
+
+      #@events.each(&blk)
+      #ev = @events
+      #until ev.nil?
+      #  yield(ev)
+      #  ev = ev.next
+      #  break if ev == @events
+      #end
       self
     end
 
-    def addEvent(time, nodeId1, nodeId2, type)
-      @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
-      @events.push(Event.new(time, nodeId1, nodeId2, type))
-      self
+    def length
+      inject(0) {|memo, ev| memo + 1}
     end
+
+    #def addEvent(time, nodeId1, nodeId2, type)
+    #  @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
+    #  #@events.push(Event.new(time, nodeId1, nodeId2, type))
+    #  ev = Event.new(time, nodeId1, nodeId2, type)
+    #  if @events.nil?
+    #    @events = ev
+    #  else
+    #    @events.insert(ev)
+    #  end
+    #  self
+    #end
 
     def addEventSorted(time, nodeId1, nodeId2, type)
       @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
-      idx = nil
-      @events.each_with_index do |event, index|
-	if event.time > time
-	  idx = index
-	  break
-	end
-      end
-      if idx
-	@events.insert(idx, Event.new(time, nodeId1, nodeId2, type))
-      else
-	addEvent(time, nodeId1, nodeId2, type) # only when we could not find a
-	                                       # place for the event
-      end
+      ev = Event.new(time, nodeId1, nodeId2, type)
+      @events = Event.insert(@events, ev)
+
+      #idx = nil
+      #next_time = find {|event| event.time > time}
+      #if next_time.nil?
+      #  addEvent(time, nodeId1, nodeId2, type)
+      #else
+      #  next_time.insert(ev)
+      #  @events = ev if next_time == @events
+      #end
+      #@events.each_with_index do |event, index|
+      #  if event.time > time
+      #    idx = index
+      #    break
+      #  end
+      #end
+      #if idx
+      #  @events.insert(idx, Event.new(time, nodeId1, nodeId2, type))
+      #else
+      #  addEvent(time, nodeId1, nodeId2, type) # only when we could not find a
+      #                                         # place for the event
+      #end
       self
     end
+
+    alias addEvent addEventSorted
 
     def empty?
       @events.empty?
     end
 
     def sort
-      @events = @events.sort_by {|ev| ev.time}
       self
+    end
+
+    def last
+      cur = @events
+      ret = cur
+      until cur.nil?
+	ret = cur
+	cur = cur.right
+      end
+      ret
     end
 
     def nodeCount

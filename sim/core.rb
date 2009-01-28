@@ -59,6 +59,9 @@ module Sim
       def @nodes.storage_limit=(limit)
 	each_value {|node| node.config.store.limit = limit}
       end
+      def @nodes.subscription_range=(range)
+	# FIXME
+      end
 
       @traffic_model = TrafficModel.new(Time.now)
       @timerEventId  = 0
@@ -81,7 +84,7 @@ module Sim
     def events=(events)
       @events = events
       createNodes(@events.nodeCount) if @nodes.empty?
-      @duration = @events.events.last.time
+      @duration = @events.last.time
     end
 
     TRACEDIR = File.join(File.dirname(__FILE__), '../simulations/traces')
@@ -127,9 +130,7 @@ module Sim
       old_timer_func     = RdtnTime.timerFunc
       RdtnTime.timerFunc = lambda {@te.time}
 
-      ev = @events.events.clone
       @te.run(@events)
-      @events.events = ev
 
       RdtnTime.timerFunc = old_timer_func
 
@@ -161,7 +162,7 @@ module Sim
       network_model = NetworkModel.new(events)
 
       open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
-      open(File.join(dirname, 'traffic'), 'w'){|f|   YAML.dump(traffic_model,f)}
+      open(File.join(dirname, 'traffic'), 'w'){|f|Marshal.dump(traffic_model,f)}
       if sel = spec.selected
         open(File.join(dirname, 'variant'), 'w'){|f| YAML.dump(sel,f)}
       end
@@ -184,7 +185,7 @@ module Sim
 
 	variant = open(variantfile) {|f| YAML.load(f)}
 	network = open(networkfile) {|f| Marshal.load(f)}
-	traffic = open(trafficfile) {|f| YAML.load(f)}
+	traffic = open(trafficfile) {|f| Marshal.load(f)}
 
 	[variant, network, traffic]
       end

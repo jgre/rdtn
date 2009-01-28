@@ -37,7 +37,7 @@ class NetworkModel
   end
 
   def events=(eq)
-    eq.events.each do |e|
+    eq.each do |e|
       if [:simConnection, :simDisconnection].include? e.type
         contactEvent(e.nodeId1, e.nodeId2, e.time, e.type)
       end

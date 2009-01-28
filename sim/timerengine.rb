@@ -30,7 +30,8 @@ module Sim
 
     def run(eventQueue)
       @t0    = Time.now
-      while event = eventQueue.events.shift
+      #while event = eventQueue.events.shift
+      eventQueue.each do |event|
         @timer = event.time
         event.dispatch(@evDis)
       end
