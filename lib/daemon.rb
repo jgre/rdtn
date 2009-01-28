@@ -94,9 +94,9 @@ module RdtnDaemon
 
     def register(eid = nil, &handler)
       eid = makeLocalEid(eid).to_s
-      @localRegistrations[eid] = AppIF::AppProxy.new(@config, @evDis, &handler)
+      @localRegistrations[eid]=AppIF::AppProxy.new(@config,@evDis,eid,&handler)
       evDis.dispatch(:routeAvailable, RoutingEntry.new(eid, 
-						      @localRegistrations[eid]))
+						    @localRegistrations[eid]))
     end
 
     def unregister(eid)
@@ -164,6 +164,7 @@ module RdtnDaemon
 	routerClass = RouterReg.instance.routers[type]
 	rerror("Unknown type of router: #{type}") unless routerClass
       end
+      @config.router.stop #if @config.respond_to?(:router)
 
       if routerClass
 	rdebug("Starting router: #{type}") 
