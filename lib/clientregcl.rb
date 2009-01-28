@@ -31,9 +31,9 @@ module AppIF
 
     attr_accessor :remoteEid, :registration
 
-    def initialize(config, evDis, &handler)
+    def initialize(config, evDis, registration = nil, &handler)
       super(config, evDis)
-      @remoteEid = @config.localEid
+      @remoteEid = registration || @config.localEid
       @handler   = handler
     end
     
