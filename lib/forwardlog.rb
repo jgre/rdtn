@@ -53,7 +53,6 @@ module Bundling
     end
 
     attr_accessor :logEntries
-    protected     :logEntries
 
     def merge(fwlog)
       @logEntries += fwlog.logEntries
