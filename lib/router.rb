@@ -60,24 +60,22 @@ class Router
       if re.link.is_a?(AppIF::AppProxy)
         @localReg << re
         if store = @config.store
-          store.each {|b| localDelivery(b, [re.link]) if re.match?(b.destEid)}
+          store.each {|b| localDelivery(b, re.link) if re.match?(b.destEid)}
         end
       end
     end
 
     @rtEvToForward = @evDis.subscribe(:bundleToForward) do |b|
-      links = @localReg.find_all {|re| re.match?(b.destEid)}.map {|re| re.link}
-      localDelivery(b, links) unless links.empty?
+      @localReg.each {|re| localDelivery(b, re.link) if re.match?(b.destEid)}
     end
 
     @rdEvClosed    = @evDis.subscribe(:linkClosed) do |link|
       @localReg.delete_if {|re| re.link == link}
+      @queues.delete(link)
     end
 
     @rtEvForwarded = @evDis.subscribe(:bundleForwarded) do |b, link|
-      unless (nextBundle, nextAction = @queues[link].shift).nil?
-	doForward(nextBundle, link, nextAction)
-      end
+      shiftQueue(link)
     end
   end
 
@@ -90,23 +88,34 @@ class Router
 
   protected
 
-  def localDelivery(bundle, links)
+  def localDelivery(bundle, link)
     action = bundle.destinationIsSingleton? ? :forward : :replicate
-    enqueue(bundle, links, action)
+    enqueue(bundle, link, action)
   end
 
-  # Add a bundle to the forwarding queues. Takes a bundle and a list of links.
-  # Returns nil. For each link in links, sends the bundle to the CL if the link
-  # is not busy, otherwise adds it to the queue to be sent when the link is
-  # ready.
-  def enqueue(bundle, links, action = :forward)
-    links.each do |link|
-      if link.busy?
-	@queues[link] << [bundle, action]
-      else
-	doForward(bundle, link, action)
-      end
+  def shiftQueue(link)
+    unless link.busy?
+      nextBundle, nextAction = @queues[link].shift
+      doForward(nextBundle, link, nextAction) unless nextBundle.nil?
     end
+  end
+
+  # Add a bundle to a forwarding queue. Takes a bundle and a link.
+  # Returns nil. Sends the first bundle from the queue to the CL if the link
+  # is not busy.
+  def enqueue(bundle, link, action = :forward)
+    @queues[link] << [bundle, action]
+    shiftQueue link
+    nil
+  end
+
+  # Adds a list of bundles to the forwarding queue. Takes a list of bundles and
+  # a link. Returns nil. Sorts the whole queue after adding the new bundles. If
+  # the link is not busy, the first bundle from the queue is sent.
+  def bulkEnqueue(bundles, link, action = :forward)
+    @queues[link] += bundles.map {|b| [b, action]}
+    shiftQueue link
+    nil
   end
 
   private

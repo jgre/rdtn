@@ -14,13 +14,12 @@ class EpidemicRouter < Router
         vacc = Vaccination.new(b)
         store.deleteBundle(vacc.bundleId)
       end
-      enqueue(b, @contMgr.links.find_all {|l| !l.is_a?(AppIF::AppProxy)},
-                :replicate)
+      @contMgr.links.each {|l| enqueue(b, l, :replicate) if !l.is_a?(AppIF::AppProxy)}
     end
 
     @evAvailable = @evDis.subscribe(:routeAvailable) do |rentry|
       if store = @config.store and !rentry.link.is_a?(AppIF::AppProxy)
-        store.each {|b| enqueue(b, [rentry.link], :replicate)}
+	bulkEnqueue(store.to_a, rentry.link, :replicate)
       end
     end
   end
@@ -31,7 +30,7 @@ class EpidemicRouter < Router
     @evDis.unsubscribe(:bundleToForward, @evToForward)
   end
 
-  def localDelivery(bundle, links)
+  def localDelivery(bundle, link)
     super
     if @vaccination && bundle.destinationIsSingleton? && !bundle.isVaccination?
       @config.localSender.sendBundle(Vaccination.new(bundle).vaccinationBundle)

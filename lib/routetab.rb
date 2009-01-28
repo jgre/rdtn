@@ -48,6 +48,7 @@ class RoutingTable < Router
   end
 
   def stop
+    super
     @evDis.unsubscribe(:routeAvailable, @evAvailable)
     @evDis.unsubscribe(:routeLost, @evLost)
     @evDis.unsubscribe(:bundleToForward, @evToForward)
@@ -67,7 +68,7 @@ class RoutingTable < Router
     store = @config.store
     if store
       bundles = store.getBundlesMatchingDest(routingEntry.destination)
-      bundles.each {|bundle| enqueue(bundle, [routingEntry.link])}
+      bulkEnqueue(bundles, routingEntry.link)
     end
   end
 
@@ -107,9 +108,8 @@ class RoutingTable < Router
     
     exclusiveLink = matches.find {|entry| entry.exclusive}
     matches = [exclusiveLink] if exclusiveLink
-    links = matches.map {|entry| entry.link(@contactManager)}
-    enqueue(bundle, links)
-    return nil
+    matches.each {|entry| enqueue(bundle, entry.link(@contactManager))}
+    nil
   end
 
 end
