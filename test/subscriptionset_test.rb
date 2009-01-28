@@ -10,7 +10,7 @@ class TestSubscriptionSet < Test::Unit::TestCase
 
   def setup
     @daemon = RdtnDaemon::Daemon.new("dtn://receiver.dtn/")
-    @subSet = SubscriptionSet.new(@daemon.config, @daemon.evDis)
+    @subSet = SubscriptionSet.new(@daemon.config, @daemon.evDis, 3)
   end
 
   should 'save subscriptions' do
@@ -86,6 +86,12 @@ class TestSubscriptionSet < Test::Unit::TestCase
       @daemon2     = RdtnDaemon::Daemon.new("dtn://node2.dtn/")
       @subSet2 = SubscriptionSet.new(@daemon2.config, @daemon2.evDis)
 
+      # Fiddle with the time so that all expiration timestamps start from a
+      # deterministic value
+      @t = 100
+      @oldTimeFunc       = RdtnTime.timerFunc
+      RdtnTime.timerFunc = lambda {@t}
+
       @subSet.subscribe  @uri1
       @subSet2.subscribe @uri1
       @subSet2.subscribe @uri2, @node3, :hopCount => 1, :created => RdtnTime.now - 100, :delay => 50
@@ -93,6 +99,10 @@ class TestSubscriptionSet < Test::Unit::TestCase
       @subSet2.subscribe @uri3, @node3, :hopCount => 1, :created => RdtnTime.now - 50
 
       @subSet.import @subSet2
+    end
+
+    teardown do
+      RdtnTime.timerFunc = @oldTimeFunc
     end
 
     should 'subscribe to the union of the channels of both nodes' do
@@ -117,6 +127,21 @@ class TestSubscriptionSet < Test::Unit::TestCase
 
     should 'use the optimal delay as local value' do
       assert_equal 50, @subSet.delays(@uri3)[@node3]
+    end
+
+    should 'set the expiration time to the default interval' do
+      assert_nil @subSet2.channels[@uri1][@daemon2.config.localEid].expires
+      assert_equal @t + 3600*6,
+	@subSet.channels[@uri1][@daemon2.config.localEid].expires.to_i
+    end
+
+    should 'refresh the expiration time after a repeated import' do
+      assert_equal @t + 3600*6,
+	@subSet.channels[@uri1][@daemon2.config.localEid].expires.to_i
+      @t = 200
+      @subSet.import @subSet2
+      assert_equal @t + 3600*6,
+	@subSet.channels[@uri1][@daemon2.config.localEid].expires.to_i
     end
 
   end

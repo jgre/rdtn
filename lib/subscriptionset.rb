@@ -6,7 +6,7 @@ class SubscriptionSet
     def initialize(node, options)
       @node     = node
       @created  = options[:created] || RdtnTime.now
-      @expires  = options[:expires] || RdtnTime.now + 86400
+      @expires  = options[:expires]# || RdtnTime.now + 86400
       @delay    = options[:delay]   || (RdtnTime.now.to_i - @created.to_i)
       @hopCount = options[:hopCount].to_i
     end
@@ -15,17 +15,21 @@ class SubscriptionSet
 
   attr_reader :channels, :node
 
-  def initialize(config, evDis)
-    @node     = config.localEid
-    @channels = {}
+  def initialize(config, evDis, subsRange = 1, defaultExpiry = 3600*6)
+    @node      = config.localEid
+    @channels  = {}
+    @subsRange = subsRange
+    @defaultExpiry = defaultExpiry
   end
 
   def subscribe(uri, node = @node, options = {})
     subs = Subscription.new(node, options)
+    subs.expires ||= RdtnTime.now + @defaultExpiry unless node == @node
     if channel!(uri).include? node
       s0 = channel!(uri)[node]
       s0.hopCount = [subs.hopCount, s0.hopCount].min
       s0.delay    = [subs.delay,    s0.delay   ].min
+      s0.expires  = [subs.expires,  s0.expires ].max unless node == @node
     else
       channel!(uri)[node] = subs
     end
@@ -58,7 +62,7 @@ class SubscriptionSet
 
   def housekeeping!
     @channels.delete_if do |channel, subscribers|
-      subscribers.delete_if {|node, sub| sub.expires.to_i <= RdtnTime.now.to_i}
+      subscribers.delete_if {|node, sub| sub.expires && sub.expires.to_i <= RdtnTime.now.to_i}
       subscribers.empty?
     end
   end
@@ -66,9 +70,11 @@ class SubscriptionSet
   def import(subSet)
     subSet.channels.each do |channel, subscribers|
       subscribers.each do |node, sub|
-	subscribe(channel, node, :created  => sub.created,
-		                 :expires  => sub.expires,
-				 :hopCount => sub.hopCount + 1)
+	if sub.hopCount < @subsRange
+	  subscribe(channel, node, :created  => sub.created,
+		                   :expires  => sub.expires,
+		                   :hopCount => sub.hopCount + 1)
+	end
       end
     end
   end
