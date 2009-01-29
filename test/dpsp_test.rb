@@ -355,5 +355,48 @@ class TestDPSPRouter < Test::Unit::TestCase
 
   end
 
+  simulation_context 'DPSP with hop count prio when bundles are sent over an existing contact' do
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge 1 => 2, :start => 1, :end => 10
+      g.edge 3 => 2, :start => 1, :end => 10
+      g.edge 4 => 3, :start => 1, :end => 10
+      g.edge 2 => 5, :start => 10, :end => 13
+      sim.events = g.events
+
+      sim.nodes.router(:dpsp, :prios => [:hopCount])
+
+      @channel1 = 'dtn://channel1/'
+      sim.at(0) do
+	sim.node(5).register(@channel1) {}
+	false
+      end
+      sim.at(2) do
+	bundle = Bundling::Bundle.new 'a'*2048,@channel1,nil,:multicast => true
+	block  = HopCountBlock.new(bundle)
+	bundle.addBlock(block)
+	sim.node(4).sendBundle bundle
+	false
+      end
+      sim.at(5) do
+	bundle = Bundling::Bundle.new 'a'*2048,@channel1,nil,:multicast => true
+	block  = HopCountBlock.new(bundle)
+	bundle.addBlock(block)
+	sim.node(1).sendBundle bundle
+	false
+      end
+    end
+
+    should 'priorize the bundles with fewer hops' do
+      assert_equal 14,  traffic_model.numberOfTransmissions
+      assert_equal 2,   traffic_model.numberOfBundles
+      assert_equal 0.5, traffic_model.deliveryRatio
+      assert(!traffic_model.regularBundles.find{|b| b.src == 1}.incidents[5].empty?)
+      assert(traffic_model.regularBundles.find{|b| b.src == 4}.incidents[5].empty?)
+    end
+
+  end
+
 end
 

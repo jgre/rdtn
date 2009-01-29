@@ -129,6 +129,14 @@ class DPSPRouter < Router
     @subSet.subscribers(b2.destEid).length <=> @subSet.subscribers(b1.destEid).length
   end
 
+  def hopCount(b1, b2, link)
+    if (hc1 = b1.findBlock(HopCountBlock))&&(hc2 = b2.findBlock(HopCountBlock))
+      hc1.hopCount <=> hc2.hopCount
+    else
+      0
+    end
+  end
+
 end
 
 regRouter(:dpsp, DPSPRouter)
