@@ -69,6 +69,10 @@ class DPSPRouter < Router
     @evDis.unsubscribe(:linkClosed, @evClosed)
   end
 
+  def subsRange=(range)
+    @subSet.subsRange = range
+  end
+
   SUBSCRIBE_EID = 'dtn:subscribe/'
 
   def subscriptionBundle

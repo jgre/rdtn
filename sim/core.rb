@@ -60,7 +60,7 @@ module Sim
 	each_value {|node| node.config.store.limit = limit}
       end
       def @nodes.subscription_range=(range)
-	# FIXME
+	each_value {|node| node.router.subsRange = range if node.router.respond_to? :subsRange}
       end
 
       RdtnTime.scheduleFunc = lambda {|sec, &handler| after(sec, &handler)}

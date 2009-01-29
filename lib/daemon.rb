@@ -164,9 +164,9 @@ module RdtnDaemon
 	routerClass = RouterReg.instance.routers[type]
 	rerror("Unknown type of router: #{type}") unless routerClass
       end
-      @config.router.stop #if @config.respond_to?(:router)
 
       if routerClass
+	@config.router.stop
 	rdebug("Starting router: #{type}") 
 	routerClass.new(@config, @evDis, options)
       end
