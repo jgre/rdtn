@@ -107,7 +107,7 @@ module Sim
       @events.addEventSorted(time, nil, nil, sym)
       ev = @evDis.subscribe(sym) do |t|
 	repeat = yield(t)
-	if repeat and (t + time) <= @duration
+	if repeat and (t + time).to_i <= @duration.to_i
 	  @events.addEventSorted(t + time, nil, nil, sym)
 	else
 	  @evDis.unsubscribe(sym, ev)
