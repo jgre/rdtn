@@ -61,6 +61,10 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 5, @tm.numberOfTransmissions
     end
 
+    should 'count the volume of transmissions (in bytes)' do
+      assert_equal 20, @tm.bytesTransmitted
+    end
+
     should 'calculate the transmissions per bundle' do
       assert_equal 5.0/3, @tm.transmissionsPerBundle
     end
@@ -172,8 +176,8 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 1, @tm.numberOfDeliveredBundles
     end
 
-    should 'not count vaccination bundles as transmissions' do
-      assert_equal 1, @tm.numberOfTransmissions
+    should 'count vaccination bundles as transmissions' do
+      assert_equal 2, @tm.numberOfTransmissions
     end
 
   end
@@ -221,8 +225,8 @@ class TrafficModelTest < Test::Unit::TestCase
       @log = [
         Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
         Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
-        Sim::LogEntry.new(1, :transmissionError, 1, 3, :bundle => @b1),
-        Sim::LogEntry.new(4, :transmissionError, 1, 4, :bundle => @b1),
+        Sim::LogEntry.new(1, :transmissionError, 1, 3, :transmitted => 100),
+        Sim::LogEntry.new(4, :transmissionError, 1, 4, :transmitted => 200),
       ]
       @tm  = TrafficModel.new(t0, @log)
     end
@@ -233,6 +237,10 @@ class TrafficModelTest < Test::Unit::TestCase
 
     should 'count transmission errors' do
       assert_equal 2, @tm.numberOfTransmissionErrors
+    end
+
+    should 'count the volume of failed transmissions (in bytes)' do
+      assert_equal 300, @tm.failedTransmissions 
     end
 
   end

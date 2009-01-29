@@ -59,9 +59,13 @@ module Sim
       pl           = @peerLink
       @peerLink    = nil
       pl.close if pl
-      @bytesToSend = 0
-      # TODO what happens with queued bundles?
-      # FIXME log amount of futile transmissions
+
+      if @bytesQueued > 0
+	bytesTransmitted = (RdtnTime.now - @queuedSince).to_i * @bytesPerSec
+	@sim.log(:transmissionError, @nodeId, @dest, :transmitted => bytesTransmitted)
+      end
+      @bytesQueued = 0
+      @queuedSince = nil
     end
 
     def busy?
@@ -70,8 +74,7 @@ module Sim
 
     def sendBundle(bundle)
       @bytesQueued += bundle.payload.bytesize
-      bundle.payload =~ /^(\d+) /
-      bundleIndex = $1
+      @queuedSince  = RdtnTime.now
       @sim.after(@bytesQueued / @bytesPerSec.to_f) do
         if @peerLink
           @bytesQueued -= bundle.payload.bytesize
@@ -82,8 +85,6 @@ module Sim
           @peerLink.receiveBundle(bundle, self)
         else
           @evDis.dispatch(:transmissionError, bundle, self)
-	  # FIXME log amount of futile transmissions
-	  @sim.log(:transmissionError, @nodeId, @dest, :bundle => bundle)
         end
         false
       end

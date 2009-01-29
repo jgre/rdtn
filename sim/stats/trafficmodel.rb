@@ -40,7 +40,7 @@ class TrafficModel
     # node -> list of buffer use samples [time, buffer size]
     @bufferUse = Hash.new {|hash, key| hash[key] = []}
     @duration  = 0
-    @errors    = 0
+    @errors    = []
     self.log   = log if log
   end
 
@@ -70,7 +70,7 @@ class TrafficModel
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
       @bufferUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
     when :transmissionError
-      @errors += 1
+      @errors << e.transmitted
     end
   end
 
@@ -199,7 +199,11 @@ class TrafficModel
   end
 
   def numberOfTransmissions
-    regularBundles.inject(0) {|sum, bundle| sum + bundle.transmissions}
+    @bundles.values.inject(0) {|sum, bundle| sum + bundle.transmissions}
+  end
+
+  def bytesTransmitted
+    @bundles.values.inject(0) {|sum, b| sum + b.transmissions * b.payload_size}
   end
 
   def transmissionsPerBundle
@@ -220,8 +224,6 @@ class TrafficModel
 
   def bufferUse(samplingRate, node = nil)
     if node.nil?
-      #uses = @bufferUse.keys.map {|node| bufferUse(samplingRate, node).mean}
-      #[uses.sort_by {|use| use}.last]
       @bufferUse.keys.inject([]) {|memo,node| memo+bufferUse(samplingRate,node)}
     else
       ret      = []
@@ -232,12 +234,15 @@ class TrafficModel
         ret << uses[i-1][1]
       end
       ret
-      #@bufferUse[node].map {|u| u[1]}
     end
   end
 
   def numberOfTransmissionErrors
-    @errors
+    @errors.length
+  end
+
+  def failedTransmissions
+    @errors.inject {|sum, error| sum + error}
   end
 
   def marshal_dump
