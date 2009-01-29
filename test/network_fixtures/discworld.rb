@@ -1,4 +1,4 @@
-edge 1=>2
+edge 1=>2, :start => 0, :end => 3600
 edge 1=>3
 edge 1=>4
 edge 1=>5
