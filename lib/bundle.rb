@@ -640,7 +640,7 @@ module Bundling
 
     def wireCopy(incomingLink)
       ret = Bundle.new(nil, nil, nil, :incomingLink => incomingLink)
-      ret.blocks = @blocks.map {|block| block.clone}
+      ret.blocks = @blocks.map {|block| block.deepCopy(ret)}
       instance_variables.each do |var|
         unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var.to_s)
           ret.instance_variable_set(var.to_s, instance_variable_get(var.to_s))
