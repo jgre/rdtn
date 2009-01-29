@@ -244,7 +244,7 @@ class TestDPSPRouter < Test::Unit::TestCase
     should 'transmit one bundle' do
       assert_equal 2, traffic_model.numberOfBundles
       assert_equal 1, traffic_model.numberOfExpectedBundles
-      assert_equal 1, traffic_model.numberOfTransmissions
+      assert_equal 3, traffic_model.numberOfTransmissions
     end
 
     should 'prioritize the subscribed bundle' do
@@ -277,7 +277,7 @@ class TestDPSPRouter < Test::Unit::TestCase
 
     should 'filter the queue' do
       assert_equal 2, traffic_model.numberOfBundles
-      assert_equal 1, traffic_model.numberOfTransmissions
+      assert_equal 3, traffic_model.numberOfTransmissions
       assert_equal 1, traffic_model.deliveryRatio
     end
     
@@ -313,7 +313,7 @@ class TestDPSPRouter < Test::Unit::TestCase
     end
 
     should 'priorize the bundles in the queue to deliver the subscribed bundles' do
-      assert_equal 2, traffic_model.numberOfTransmissions
+      assert_equal 4, traffic_model.numberOfTransmissions
       assert_equal 3, traffic_model.numberOfBundles
       assert_equal 1, traffic_model.deliveryRatio
     end
