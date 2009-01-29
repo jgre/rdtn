@@ -55,14 +55,6 @@ class Dataset
     [@dataset, @rows.map {|row| row.dump}]
   end
 
-  #def sort!
-  #  @rows = @rows.sort_by {|row| row.x.to_f}
-  #end
-
-  #def configure_data(&configure)
-  #  @dat_conf = configure
-  #end
-
 end
 
 class Analysis
@@ -125,6 +117,15 @@ class Analysis
   def plot(options = {}, &plot_conf)
     require 'gnuplot'
 
+    maxima = {}
+    minima = {}
+    @rows.each do |row|
+      row.values.each do |k, v|
+	maxima[k] = maxima[k] ? [maxima[k], v].max : v
+	minima[k] = minima[k] ? [minima[k], v].min : v
+      end
+    end
+
     dirname = File.join(File.dirname(__FILE__),
 			"../../simulations/analysis/#{@experiment}")
     FileUtils.mkdir_p dirname
@@ -148,19 +149,18 @@ class Analysis
 	  plot.xlabel   x_axis.to_s
 	  plot.ylabel   y_axis.first.to_s
 
+	  maxy = y_axis.map {|y_name| maxima[y_name]}.max
+	  miny = y_axis.map {|y_name| minima[y_name]}.min
+	  maxy += maxy*0.1
+	  miny -= miny*0.1
+	  plot.yrange   "[#{miny}:#{maxy}]"
+
 	  @plot_conf[plot] if @plot_conf
 
 	  combined_sets.each do |dataset|
 	    combine = options[:combine]
 
 	    x = dataset.rows.map {|row| row.value(x_axis)}
-
-	    #ys     = Hash.new {|h, k| h[k] = []}
-	    #errors = Hash.new {|h, k| h[k] = []}
-	    #dataset.rows.each do |row|
-	    #  row.values.each {|k, val| puts "Not Y: #{k}" unless y_axis.include?(k); ys[k]     << val if y_axis.include?(k)}
-	    #  row.errors.each {|k, val| errors[k] << val}
-	    #end
 
 	    y_axis.each do |name|
 	      y     = dataset.rows.map {|row| row.value(name)}
