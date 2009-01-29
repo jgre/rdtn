@@ -137,6 +137,10 @@ class DPSPRouter < Router
     end
   end
 
+  def shortDelay(b1, b2, link)
+    b2.created.to_i <=> b1.created.to_i
+  end
+
 end
 
 regRouter(:dpsp, DPSPRouter)

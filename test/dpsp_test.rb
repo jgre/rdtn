@@ -398,5 +398,38 @@ class TestDPSPRouter < Test::Unit::TestCase
 
   end
 
+  simulation_context 'DPSP with short delay prio when bundles are sent over an existing contact' do
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge 1 => 2, :start => 1, :end => 10
+      g.edge 2 => 3, :start => 10, :end => 13
+      sim.events = g.events
+
+      sim.nodes.router(:dpsp, :prios => [:shortDelay])
+
+      @channel1 = 'dtn://channel1/'
+      @channel2 = 'dtn://channel2/'
+      sim.at(0) do
+	sim.node(3).register(@channel1) {}
+	false
+      end
+      sim.at(2) do
+	sim.node(1).sendDataTo 'a'*2048,@channel2,nil,:multicast => true
+	false
+      end
+      sim.at(5) do
+	sim.node(1).sendDataTo 'a'*2048,@channel1,nil,:multicast => true
+	false
+      end
+    end
+
+    should 'priorize newer bundles' do
+      assert_equal 2, traffic_model.numberOfBundles
+      assert_equal 1, traffic_model.deliveryRatio
+    end
+
+  end
+
 end
 
