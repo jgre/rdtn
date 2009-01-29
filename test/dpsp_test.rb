@@ -283,6 +283,41 @@ class TestDPSPRouter < Test::Unit::TestCase
     
   end
 
+  simulation_context 'DPSP with hop count filter' do
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge 1 => 2, :start => 1, :end => 10
+      g.edge 2 => 3, :start => 1, :end => 10
+      sim.events = g.events
+
+      sim.nodes.router(:dpsp, :filters => [:exceedsHopCountLimit?],
+		        :hopCountLimit => 1)
+
+      @channel1 = 'dtn://channel1/'
+      @channel2 = 'dtn://channel2/'
+      sim.at(0) do
+	sim.node(3).register(@channel1) {}
+	false
+      end
+      sim.at(2) do
+	bundle = Bundling::Bundle.new 'test',@channel1,nil,:multicast => true
+	block  = HopCountBlock.new(bundle)
+	bundle.addBlock(block)
+	sim.node(1).sendBundle bundle
+	false
+      end
+    end
+
+    should 'filter the queue' do
+      assert_equal 1, traffic_model.numberOfBundles
+      assert_equal 5, traffic_model.numberOfTransmissions
+      assert_equal 1, traffic_model.numberOfExpectedBundles
+      assert_equal 0, traffic_model.deliveryRatio
+    end
+
+  end
+
   simulation_context 'DPSP with popularity prio when bundles are sent over an existing contact' do
 
     prepare do

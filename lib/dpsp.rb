@@ -3,6 +3,7 @@ require 'bundle'
 require 'rdtntime'
 require 'subscriptionset'
 require 'yaml'
+require 'hopcountblock'
 
 class DPSPRouter < Router
 
@@ -16,6 +17,7 @@ class DPSPRouter < Router
     @neighbors = {}
     @prios     = options[:prios]   || []
     @filters   = options[:filters] || []
+    @hopCountLimit = options[:hopCountLimit]
 
     RdtnTime.schedule(3600) do |time|
       @subSet.housekeeping!
@@ -114,6 +116,13 @@ class DPSPRouter < Router
 
   def knownSubscription?(bundle, link)
     !@subSet.subscribed?(bundle.destEid)
+  end
+
+  def exceedsHopCountLimit?(bundle, link)
+    if @hopCountLimit && hc = bundle.findBlock(HopCountBlock)
+      ret = hc.hopCount + 1 > @hopCountLimit
+      ret
+    end
   end
 
   def popularity(b1, b2, link)
