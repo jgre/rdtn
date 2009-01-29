@@ -18,7 +18,7 @@ class StatBundle
       @dest       = bundle.destEid
     end
     @src          = $1.to_i if %r{dtn://kasuari(\d+)/?} =~ bundle.srcEid.to_s
-    @payload_size = bundle.payload.length
+    @payload_size = bundle.payload.bytesize
     @created      = bundle.created.to_i - t0.to_i
     @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?
