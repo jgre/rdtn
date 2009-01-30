@@ -37,6 +37,10 @@ class HopCounter < Bundling::TaskHandler
     self.state = :processed
   end
 
+  def processDeletion(bundle)
+    self.state = :deleted
+  end
+
 end
 
 regWFTask(5, HopCounter)
