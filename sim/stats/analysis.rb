@@ -121,8 +121,10 @@ class Analysis
     minima = {}
     @rows.each do |row|
       row.values.each do |k, v|
-	maxima[k] = maxima[k] ? [maxima[k], v].max : v
-	minima[k] = minima[k] ? [minima[k], v].min : v
+	if v.is_a? Numeric
+	  maxima[k] = maxima[k] ? [maxima[k], v].max : v
+	  minima[k] = minima[k] ? [minima[k], v].min : v
+	end
       end
     end
 
