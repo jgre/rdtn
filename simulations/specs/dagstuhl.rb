@@ -3,19 +3,22 @@ require 'statistics'
 class Dagstuhl < Sim::Specification
 
   def execute(sim)
+    puts "Simulating variant #@var_idx"
+
     sim.trace(:type => 'MITParser', :tracefile => 'jgre-wdm2_ConnectivityDtnsim2Report')
 
     sim.nodes.linkCapacity = (2 * 10**6 / 8).to_i
-    sim.nodes.router variants(:router, [:epidemic, "Epidemic Routing"])
-			               #[:dpsp, "DPSP (plain)"])
-			               #[:dpspPopularity, "DPSP (popularity)"],
-				       #[:dpspShortDelay, "DPSP (short delay)"],
-				       #[:dpspHopCount, "DPSP (hop count)"],
-				       #[:dpsplifetime, "DPSP (bundle lifetime)"]
-			     #)
+    sim.nodes.router(*variants(:router,
+			       [[:epidemic], "Epidemic Routing"],
+			       [[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
+			       [[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
+			       [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
+			       [[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
+			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"],
+			       [[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
 
-    sim.nodes.storage_limit = 1024**2 * variants(:storage_limit,10, 30) #, 50, 256)
-    sim.nodes.subscription_range = variants(:subscription_range, 1, 5) #, 10, 100)
+    sim.nodes.storage_limit = 1024**2*variants(:storage_limit, 10, 30, 50, 256)
+    sim.nodes.subscription_range = variants(:subscription_range, 1, 5, 10, 100)
   
     n_channels = 10
     channels = (1..n_channels).map {|i| "dtn://channel#{i}/"}
@@ -67,11 +70,6 @@ class Dagstuhl < Sim::Specification
 				    :lifetime => lifetime)
 	time < duration
       end
-    end
-
-    sim.at(3600*24) do |time|
-      puts "#@var_idx Day #{time / (3600*24)}"
-      time < duration
     end
   end
 
