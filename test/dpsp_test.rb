@@ -431,5 +431,42 @@ class TestDPSPRouter < Test::Unit::TestCase
 
   end
 
+  simulation_context 'DPSP with proximity prio' do
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge 1 => 2, :start => 1
+      g.edge 2 => 3, :start => 1,  :end => 3
+      g.edge 2 => 3, :start => 10, :end => 13
+      g.edge 3 => 4, :start => 1
+      g.edge 4 => 5, :start => 1
+      g.edge 2 => 5, :start => 1,  :end => 3
+      g.edge 2 => 5, :start => 10, :end => 13
+      g.edge 5 => 6, :start => 1
+      sim.events = g.events
+
+      sim.nodes.router(:dpsp, :prios => [:proximity], :subsRange => 5)
+
+      @channel1 = 'dtn://channel1/'
+      @channel2 = 'dtn://channel2/'
+      sim.at(0) do
+	sim.node(3).register(@channel1) {}
+	sim.node(6).register(@channel2) {}
+	false
+      end
+      sim.at(5) do
+	sim.node(1).sendDataTo 'a'*2048,@channel1,nil,:multicast => true
+	sim.node(1).sendDataTo 'a'*2048,@channel2,nil,:multicast => true
+	false
+      end
+    end
+
+    should 'priorize shorter routes based on incoming subscriptions' do
+      assert_equal 2, traffic_model.numberOfBundles
+      assert_equal 1, traffic_model.deliveryRatio
+    end
+
+  end
+
 end
 

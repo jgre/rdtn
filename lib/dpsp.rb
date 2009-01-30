@@ -141,6 +141,17 @@ class DPSPRouter < Router
     b2.created.to_i <=> b1.created.to_i
   end
 
+  def proximity(b1, b2, link)
+    c1 = b1.destEid
+    c2 = b2.destEid
+    neighborSubs = @neighbors[link]
+    return 0 if neighborSubs.nil?
+    hc1 = neighborSubs.hopCounts(c1).values.min || Float::MAX
+    hc2 = neighborSubs.hopCounts(c2).values.min || Float::MAX
+
+    hc1 <=> hc2
+  end
+
 end
 
 regRouter(:dpsp, DPSPRouter)
