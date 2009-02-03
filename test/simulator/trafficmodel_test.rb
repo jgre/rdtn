@@ -222,25 +222,46 @@ class TrafficModelTest < Test::Unit::TestCase
     setup do
       t0   = Time.now
       @b1  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @sig = Bundling::Bundle.new('test', 'dtn:subscribe/', 'dtn://kasuari1')
       @log = [
         Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @sig),
         Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
-        Sim::LogEntry.new(1, :transmissionError, 1, 3, :transmitted => 100),
-        Sim::LogEntry.new(4, :transmissionError, 1, 4, :transmitted => 200),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @sig),
+        Sim::LogEntry.new(1, :transmissionError, 1, 3, :transmitted => 100, :bundle => @b1),
+        Sim::LogEntry.new(2, :transmissionError, 1, 3, :transmitted => 100, :bundle => @sig),
+        Sim::LogEntry.new(4, :transmissionError, 1, 4, :transmitted => 200, :bundle => @b1),
       ]
       @tm  = TrafficModel.new(t0, @log)
     end
 
     should 'not include the failed transmissions in the transmission count' do
-      assert_equal 1, @tm.numberOfTransmissions
+      assert_equal 2, @tm.numberOfTransmissions
+      assert_equal 8, @tm.bytesTransmitted
     end
 
     should 'count transmission errors' do
-      assert_equal 2, @tm.numberOfTransmissionErrors
+      assert_equal 3, @tm.numberOfTransmissionErrors
     end
 
     should 'count the volume of failed transmissions (in bytes)' do
-      assert_equal 300, @tm.failedTransmissions 
+      assert_equal 400, @tm.failedTransmissionVolume
+    end
+
+    should 'optionally ignore signaling bundles when counting transmissions' do
+      assert_equal 1, @tm.numberOfTransmissions(:ignoreSignaling => true)
+    end
+
+    should 'optionally ignore signaling bundles when counting transmission volueme' do
+      assert_equal 4, @tm.bytesTransmitted(:ignoreSignaling => true)
+    end
+
+    should 'optionally ignore signaling bundles when counting failed transmissions' do
+      assert_equal 2, @tm.numberOfTransmissionErrors(:ignoreSignaling => true)
+    end
+
+    should 'optionally ignore signaling bundles when counting the volume of failed transmissions' do
+      assert_equal 300, @tm.failedTransmissionVolume(:ignoreSignaling => true)
     end
 
   end

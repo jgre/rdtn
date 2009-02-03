@@ -38,7 +38,7 @@ module Sim
       @bytesPerSec = bytesPerSec
       @sim         = sim
       @bytesToSend = 0
-      @bytesQueued = 0
+      @queuedBundle = nil
       @evDis.dispatch(:linkOpen, self) if @peerLink
     end
 
@@ -60,24 +60,24 @@ module Sim
       @peerLink    = nil
       pl.close if pl
 
-      if @bytesQueued > 0
+      if @queuedBundle
 	bytesTransmitted = (RdtnTime.now - @queuedSince).to_i * @bytesPerSec
-	@sim.log(:transmissionError, @nodeId, @dest, :transmitted => bytesTransmitted)
+	@sim.log(:transmissionError, @nodeId, @dest, :transmitted => bytesTransmitted, :bundle => @queuedBundle)
       end
-      @bytesQueued = 0
-      @queuedSince = nil
+      @queuedBundle = nil
+      @queuedSince  = nil
     end
 
     def busy?
-      @bytesQueued > 0
+      @queuedBundle
     end
 
     def sendBundle(bundle)
-      @bytesQueued += bundle.payload.bytesize
+      @queuedBundle = bundle
       @queuedSince  = RdtnTime.now
-      @sim.after(@bytesQueued / @bytesPerSec.to_f) do
+      @sim.after(bundle.payload.bytesize / @bytesPerSec.to_f) do
         if @peerLink
-          @bytesQueued -= bundle.payload.bytesize
+	  @queuedBundle = nil
 
           @evDis.dispatch(:bundleForwarded, bundle, self)
           @sim.log(:bundleForwarded, @nodeId, @dest, :bundle => bundle)

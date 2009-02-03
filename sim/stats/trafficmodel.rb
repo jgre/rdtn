@@ -70,7 +70,8 @@ class TrafficModel
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
       @bufferUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
     when :transmissionError
-      @errors << e.transmitted
+      @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle) unless @bundles[e.bundle.bundleId]
+      @errors << [e.transmitted, e.bundle.bundleId]
     end
   end
 
@@ -198,12 +199,14 @@ class TrafficModel
     numberOfDeliveredBundles / numberOfExpectedBundles(options).to_f
   end
 
-  def numberOfTransmissions
-    @bundles.values.inject(0) {|sum, bundle| sum + bundle.transmissions}
+  def numberOfTransmissions(options = {})
+    bundleLst = options[:ignoreSignaling] ? regularBundles : @bundles.values
+    bundleLst.inject(0) {|sum, bundle| sum + bundle.transmissions}
   end
 
-  def bytesTransmitted
-    @bundles.values.inject(0) {|sum, b| sum + b.transmissions * b.payload_size}
+  def bytesTransmitted(options = {})
+    bundleLst = options[:ignoreSignaling] ? regularBundles : @bundles.values
+    bundleLst.inject(0) {|sum, b| sum + b.transmissions * b.payload_size}
   end
 
   def transmissionsPerBundle
@@ -237,12 +240,20 @@ class TrafficModel
     end
   end
 
-  def numberOfTransmissionErrors
-    @errors.length
+  def numberOfTransmissionErrors(options = {})
+    failedTransmissions(options).length
   end
 
-  def failedTransmissions
-    @errors.inject {|sum, error| sum + error}
+
+  def failedTransmissions(options = {})
+    filtered = @errors.find_all do |transmitted, bundleId|
+      !(options[:ignoreSignaling] && @bundles[bundleId].signaling?)
+    end
+    filtered.map {|transmitted, bundleId| transmitted}
+  end
+
+  def failedTransmissionVolume(options = {})
+    failedTransmissions(options).inject {|sum, error| sum + error}
   end
 
   def marshal_dump
