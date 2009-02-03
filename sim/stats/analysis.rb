@@ -159,7 +159,7 @@ class Analysis
 
 	  @plot_conf[plot] if @plot_conf
 
-	  combined_sets.each do |dataset|
+	  combined_sets.sort_by {|set| set.identifier.to_s}.each do |dataset|
 	    combine = options[:combine]
 
 	    x = dataset.rows.map {|row| row.value(x_axis)}
