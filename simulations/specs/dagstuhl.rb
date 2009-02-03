@@ -11,11 +11,11 @@ class Dagstuhl < Sim::Specification
     sim.nodes.router(*variants(:router,
 			       [[:epidemic], "Epidemic Routing"],
 			       [[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
-			       [[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
+			       #[[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
 			       [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
 			       [[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
-			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"],
-			       [[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
+			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"]))
+			       #[[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
 
     sim.nodes.storage_limit = 1024**2*variants(:storage_limit, 10, 30, 50, 256)
     sim.nodes.subscription_range = variants(:subscription_range, 1, 5, 10, 100)
@@ -56,7 +56,8 @@ class Dagstuhl < Sim::Specification
     # have the right simulation effect on queuing.
     data = ''
     # 5MB (song or short podcast), 30MB (long podcast), 50MB, 100MB (video)
-    $content_size = 1024**2 * variants(:content_size, 1) # 30, 50, 100)
+    #$content_size = 1024**2 * variants(:content_size, 1) # 30, 50, 100)
+    $content_size = 1024**2
     def data.bytesize
       $content_size
     end
@@ -66,8 +67,12 @@ class Dagstuhl < Sim::Specification
 
     senders.each_with_index do |sender, i|
       sim.at(3600 + rand(1800)) do |time|
-	sim.node(sender).sendDataTo(data, channels[i], nil,:multicast=>true,
-				    :lifetime => lifetime)
+	bundle = Bundling::Bundle.new(data, channels[i], nil,:multicast=>true,
+				      :lifetime => lifetime)
+	block  = HopCountBlock.new(bundle)
+	bundle.addBlock(block)
+	sim.node(sender).sendBundle bundle
+
 	time < duration
       end
     end
@@ -79,8 +84,8 @@ class Dagstuhl < Sim::Specification
     analysis.configure_data do |row, network, traffic|
       row.value "# delivered bundles", traffic.numberOfDeliveredBundles
       delays = traffic.delays.map {|delay| delay / 3600.0}
-      row.value "delay", delays.mean
-      row.std_error "delay", delays.sterror
+      row.value "delay (hours)", delays.mean
+      row.std_error "delay (hours)", delays.sterror
       row.value "# contacts", network.numberOfContacts
       row.value "# bundles", traffic.numberOfExpectedBundles
       row.value "contact duration", network.averageContactDuration
@@ -88,13 +93,14 @@ class Dagstuhl < Sim::Specification
       bufferUse = traffic.bufferUse(3600).map {|use| (use / 1024**2) / row.value(:storage_limit).to_f * 100}
       row.value "buffer use", bufferUse.mean
       row.std_error "buffer use", bufferUse.sterror
-      row.value "failed transmissions (MB)", traffic.failedTransmissions/1024**2
+      row.value "failed transmissions (MB)", traffic.failedTransmissionVolume/1024**2
     end
 
     [:storage_limit, :subscription_range].each do |x_axis|
       analysis.plot :combine => :router, :y_axis => ["# delivered bundles"], :x_axis => x_axis
-      analysis.plot :combine => :router, :y_axis => ["delay"], :x_axis => x_axis
-      analysis.plot :combine => :router, :y_axis => ["successful transmissions (MB)", "failed transmissions (MB)"], :x_axis => x_axis
+      analysis.plot :combine => :router, :y_axis => ["delay (hours)"], :x_axis => x_axis
+      analysis.plot :combine => :router, :y_axis => ["successful transmissions (MB)"], :x_axis => x_axis
+      analysis.plot :combine => :router, :y_axis => ["failed transmissions (MB)"], :x_axis => x_axis
       analysis.plot :combine => :router, :y_axis => ["buffer use"], :x_axis => x_axis
     end
 

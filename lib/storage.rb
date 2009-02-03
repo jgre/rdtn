@@ -92,9 +92,9 @@ class Storage < Monitor
   end
 
   def storeBundle(bundle)
-    if /dtn:subscribe\/.*/ =~ bundle.destEid.to_s
-      return nil
-    end
+    #if /dtn:subscribe\/.*/ =~ bundle.destEid.to_s
+    #  return nil
+    #end
     synchronize do
       @curSize += bundle.payloadLength
       if dup = @bundles[bundle.bundleId]

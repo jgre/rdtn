@@ -220,6 +220,7 @@ class TestDPSPRouter < Test::Unit::TestCase
 
     prepare do
       g = Sim::Graph.new
+      g.edge 1 => 2, :start => 1, :end => 4
       g.edge 1 => 2, :start => 10, :end => 15
       sim.events = g.events
 
@@ -248,6 +249,7 @@ class TestDPSPRouter < Test::Unit::TestCase
     end
 
     should 'prioritize the subscribed bundle' do
+      assert(traffic_model.regularBundles.find{|b| b.dest == 'dtn://channel1/'}.incidents[2].empty?)
       assert(!traffic_model.regularBundles.find{|b| b.dest == 'dtn://channel2/'}.incidents[2].empty?)
     end
 
@@ -277,7 +279,7 @@ class TestDPSPRouter < Test::Unit::TestCase
 
     should 'filter the queue' do
       assert_equal 2, traffic_model.numberOfBundles
-      assert_equal 3, traffic_model.numberOfTransmissions
+      assert_equal 2, traffic_model.numberOfTransmissions
       assert_equal 1, traffic_model.deliveryRatio
     end
     
@@ -311,7 +313,7 @@ class TestDPSPRouter < Test::Unit::TestCase
 
     should 'filter the queue' do
       assert_equal 1, traffic_model.numberOfBundles
-      assert_equal 5, traffic_model.numberOfTransmissions
+      assert_equal 3, traffic_model.numberOfTransmissions
       assert_equal 1, traffic_model.numberOfExpectedBundles
       assert_equal 0, traffic_model.deliveryRatio
     end
@@ -348,7 +350,7 @@ class TestDPSPRouter < Test::Unit::TestCase
     end
 
     should 'priorize the bundles in the queue to deliver the subscribed bundles' do
-      assert_equal 4, traffic_model.numberOfTransmissions
+      assert_equal 3, traffic_model.numberOfTransmissions
       assert_equal 3, traffic_model.numberOfBundles
       assert_equal 1, traffic_model.deliveryRatio
     end
@@ -389,7 +391,7 @@ class TestDPSPRouter < Test::Unit::TestCase
     end
 
     should 'priorize the bundles with fewer hops' do
-      assert_equal 14,  traffic_model.numberOfTransmissions
+      assert_equal 7,   traffic_model.numberOfTransmissions
       assert_equal 2,   traffic_model.numberOfBundles
       assert_equal 0.5, traffic_model.deliveryRatio
       assert(!traffic_model.regularBundles.find{|b| b.src == 1}.incidents[5].empty?)
