@@ -117,11 +117,15 @@ class DPSPRouter < Router
   end
 
   def filter?(bundle, link)
-    subsRangeExceeded?(bundle, link) or @filters.any? {|filter| self.send(filter, bundle, link)}
+    if bundle.isSubscriptionBundle?
+      subsRangeExceeded?(bundle, link)
+    else
+      @filters.any? {|filter| self.send(filter, bundle, link)}
+    end
   end
 
   def enqueue(bundle, link, action = :forward)
-    unless !bundle.isSubscriptionBundle? && filter?(bundle, link)
+    unless filter?(bundle, link)
       idx = -1
       @queues[link].each_with_index do |entry, i|
 	if compare(bundle, entry[0], link) < 0
