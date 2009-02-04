@@ -17,6 +17,7 @@ class DPSPRouter < Router
     @neighbors = {}
     @prios     = options[:prios]   || []
     @filters   = options[:filters] || []
+    @handshake = options[:handshake] || true
     @hopCountLimit = options[:hopCountLimit]
 
     RdtnTime.schedule(3600) do |time|
@@ -27,40 +28,46 @@ class DPSPRouter < Router
 
     @evToForward = @evDis.subscribe(:bundleToForward) do |b|
       if b.isSubscriptionBundle? && b.srcEid != @config.localEid
-	# TODO log incoming link and enter it to neighbors
-	link = b.incomingLink
-
-	uri  = b.payload
-	if (hcblock = b.findBlock(HopCountBlock))
-	  hc = hcblock.hopCount
+	if @handshake
+	  link = b.incomingLink
+	  @neighbors[link] = subset = YAML.load(b.payload)
+	  @subSet.import subset
+	  enqueueFromStore(link)
+	else
+	  # TODO log incoming link and enter it to neighbors
+	  uri  = b.payload
+	  if (hcblock = b.findBlock(HopCountBlock))
+	    hc = hcblock.hopCount
+	  end
+	  @subSet.subscribe(uri, b.srcEid, :hopCount => hc,
+			    :created => b.created,
+			    :expires => b.expires)
 	end
-	@subSet.subscribe(uri, b.srcEid, :hopCount => hc, :created => b.created,
-			  :expires => b.expires)
-
-	#@neighbors[link] = subset = YAML.load(b.payload)
-	#@subSet.import subset
-	#if link and store = @config.store and !link.is_a?(AppIF::AppProxy)
-	#  bulkEnqueue(store.to_a, link, :replicate)
-	#end
-      #else
       end
-      links = @contMgr.links.each do |l|
-	enqueue(b,l,:replicate) if (!l.is_a?(AppIF::AppProxy))# && @neighbors[l])
+      unless b.isSubscriptionBundle? && @handshake
+	links = @contMgr.links.each do |l|
+	  unless @handshake && @neighbors[l].nil?
+	    enqueue(b,l,:replicate) if (!l.is_a?(AppIF::AppProxy))
+	  end
+	end
       end
     end
 
     @evAvailable = @evDis.subscribe(:routeAvailable) do |rentry|
       if rentry.link.is_a?(AppIF::AppProxy)
 	@subSet.subscribe rentry.destination
-	@config.localSender.sendBundle subscriptionBundle(rentry.destination)
-	RdtnTime.schedule(@subSet.defaultExpiry * 0.9) do |time|
+	unless @handshake
 	  @config.localSender.sendBundle subscriptionBundle(rentry.destination)
-	  true
+	  RdtnTime.schedule(@subSet.defaultExpiry * 0.9) do |time|
+	    @config.localSender.sendBundle subscriptionBundle(rentry.destination)
+	    true
+	  end
 	end
       else
-	#enqueue(subscriptionBundle, rentry.link)
-	if rentry.link and store = @config.store and !rentry.link.is_a?(AppIF::AppProxy)
-	  bulkEnqueue(store.to_a, rentry.link, :replicate)
+	if @handshake
+	  enqueue(subscriptionBundle, rentry.link)
+	else
+	  enqueueFromStore(rentry.link)
 	end
       end
     end
@@ -94,17 +101,29 @@ class DPSPRouter < Router
 
   SUBSCRIBE_EID = 'dtn:subscribe/'
 
-  def subscriptionBundle(uri)
-    #dump = YAML.dump(@subSet)
-    bundle = Bundling::Bundle.new(uri, SUBSCRIBE_EID, @config.localEid,
-				  :lifetime  => @subSet.defaultExpiry,
-				  :multicast => true)
-    block  = HopCountBlock.new(bundle)
-    bundle.addBlock(block)
-    bundle
+  def subscriptionBundle(uri = nil)
+    if @handshake
+      dump = YAML.dump(@subSet)
+      Bundling::Bundle.new dump, SUBSCRIBE_EID, @config.localEid
+    else
+      bundle = Bundling::Bundle.new(uri, SUBSCRIBE_EID, @config.localEid,
+				    :lifetime  => @subSet.defaultExpiry,
+				    :multicast => true)
+      block  = HopCountBlock.new(bundle)
+      bundle.addBlock(block)
+      bundle
+    end
   end
 
   protected
+
+  def enqueueFromStore(link)
+    if link and store = @config.store and !link.is_a?(AppIF::AppProxy)
+      storedBundles = store.to_a
+      storedBundles.delete_if(&:isSubscriptionBundle?) if @handshake
+      bulkEnqueue(storedBundles, link, :replicate)
+    end
+  end
 
   def compare(b1, b2, link)
     @prios.inject(0) {|memo, prio| memo + self.send(prio, b1, b2, link)}
