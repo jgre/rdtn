@@ -16,7 +16,7 @@ class Dagstuhl < Sim::Specification
 			       [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
 			       #[[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
 			       #[[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
-			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"],
+			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"]))
 			       #[[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"]))
 			       #[[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
 
