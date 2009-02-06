@@ -11,13 +11,13 @@ class Dagstuhl < Sim::Specification
     sim.nodes.router(*variants(:router,
 			       [[:epidemic], "Epidemic Routing"],
 			       [[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
-			       [[:dpsp, {:filters => [:knownSubscription?], :handshake => true}], "DPSP (known subscription filter, handshake)"],
+			       #[[:dpsp, {:filters => [:knownSubscription?], :handshake => true}], "DPSP (known subscription filter, handshake)"],
 			       #[[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
 			       [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
-			       [[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
+			       #[[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
 			       #[[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
 			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"],
-			       [[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"]))
+			       #[[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"]))
 			       #[[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
 
     sim.nodes.storage_limit = 1024**2*variants(:storage_limit, 10, 30, 50, 256)
