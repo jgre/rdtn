@@ -231,10 +231,12 @@ class TrafficModel
     else
       ret      = []
       i        = 0
-      uses     = @bufferUse[node].sort_by {|time, size| time}
-      samplingRate.step(@duration, samplingRate) do |time|
-        until uses[i].nil? or uses[i][0] > time; i += 1; end
-        ret << uses[i-1][1]
+      if @bufferUse[node]
+	uses     = @bufferUse[node].sort_by {|time, size| time}
+	samplingRate.step(@duration, samplingRate) do |time|
+	  until uses[i].nil? or uses[i][0] > time; i += 1; end
+	  ret << uses[i-1][1]
+	end
       end
       ret
     end
