@@ -13,8 +13,8 @@ class SubscriptionSet
 
   end
 
-  attr_reader   :channels, :node
-  attr_accessor :subsRange, :defaultExpiry
+  attr_reader   :channels
+  attr_accessor :subsRange, :defaultExpiry, :node
 
   def initialize(config, evDis, subsRange = 1, defaultExpiry = 3600*6)
     @node      = config.localEid

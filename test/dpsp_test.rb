@@ -443,7 +443,7 @@ class TestDPSPRouter < Test::Unit::TestCase
       g.edge 3 => 4, :start => 1
       g.edge 4 => 5, :start => 1
       g.edge 2 => 5, :start => 1,  :end => 3
-      g.edge 2 => 5, :start => 10, :end => 13
+      g.edge 2 => 5, :start => 10, :end => 15
       g.edge 5 => 6, :start => 1
       sim.events = g.events
 

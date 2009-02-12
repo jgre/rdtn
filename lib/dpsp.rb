@@ -14,11 +14,19 @@ class DPSPRouter < Router
     @contMgr   = @config.contactManager
     @subsRange  = options[:subsRange] || 1
     @subSet    = SubscriptionSet.new config, evDis, @subsRange
-    @neighbors = {}
     @prios     = options[:prios]   || []
     @filters   = options[:filters] || []
-    @handshake = options[:handshake] || true
+    @handshake = options[:handshake] || false
     @hopCountLimit = options[:hopCountLimit]
+    if @handshake
+      @neighbors = {}
+    else
+      @neighbors = Hash.new do |h, k|
+	set      = SubscriptionSet.new config, evDis, @subsRange
+	set.node = k
+	h[k]     = set
+      end
+    end
 
     RdtnTime.schedule(3600) do |time|
       @subSet.housekeeping!
@@ -28,17 +36,20 @@ class DPSPRouter < Router
 
     @evToForward = @evDis.subscribe(:bundleToForward) do |b|
       if b.isSubscriptionBundle? && b.srcEid != @config.localEid
+	link = b.incomingLink
 	if @handshake
-	  link = b.incomingLink
-	  @neighbors[link] = subset = YAML.load(b.payload)
+	  @neighbors[link.remoteEid] = subset = YAML.load(b.payload)
 	  @subSet.import subset
 	  enqueueFromStore(link)
 	else
-	  # TODO log incoming link and enter it to neighbors
 	  uri  = b.payload
 	  if (hcblock = b.findBlock(HopCountBlock))
-	    hc = hcblock.hopCount
+	    hc   = hcblock.hopCount
+	    hc_1 = hc - 1
 	  end
+	  @neighbors[link.remoteEid].subscribe(uri, b.srcEid, :hopCount => hc_1,
+				     :created => b.created,
+				     :expires => b.expires)
 	  @subSet.subscribe(uri, b.srcEid, :hopCount => hc,
 			    :created => b.created,
 			    :expires => b.expires)
@@ -46,8 +57,8 @@ class DPSPRouter < Router
       end
       unless b.isSubscriptionBundle? && @handshake
 	links = @contMgr.links.each do |l|
-	  unless @handshake && @neighbors[l].nil?
-	    enqueue(b,l,:replicate) if (!l.is_a?(AppIF::AppProxy))
+	  unless @handshake && @neighbors[l.remoteEid].nil?
+	    enqueue(b, l, :replicate) if (!l.is_a?(AppIF::AppProxy))
 	  end
 	end
       end
@@ -72,16 +83,7 @@ class DPSPRouter < Router
       end
     end
 
-    #@evSubsRec = @evDis.subscribe(:subscriptionsReceived) do |neighbor|
-    #  link = @contMgr.findLink {|lnk| lnk.remoteEid == neighbor}
-    #  @neighbors[link] = true
-    #  if link and store = @config.store and !link.is_a?(AppIF::AppProxy)
-    #    store.each {|b| enqueue(b, [link], :replicate)}
-    #  end
-    #end
-
     @evClosed = @evDis.subscribe(:linkClosed) do |link|
-      @neighbors.delete(link)
       @subSet.unsubscribe link.remoteEid if link.is_a?(AppIF::AppProxy)
     end
   end
@@ -177,6 +179,7 @@ class DPSPRouter < Router
   end
 
   def popularity(b1, b2, link)
+    return 0 if [b1.destEid, b2.destEid].include? 'dtn:subscribe/'
     @subSet.subscribers(b2.destEid).length <=> @subSet.subscribers(b1.destEid).length
   end
 
@@ -195,7 +198,8 @@ class DPSPRouter < Router
   def proximity(b1, b2, link)
     c1 = b1.destEid
     c2 = b2.destEid
-    neighborSubs = @neighbors[link]
+    return 0 if [c1, c2].include? 'dtn:subscribe/'
+    neighborSubs = @neighbors[link.remoteEid]
     return 0 if neighborSubs.nil?
     hc1 = neighborSubs.hopCounts(c1).values.min || Float::MAX
     hc2 = neighborSubs.hopCounts(c2).values.min || Float::MAX
