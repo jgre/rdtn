@@ -78,6 +78,10 @@ class NetworkModel
     end
   end
 
+  def numbersOfNeighbors
+    @incidents.keys.map {|node| neighbors(node).length}
+  end
+
   def numberOfNodes
     @incidents.length
   end
@@ -136,6 +140,14 @@ class NetworkModel
   def totalClusteringCoefficient(time = nil)
     totalCC = nodes.inject(0) {|sum, node| sum+clusteringCoefficient(node,time)}
     totalCC / nodes.length.to_f
+  end
+
+  def degree(node)
+    @incidents[node].inject(0) {|sum, ch| sum + ch.numberOfContacts}
+  end
+
+  def degrees
+    @incidents.keys.map {|node| degree(node)}
   end
 
   def averageDegree

@@ -18,6 +18,22 @@ describe NetworkModel do
     @net.nodes.sort.should == [1, 2, 3]
   end
 
+  it 'should calculate the degree of nodes' do
+    @net.degree(1).should == 1
+    @net.degree(2).should == 2
+    @events.addEvent(5, 2, 3, :simConnection)
+    @net = NetworkModel.new(@events)
+    @net.degree(2).should == 3
+  end
+
+  it 'should calculate the neighbors per node' do
+    @net.neighbors(1).length.should == 1
+    @net.neighbors(2).length.should == 2
+    @events.addEvent(5, 2, 3, :simConnection)
+    @net = NetworkModel.new(@events)
+    @net.neighbors(2).length.should == 2
+  end
+
   it 'should calculate the number of contacts' do
     @net.numberOfContacts.should == 2
   end
