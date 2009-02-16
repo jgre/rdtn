@@ -1,12 +1,14 @@
 #!/usr/bin/env ruby
 $:.unshift File.join(File.dirname(__FILE__))
 $:.unshift File.join(File.dirname(__FILE__), '../external/aws')
+$:.unshift File.join(File.dirname(__FILE__), '../external/aws-s3/lib')
 
 require 'core'
 require 'optparse'
 require 'sqs'
 require 'sqs/client'
 require 'sqs/queue'
+require 'aws/s3'
 
 # FIXME load all simulation specs for SQS
 require 'simulations/specs/dagstuhl'
@@ -15,10 +17,16 @@ AMAZON_ACCESS_KEY_ID     = ENV['AMAZON_ACCESS_KEY_ID']
 AMAZON_SECRET_ACCESS_KEY = ENV['AMAZON_SECRET_ACCESS_KEY']
 ENDPOINT = 'http://queue.amazonaws.com'
 QUEUE    = 'jgre-rdtnsimspecs'
+BUCKET   = 'jgre-rdtnsim-results'
 
 def make_client
   AWS::SQS::Client.new(AMAZON_ACCESS_KEY_ID, AMAZON_SECRET_ACCESS_KEY,
 		       :endpoint => ENDPOINT)
+end
+
+def init_s3
+  AWS::S3::Base.establish_connection!(:access_key_id => AMAZON_ACCESS_KEY_ID, :secret_access_key => AMAZON_SECRET_ACCESS_KEY)
+  AWS::S3::Bucket.create('jgre-rdtnsim-results')
 end
 
 def send_spec_to_sqs(specs)
@@ -54,6 +62,7 @@ analysis = false
 analysis_only = false
 spec_from_sqs = false
 spec_to_sqs   = false
+store_in_s3   = false
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')                       {git      = true}
@@ -62,45 +71,78 @@ opts.on('-a', '--analysis')                  {analysis = true}
 opts.on('-A', '--analysis-only')             {analysis = analysis_only = true}
 opts.on('-s', '--specs-from-sqs')            {spec_from_sqs = true}
 opts.on('-S', '--specs-to-sqs')              {spec_to_sqs   = true}
+opts.on('-3', '--store-in-s3')               {store_in_s3   = true}
 spec = opts.parse(ARGV).first
 
 # FIXME error message if no spec is given
 
-if git
-  system("git commit -a")
-  # get commit hash
-  revision = IO.popen("git log -n1") {|p| p.read}
+# get commit hash
+revision = IO.popen("git log --pretty=tformat:%h -n1") {|p| p.read.strip}
+
+if store_in_s3
+  bucket = init_s3
 end
 
 unless analysis_only
-  dir = File.join(File.dirname(__FILE__),
-	 "../simulations/results/#{spec}-#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-
-  FileUtils.mkdir_p dir
-
   specs = spec_from_sqs ? SQSSpecList.new : Sim::Specification.loadSpec(spec).createVariants
 
   if spec_to_sqs
     send_spec_to_sqs(specs)
   else
-    #yamls = []
     until (s = specs.shift).nil?
-      #puts "Simulating #{s.inspect}"
-      #yamls << s.to_yaml
-      #dirname = '/tmp/'
-      dirname = Sim::Core.runBySpec(s, dir)
-      # write commit hash to dirname/revision
-      open(File.join(dirname, "revision"), "w") {|f| f.write(revision.to_s)}
+      network, traffic = Sim::Core.runBySpec s
+      obj_id = "#{spec}/#{revision}/#{s.var_idx}"
+      if store_in_s3
+	AWS::S3::S3Object.store "#{obj_id}/network",Marshal.dump(network),BUCKET
+	AWS::S3::S3Object.store "#{obj_id}/traffic",Marshal.dump(traffic),BUCKET
+	AWS::S3::S3Object.store "#{obj_id}/variant",YAML.dump(s.selected),BUCKET
+      else
+	dir = File.join(File.dirname(__FILE__), "../simulations/results/#{obj_id}")
+	FileUtils.mkdir_p dir
+	open(File.join(dir, 'network'), 'w'){|f| Marshal.dump(network, f)}
+	open(File.join(dir, 'traffic'), 'w'){|f| Marshal.dump(traffic, f)}
+        open(File.join(dir, 'variant'), 'w'){|f| YAML.dump(s.selected, f)}
+      end
     end
-
-    #puts "# specs #{yamls.length}, #{yamls.uniq.length}"
-
   end
-else
-  dir = Dir.glob(File.join(File.dirname(__FILE__),
-	 "../simulations/results/#{spec}-*")).sort_by{|d| File.mtime(d)}.last
 end
 
+dir = File.join(File.dirname(__FILE__), "../simulations/results/#{spec}/#{revision}")
+
 if analysis
-  Sim::Core.analyzeBySpec(spec, dir)
+  if store_in_s3
+    bucket = AWS::S3::Bucket.find BUCKET
+    var_hash = Hash.new {|h, k| h[k] = []}
+    bucket.objects.each do |obj|
+      if obj.key =~ /^#{spec}\/#{revision}\/(\d+)\/(.*)$/
+	idx, val = case $2
+		   when "variant" then [0, YAML.load(obj.value.to_s)]
+		   when "network" then [1, Marshal.load(obj.value.to_s)]
+		   when "traffic" then [2, Marshal.load(obj.value.to_s)]
+		   end
+        puts "Loading #{obj.key}: #{$1}, #{$2}"
+        var_hash[$1][idx] = val
+      end
+    end
+    variants = var_hash.values
+  else
+    puts "Dir #{dir.inspect}"
+    variants = Dir.glob("#{dir}/*").map do |d|
+      networkfile = File.join(d, 'network')
+      trafficfile = File.join(d, 'traffic')
+      variantfile = File.join(d, 'variant')
+
+      next unless File.exist?(networkfile) and File.exist?(trafficfile) and File.exist? variantfile
+
+      puts "Opening stats for from #{d}"
+
+      variant = open(variantfile) {|f| YAML.load(f)}
+      network = open(networkfile) {|f| Marshal.load(f)}
+      traffic = open(trafficfile) {|f| Marshal.load(f)}
+
+      [variant, network, traffic]
+    end
+  end
+  puts "#{dir}"
+  Sim::Core.analyzeBySpec(spec, variants, dir)
 end

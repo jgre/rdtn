@@ -148,13 +148,10 @@ module Sim
       @te.timer if @te
     end
 
-    def self.runBySpec(spec, dir)
+    def self.runBySpec(spec)
       sim     = new
 
       spec = Specification.loadSpec(spec).new unless spec.is_a?(Specification)
-
-      dirname = File.join(dir, spec.name)
-      FileUtils.mkdir_p(dirname)
 
       t0 = Time.now
 
@@ -162,37 +159,13 @@ module Sim
 
       events, traffic_model = sim.run
       network_model = NetworkModel.new(events)
-
-      open(File.join(dirname, 'network'), 'w'){|f|Marshal.dump(network_model,f)}
-      open(File.join(dirname, 'traffic'), 'w'){|f|Marshal.dump(traffic_model,f)}
-      if sel = spec.selected
-        open(File.join(dirname, 'variant'), 'w'){|f| YAML.dump(sel,f)}
-      end
-
-      dirname
+      [network_model, traffic_model]
     end
 
-    def self.analyzeBySpec(spec, base_dir)
+    def self.analyzeBySpec(spec, variants, base_dir)
       spec_obj = Specification.loadSpec(spec).new
-      dirname  = File.join(base_dir, spec + '*')
-
-      variants = Dir.glob(dirname).map do |dir|
-	networkfile = File.join(dir, 'network')
-	trafficfile = File.join(dir, 'traffic')
-	variantfile = File.join(dir, 'variant')
-
-	next unless File.exist?(networkfile) and File.exist?(trafficfile) and File.exist? variantfile
-
-	puts "Opening stats for from #{dir}"
-
-	variant = open(variantfile) {|f| YAML.load(f)}
-	network = open(networkfile) {|f| Marshal.load(f)}
-	traffic = open(trafficfile) {|f| Marshal.load(f)}
-
-	[variant, network, traffic]
-      end
-
-      Analysis.new(variants, :experiment=>File.basename(base_dir)) do |analysis|
+      dirname = "#{spec}-#{File.basename(base_dir)}"
+      Analysis.new(variants, :experiment => dirname) do |analysis|
 	spec_obj.analyze(analysis)
       end
     end

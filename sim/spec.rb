@@ -6,7 +6,7 @@ module Sim
 
   class Specification
 
-    attr_accessor :cur_variant, :vars, :selected
+    attr_accessor :cur_variant, :vars, :selected, :var_idx
 
     def initialize(var_idx = nil)
       @dry_run     = false
