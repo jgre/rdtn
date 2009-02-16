@@ -55,6 +55,9 @@ class SQSSpecList
   end
 end
 
+# get commit hash
+revision = IO.popen("git log --pretty=tformat:%h -n1") {|p| p.read.strip}
+
 parallel = 1
 git      = false
 variants = true
@@ -72,12 +75,10 @@ opts.on('-A', '--analysis-only')             {analysis = analysis_only = true}
 opts.on('-s', '--specs-from-sqs')            {spec_from_sqs = true}
 opts.on('-S', '--specs-to-sqs')              {spec_to_sqs   = true}
 opts.on('-3', '--store-in-s3')               {store_in_s3   = true}
+opts.on('-r[=rev]', '--revision[=rev]')      {|rev| revision = rev}
 spec = opts.parse(ARGV).first
 
 # FIXME error message if no spec is given
-
-# get commit hash
-revision = IO.popen("git log --pretty=tformat:%h -n1") {|p| p.read.strip}
 
 if store_in_s3
   bucket = init_s3
@@ -120,13 +121,11 @@ if analysis
 		   when "network" then [1, Marshal.load(obj.value.to_s)]
 		   when "traffic" then [2, Marshal.load(obj.value.to_s)]
 		   end
-        puts "Loading #{obj.key}: #{$1}, #{$2}"
         var_hash[$1][idx] = val
       end
     end
     variants = var_hash.values
   else
-    puts "Dir #{dir.inspect}"
     variants = Dir.glob("#{dir}/*").map do |d|
       networkfile = File.join(d, 'network')
       trafficfile = File.join(d, 'traffic')
@@ -143,6 +142,5 @@ if analysis
       [variant, network, traffic]
     end
   end
-  puts "#{dir}"
   Sim::Core.analyzeBySpec(spec, variants, dir)
 end
