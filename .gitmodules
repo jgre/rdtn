@@ -1,0 +1,3 @@
+[submodule "external/aws-s3"]
+	path = external/aws-s3
+	url = git@github.com:jgre/aws-s3.git
