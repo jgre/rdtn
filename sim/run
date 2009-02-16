@@ -1,20 +1,67 @@
 #!/usr/bin/env ruby
 $:.unshift File.join(File.dirname(__FILE__))
+$:.unshift File.join(File.dirname(__FILE__), '../external/aws')
 
 require 'core'
 require 'optparse'
+require 'sqs'
+require 'sqs/client'
+require 'sqs/queue'
+
+# FIXME load all simulation specs for SQS
+require 'simulations/specs/dagstuhl'
+
+AMAZON_ACCESS_KEY_ID     = ENV['AMAZON_ACCESS_KEY_ID']
+AMAZON_SECRET_ACCESS_KEY = ENV['AMAZON_SECRET_ACCESS_KEY']
+ENDPOINT = 'http://queue.amazonaws.com'
+QUEUE    = 'jgre-rdtnsimspecs'
+
+def make_client
+  AWS::SQS::Client.new(AMAZON_ACCESS_KEY_ID, AMAZON_SECRET_ACCESS_KEY,
+		       :endpoint => ENDPOINT)
+end
+
+def send_spec_to_sqs(specs)
+  client = make_client
+  begin
+    queue = client.create_queue(QUEUE)
+  rescue => ex
+    puts ex
+  end
+
+  specs.each {|spec| queue.send_message(CGI.escape(spec.to_yaml))}
+end
+
+class SQSSpecList
+  def initialize
+    @q = AWS::SQS::Queue.new(QUEUE, make_client)
+  end
+
+  def shift
+    msg  = @q.receive_messages(1)
+    return nil if msg.empty? || msg[0].empty?
+    body = CGI.unescape(msg[0]["Message"][0]["Body"][0])
+    receipt_handle = msg[0]["Message"][0]["ReceiptHandle"][0]
+    @q.delete_message receipt_handle
+    YAML.load body
+  end
+end
 
 parallel = 1
 git      = false
 variants = true
 analysis = false
 analysis_only = false
+spec_from_sqs = false
+spec_to_sqs   = false
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')                       {git      = true}
 opts.on('-v', '--without-variants')          {variants = false}
 opts.on('-a', '--analysis')                  {analysis = true}
 opts.on('-A', '--analysis-only')             {analysis = analysis_only = true}
+opts.on('-s', '--specs-from-sqs')            {spec_from_sqs = true}
+opts.on('-S', '--specs-to-sqs')              {spec_to_sqs   = true}
 spec = opts.parse(ARGV).first
 
 # FIXME error message if no spec is given
@@ -31,23 +78,24 @@ unless analysis_only
 
   FileUtils.mkdir_p dir
 
-  specs = Sim::Specification.loadSpec(spec).createVariants if variants
+  specs = spec_from_sqs ? SQSSpecList.new : Sim::Specification.loadSpec(spec).createVariants
 
-  active_procs = []
-  until specs.empty?
-    #if active_procs.length < parallel
-    s = specs.shift
-    #active_procs << fork do
-    dirname = Sim::Core.runBySpec(s, dir)
-    # write commit hash to dirname/revision
-    open(File.join(dirname, "revision"), "w") {|f| f.write(revision.to_s)}
-    #end
-    #else
-    #  active_procs.delete(Process.wait)
-    #end
+  if spec_to_sqs
+    send_spec_to_sqs(specs)
+  else
+    #yamls = []
+    until (s = specs.shift).nil?
+      #puts "Simulating #{s.inspect}"
+      #yamls << s.to_yaml
+      #dirname = '/tmp/'
+      dirname = Sim::Core.runBySpec(s, dir)
+      # write commit hash to dirname/revision
+      open(File.join(dirname, "revision"), "w") {|f| f.write(revision.to_s)}
+    end
+
+    #puts "# specs #{yamls.length}, #{yamls.uniq.length}"
+
   end
-
-  Process.waitall
 else
   dir = Dir.glob(File.join(File.dirname(__FILE__),
 	 "../simulations/results/#{spec}-*")).sort_by{|d| File.mtime(d)}.last
