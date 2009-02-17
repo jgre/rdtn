@@ -10,8 +10,7 @@ require 'sqs/client'
 require 'sqs/queue'
 require 'aws/s3'
 
-# FIXME load all simulation specs for SQS
-require 'simulations/specs/dagstuhl'
+Dir.glob('simulations/specs/*.rb').each {|file| require file}
 
 AMAZON_ACCESS_KEY_ID     = ENV['AMAZON_ACCESS_KEY_ID']
 AMAZON_SECRET_ACCESS_KEY = ENV['AMAZON_SECRET_ACCESS_KEY']
