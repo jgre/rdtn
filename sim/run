@@ -65,6 +65,8 @@ analysis_only = false
 spec_from_sqs = false
 spec_to_sqs   = false
 store_in_s3   = false
+launch_ami    = nil
+keypair       = nil
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')                       {git      = true}
@@ -75,6 +77,8 @@ opts.on('-s', '--specs-from-sqs')            {spec_from_sqs = true}
 opts.on('-S', '--specs-to-sqs')              {spec_to_sqs   = true}
 opts.on('-3', '--store-in-s3')               {store_in_s3   = true}
 opts.on('-r[=rev]', '--revision[=rev]')      {|rev| revision = rev}
+opts.on('-e[=AMI]', '--ec2[=AMI]')           {|ami| launch_ami = ami}
+opts.on('-k[=keypair]','--keypair[=keypair]'){|kp| keypair = kp}
 spec = opts.parse(ARGV).first
 
 # FIXME error message if no spec is given
@@ -91,7 +95,7 @@ unless analysis_only
   else
     until (s = specs.shift).nil?
       network, traffic = Sim::Core.runBySpec s
-      obj_id = "#{spec}/#{revision}/#{s.var_idx}"
+      obj_id = "#{s.class}/#{revision}/#{s.var_idx}"
       if store_in_s3
 	AWS::S3::S3Object.store "#{obj_id}/network",Marshal.dump(network),BUCKET
 	AWS::S3::S3Object.store "#{obj_id}/traffic",Marshal.dump(traffic),BUCKET
@@ -142,4 +146,8 @@ if analysis
     end
   end
   Sim::Core.analyzeBySpec(spec, variants, dir)
+end
+
+if launch_ami && keypair
+  `ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -d halt-when-done`
 end
