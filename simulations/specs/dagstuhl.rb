@@ -9,14 +9,14 @@ class Dagstuhl < Sim::Specification
 
     sim.nodes.linkCapacity = (2 * 10**6 / 8).to_i
     sim.nodes.router(*variants(:router,
-			       [[:epidemic], "Epidemic Routing"],
-			       [[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
+			       [[:epidemic], "Epidemic Routing"]))
+			       #[[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
 			       #[[:dpsp, {:filters => [:knownSubscription?], :handshake => true}], "DPSP (known subscription filter, handshake)"],
 			       #[[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
-			       [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
+			       #[[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
 			       #[[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
 			       #[[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
-			       [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"]))
+			       #[[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"]))
 			       #[[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"]))
 			       #[[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
 
@@ -89,23 +89,25 @@ class Dagstuhl < Sim::Specification
       delays = traffic.delays.map {|delay| delay / 3600.0}
       row.value "delay (hours)", delays.mean
       row.std_error "delay (hours)", delays.sterror
-      row.value "# contacts", network.numberOfContacts
+      #row.value "# contacts", network.numberOfContacts
       row.value "# bundles", traffic.numberOfExpectedBundles
-      row.value "contact duration", network.averageContactDuration
-      row.value "successful transmissions (MB)",traffic.bytesTransmitted/1024**2
+      #row.value "contact duration", network.averageContactDuration
+      #row.value "successful transmissions",traffic.bytesTransmitted/1024**2
       bufferUse = traffic.bufferUse(3600).map {|use| (use / 1024**2) / row.value(:storage_limit).to_f * 100}
-      row.value "buffer use", bufferUse.mean
-      row.std_error "buffer use", bufferUse.sterror
-      row.value "failed transmissions (MB)", traffic.failedTransmissionVolume/1024**2
+      #row.value "buffer use (%)", bufferUse.mean
+      #row.std_error "buffer use (%)", bufferUse.sterror
+      #row.value "failed transmissions (MB)", traffic.failedTransmissionVolume/1024**2
     end
 
     [:storage_limit, :subscription_range].each do |x_axis|
       analysis.plot :combine => :router, :y_axis => ["# delivered bundles"], :x_axis => x_axis
       analysis.plot :combine => :router, :y_axis => ["delay (hours)"], :x_axis => x_axis
-      analysis.plot :combine => :router, :y_axis => ["successful transmissions (MB)"], :x_axis => x_axis
-      analysis.plot :combine => :router, :y_axis => ["failed transmissions (MB)"], :x_axis => x_axis
-      analysis.plot :combine => :router, :y_axis => ["buffer use"], :x_axis => x_axis
+      #analysis.plot :combine => :router, :y_axis => ["successful transmissions"], :x_axis => x_axis
+      #analysis.plot :combine => :router, :y_axis => ["failed transmissions (MB)"], :x_axis => x_axis
+      #analysis.plot :combine => :router, :y_axis => ["buffer use (%)"], :x_axis => x_axis
     end
+
+    #analysis.plot :combine => :router, :y_axis => ["# delivered bundles"], :x_axis => "successful transmissions"
 
   end 
 
