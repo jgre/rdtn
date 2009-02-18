@@ -9,16 +9,17 @@ class Dagstuhl < Sim::Specification
 
     sim.nodes.linkCapacity = (2 * 10**6 / 8).to_i
     sim.nodes.router(*variants(:router,
-			       [[:epidemic], "Epidemic Routing"]))
-			       #[[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
-			       #[[:dpsp, {:filters => [:knownSubscription?], :handshake => true}], "DPSP (known subscription filter, handshake)"],
-			       #[[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
-			       #[[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
-			       #[[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
-			       #[[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
-			       #[[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"]))
-			       #[[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"]))
-			       #[[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"]))
+			       [[:epidemic], "Epidemic Routing"],
+                               [[:dpsp, {:filters => [:knownSubscription?]}], "DPSP (known subscription filter)"],
+                               [[:dpsp, {:filters => [:knownSubscription?], :handshake => true}], "DPSP (known subscription filter, handshake)"],
+                               #[[:dpsp, {:filters => [:exceedsHopCountLimit?], :hopCountLimit => 3}], "DPSP (hop count limit 3)"],
+                               [[:dpsp, {:prios => [:popularity]}], "DPSP (popularity)"],
+                               [[:dpsp, {:prios => [:popularity], :handshake => true}], "DPSP (popularity, handshake)"],
+                               #[[:dpsp, {:prios => [:hopCount]}], "DPSP (hop count)"],
+                               [[:dpsp, {:prios => [:shortDelay]}], "DPSP (short delay)"],
+                               [[:dpsp, {:prios => [:shortDelay], :handshake => true}], "DPSP (short delay, handshake)"],
+                               [[:dpsp, {:prios => [:proximity]}], "DPSP (proximity)"],
+                               [[:dpsp, {:prios => [:proximity], :handshake => true}], "DPSP (proximity, handshake)"]))
 
     sim.nodes.storage_limit = 1024**2*variants(:storage_limit, 10, 30, 50, 256)
     sim.nodes.subscription_range = variants(:subscription_range, 1, 5, 10, 100)
