@@ -115,19 +115,22 @@ dir = File.join(File.dirname(__FILE__), "../simulations/results/#{spec}/#{revisi
 
 if analysis
   if store_in_s3
+    specs = Sim::Specification.loadSpec(spec).createVariants
+    puts "#{specs.length} specs"
     bucket = AWS::S3::Bucket.find BUCKET
-    var_hash = Hash.new {|h, k| h[k] = []}
-    bucket.objects.each do |obj|
-      if obj.key =~ /^#{spec}\/#{revision}\/(\d+)\/(.*)$/
-	idx, val = case $2
-		   when "variant" then [0, YAML.load(obj.value.to_s)]
-		   when "network" then [1, Marshal.load(obj.value.to_s)]
-		   when "traffic" then [2, Marshal.load(obj.value.to_s)]
-		   end
-        var_hash[$1][idx] = val
+    variants = []
+    specs.length.times do |i|
+      variant = bucket["#{spec}/#{revision}/#{i}/variant"]
+      network = bucket["#{spec}/#{revision}/#{i}/network"]
+      traffic = bucket["#{spec}/#{revision}/#{i}/traffic"]
+      if [variant, network, traffic].any?(&:nil?)
+	puts "ERROR: incomplete data for variant #{i}:\n  #{[variant, network, traffic].inspect}"
+	next
+      else
+	puts "Downloaded variant #{i}"
       end
+      variants << [YAML.load(variant.value.to_s), Marshal.load(network.value.to_s), Marshal.load(traffic.value.to_s)]
     end
-    variants = var_hash.values
   else
     variants = Dir.glob("#{dir}/*").map do |d|
       networkfile = File.join(d, 'network')
@@ -145,6 +148,7 @@ if analysis
       [variant, network, traffic]
     end
   end
+
   Sim::Core.analyzeBySpec(spec, variants, dir)
 end
 
