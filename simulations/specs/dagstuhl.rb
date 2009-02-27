@@ -3,7 +3,7 @@ require 'statistics'
 class Dagstuhl < Sim::Specification
 
   def execute(sim)
-    puts "Simulating variant #@var_idx"
+    puts "Simulating variant #@var_idx" if @var_idx
 
     sim.trace(:type => 'MITParser', :tracefile => 'jgre-wdm2_ConnectivityDtnsim2Report')
 
@@ -110,6 +110,6 @@ class Dagstuhl < Sim::Specification
 
     #analysis.plot :combine => :router, :y_axis => ["# delivered bundles"], :x_axis => "successful transmissions"
 
-  end 
+  end
 
 end
