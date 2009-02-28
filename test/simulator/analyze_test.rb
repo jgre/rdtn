@@ -8,250 +8,205 @@ require 'trafficmodel'
 require 'networkmodel'
 require 'logentry'
 require 'analysis'
+require 'mocha'
 
 class AnalyzeTest < Test::Unit::TestCase
 
-  context 'Analyzing the results for an experiment with two variables' do
-
-    setup do
-      @variants = [
-        [{:a => 1, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 2, :b => 4}, NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 1, :b => 5}, NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 2, :b => 5}, NetworkModel.new, TrafficModel.new(0)]
-      ]
-
-      @analysis = Analysis.new(@variants) do |analysis|
-        analysis.x_axis  = :b
-	analysis.configure_data :x_axis => :b do |row, x, network, traffic|
-	  row.value "1", network
-	  row.value "2", traffic
-        end
-      end
-      @datasets = @analysis.datasets
-    end
-
-    should 'produce datasets identified by variable :a that map variable :b to the network model and the traffic model' do
-      expectation = [
-        [{:a => 1}, [[4, @variants[0][1], @variants[0][2]],
-                     [5, @variants[2][1], @variants[2][2]]]],
-        [{:a => 2}, [[4, @variants[1][1], @variants[1][2]],
-                     [5, @variants[3][1], @variants[3][2]]]]
-      ]
-      assert_same_elements expectation, @datasets.map {|ds| ds.dump}
-    end
-
-    should 'produce two datasets' do
-      assert_equal 2, @datasets.length
-      @datasets.each {|ds| assert_kind_of Dataset, ds}
-    end
-
-    should 'produce datasets identified by values for variable :a' do
-      assert_same_elements [1, 2], @datasets.map {|ds| ds.dataset[:a]}
-    end
-
-    should 'contain the :b variable as the first entry in all value rows' do
-      @datasets.each do |ds|
-        assert_equal [4, 5], ds.rows.map {|row| row.x}
-      end
-    end
-
-    should 'contain the network and traffic models as y values' do
-      assert_same_elements @variants.map{|v| v[1..-1]},
-       	@datasets.inject([]) {|memo, ds| memo + ds.rows.map {|v| v.dump[1..-1]}}
-    end
-
-  end
-
-  context 'Putting Dataset into a string' do
-
-    setup do
-      @ds = Dataset.new({:a => 1})
-      @ds.rows = [Dataset::Row.new(4, nil, nil),
-                  Dataset::Row.new(5, nil, nil)]
-      @ds.rows[0].value "a", 1000
-      @ds.rows[0].value "b", 1200
-      @ds.rows[1].value "a", 500
-      @ds.rows[1].value "b", 900
-      @str = @ds.to_s
-    end
-
-    should 'give an ASCII table' do
-      expected = <<END_OF_STRING
-4 1000 1200
-5 500 900
-END_OF_STRING
-      assert_equal expected, @str
-    end
-  end
-
-  context 'Analyzing the results for an experiment with three variables' do
-    setup do
-      @variants = [
-        [{:a => 1, :b => 4, :c => 42.5}, NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 1, :b => 4, :c => 42},   NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 2, :b => 4, :c => 43},   NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 1, :b => 5, :c => 44},   NetworkModel.new, TrafficModel.new(0)],
-        [{:a => 2, :b => 5, :c => 45},   NetworkModel.new, TrafficModel.new(0)]
-      ]
-
-      @analysis = Analysis.new(@variants) do |analysis|
-	analysis.configure_data :x_axis => :c do |row, x, network_model, traffic_model|
-	  row.value "1", network_model
-	  row.value "2", traffic_model
-        end
-      end
-      @datasets = @analysis.datasets
-    end
-
-    should 'produce datasets identified by variables :a and :b that map variable :c to the network model and the traffic model' do
-      expectation = [
-        [{:a => 1, :b => 4}, [[42,   @variants[1][1], @variants[1][2]],
-        		      [42.5, @variants[0][1], @variants[0][2]]]],
-        [{:a => 1, :b => 5}, [[44, @variants[3][1], @variants[3][2]]]],
-        [{:a => 2, :b => 4}, [[43, @variants[2][1], @variants[2][2]]]],
-        [{:a => 2, :b => 5}, [[45, @variants[4][1], @variants[4][2]]]]
-      ]
-      assert_same_elements expectation, @datasets.map {|ds| ds.dump}
-    end
-
-  end
-
-  should 'cope with empty datasets' do
-    @variants = [[{:a => 1, :b => 4},   NetworkModel.new, TrafficModel.new(0)],
-                 [{:a => 1, :b => nil}, NetworkModel.new, TrafficModel.new(0)],
-                 [{:a => 1, :b => 20},  NetworkModel.new, TrafficModel.new(0)]]
-    @analysis = Analysis.new(@variants) do |analysis|
-      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
-	unless x.nil?
-	  row.value "1", network_model
-	  row.value "2", traffic_model
-	end
-      end
-    end
-    @datasets = @analysis.datasets
-    expectation = [
-      [{:a => 1}, [[4,  @variants[0][1], @variants[0][2]],
-                   [20, @variants[2][1], @variants[2][2]]]]
+  def setup
+    @variants = [
+      [{:routing => :epidemic, :size => 10}, nil, stub(:averageDelay => 3600, :numberOfDeliveredBundles => 42, :delays => [1000, 2000, 600])],
+      [{:routing => :epidemic, :size => 20}, nil, stub(:averageDelay => 3700, :numberOfDeliveredBundles => 62, :delays => [1500, 1000, 500, 700])],
+      [{:routing => :dpsp, :size => 10}, nil, stub(:averageDelay => 3602, :numberOfDeliveredBundles => 2, :delays => [2, 600, 1500, 1500])],
+      [{:routing => :dpsp, :size => 20}, nil, stub(:averageDelay => 2600, :numberOfDeliveredBundles => 77, :delays => [1600, 1000])]
     ]
-    assert_equal expectation, @datasets.map {|ds| ds.dump}
   end
 
-  should 'use descriptions for datasets (if available)' do
-    @variants = [[{:a=>[1,'uno'],:b=>4},NetworkModel.new,TrafficModel.new(0)],
-                 [{:a=>2,:b=> nil},NetworkModel.new,TrafficModel.new(0)],
-                 [{:a=>2,:b=> 20},NetworkModel.new,TrafficModel.new(0)]]
-    @analysis = Analysis.new(@variants) do |analysis|
-      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
-	unless x.nil?
-	  row.value "1", network_model
-	  row.value "2", traffic_model
-	end
-      end
+  should 'preprocess into a list of hashes' do
+    results = Analysis.preprocess(@variants)
+    assert_equal 4, results.length
+    results.each {|res| assert_kind_of Hash, res}
+  end
+
+  should 'call a block from preprocess' do
+    results = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
     end
-    @datasets = @analysis.datasets
-    expectation = [
-      [{:a => 2}, [[20, @variants[2][1], @variants[2][2]]]],
-      [{:a => 'uno'},[[4,@variants[0][1],@variants[0][2]]]]
+    expected = [
+      {:routing => :epidemic, :size => 10, :meanDelay => 3600, :delivered =>42},
+      {:routing => :epidemic, :size => 20, :meanDelay => 3700, :delivered =>62},
+      {:routing => :dpsp, :size => 10, :meanDelay => 3602, :delivered => 2},
+      {:routing => :dpsp, :size => 20, :meanDelay => 2600, :delivered => 77}
     ]
-    assert_same_elements expectation, @datasets.map {|ds| ds.dump}
+    assert_same_elements expected, results
   end
 
-  should 'be able to deal with returns from the block that are not arrays' do
-    @variants = [[{:a=>1, :b => 4}, NetworkModel.new, TrafficModel.new(0)]]
-    @analysis = Analysis.new(@variants) do |analysis|
-
-      analysis.configure_data :x_axis => :b do |row, x, network_model, traffic_model|
-	row.value "1", network_model unless x.nil?
+  should 'allow multiple values to be returned for one variant' do
+    results = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      traffic.delays.each_with_index do |delay, i|
+	emit :delayIndex => i, :delay => delay
       end
     end
-    @datasets = @analysis.datasets
-    expectation = [[{:a => 1}, [[4, @variants[0][1]]]]]
-    assert_equal expectation, @datasets.map {|ds| ds.dump}
+    expected = [
+      {:routing => :epidemic, :size => 10, :meanDelay => 3600, :delivered =>42},
+      {:routing => :epidemic, :size => 20, :meanDelay => 3700, :delivered =>62},
+      {:routing => :dpsp, :size => 10, :meanDelay => 3602, :delivered => 2},
+      {:routing => :dpsp, :size => 20, :meanDelay => 2600, :delivered => 77},
+
+      {:routing => :epidemic, :size => 10, :delayIndex => 0, :delay => 1000},
+      {:routing => :epidemic, :size => 10, :delayIndex => 1, :delay => 2000},
+      {:routing => :epidemic, :size => 10, :delayIndex => 2, :delay => 600},
+      {:routing => :epidemic, :size => 20, :delayIndex => 0, :delay => 1500},
+      {:routing => :epidemic, :size => 20, :delayIndex => 1, :delay => 1000},
+      {:routing => :epidemic, :size => 20, :delayIndex => 2, :delay => 500},
+      {:routing => :epidemic, :size => 20, :delayIndex => 3, :delay => 700},
+      {:routing => :dpsp, :size => 10, :delayIndex => 0, :delay => 2},
+      {:routing => :dpsp, :size => 10, :delayIndex => 1, :delay => 600},
+      {:routing => :dpsp, :size => 10, :delayIndex => 2, :delay => 1500},
+      {:routing => :dpsp, :size => 10, :delayIndex => 3, :delay => 1500},
+      {:routing => :dpsp, :size => 20, :delayIndex => 0, :delay => 1600},
+      {:routing => :dpsp, :size => 20, :delayIndex => 1, :delay => 1000},
+    ]
+    assert_same_elements expected, results
   end
 
-  context 'Analysis with Enabled Gnuplot' do
+  should 'aggregate the data according to given x and y axes' do
+    processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+    end
+
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
+
+    expected = {
+      {:routing => :epidemic} => {{} => {:size => [10, 20], :meanDelay => [3600, 3700]}},
+      {:routing => :dpsp} => {{} => {:size => [10, 20], :meanDelay => [3602, 2600]}}
+    }
+    assert_equal expected, results
+  end
+
+  should 'add error values when aggregating data' do
+    processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :meanDelay_error => 0.5
+    end
+
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
+
+    expected = {
+      {:routing => :epidemic} => {{} => {:size => [10, 20], :meanDelay => [3600, 3700], :meanDelay_error => [0.5, 0.5]}},
+      {:routing => :dpsp} => {{} => {:size => [10, 20], :meanDelay => [3602, 2600], :meanDelay_error => [0.5, 0.5]}}
+    }
+    assert_equal expected, results
+  end
+
+  should 'observe combinations when aggregating data' do
+    variants = [
+      [{:routing => :epidemic, :size => 10, :lifetime => 1800}, nil, stub(:numberOfDeliveredBundles => 42)],
+      [{:routing => :epidemic, :size => 20, :lifetime => 1800}, nil, stub(:numberOfDeliveredBundles => 62)],
+      [{:routing => :epidemic, :size => 10, :lifetime => 3600}, nil, stub(:numberOfDeliveredBundles => 43)],
+      [{:routing => :epidemic, :size => 20, :lifetime => 3600}, nil, stub(:numberOfDeliveredBundles => 63)],
+      [{:routing => :dpsp, :size => 10, :lifetime => 1800}, nil, stub(:numberOfDeliveredBundles => 2)],
+      [{:routing => :dpsp, :size => 20, :lifetime => 1800}, nil, stub(:numberOfDeliveredBundles => 77)],
+      [{:routing => :dpsp, :size => 10, :lifetime => 3600}, nil, stub(:numberOfDeliveredBundles => 3)],
+      [{:routing => :dpsp, :size => 20, :lifetime => 3600}, nil, stub(:numberOfDeliveredBundles => 73)]
+    ]
+    processed = Analysis.preprocess(variants) do |variant, net, traffic|
+      emit :delivered => traffic.numberOfDeliveredBundles
+    end
+
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :delivered, :combine => :routing, :enumerate => [:lifetime]
+
+    expected = {
+      {:lifetime => 1800} => {
+        {:routing => :epidemic} => {:size => [10, 20], :delivered => [42, 62]},
+        {:routing => :dpsp} => {:size => [10, 20], :delivered => [2, 77]}
+      },
+      {:lifetime => 3600} => {
+        {:routing => :epidemic} => {:size => [10, 20], :delivered => [43, 63]},
+        {:routing => :dpsp} => {:size => [10, 20], :delivered => [3, 73]}
+      }
+    }
+    assert_equal expected, results
+  end
+
+  should 'plot the aggregated data' do
+    processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+    end
+
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
+
+    dir = "tmp/"
+    Analysis.plot results, :x_axis => :size, :y_axis => :meanDelay, :dir => dir
+    assert File.exist?(File.join(dir, "routing=>epidemic[meanDelay].svg"))
+    assert File.exist?(File.join(dir, "routing=>dpsp[meanDelay].svg"))
+  end
+
+  context 'plotting the aggregated data with combinations' do
 
     setup do
-      @variants = [
-        [{:scen => 1, :routing => "epidemic", :bundles => 42.5}, NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 1, :routing => "epidemic", :bundles => 42},   NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 2, :routing => "epidemic", :bundles => 43},   NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 2, :routing => "epidemic", :bundles => 43.5}, NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 1, :routing => "DPSP", :bundles => 44},   NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 1, :routing => "DPSP", :bundles => 44.5}, NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 2, :routing => "DPSP", :bundles => 45},   NetworkModel.new, TrafficModel.new(0)],
-        [{:scen => 2, :routing => "DPSP", :bundles => 45.5}, NetworkModel.new, TrafficModel.new(0)]
-      ]
-      @experiment = 'MyTestExperiment'
-      @dir = File.join(File.dirname(__FILE__),"../../simulations/analysis/#{@experiment}")
+      processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+	emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      end
+      @results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :combine => :routing
+      @dir = "tmp/"
       FileUtils.rm_rf @dir
     end
 
-    teardown do
-      FileUtils.rm_rf @dir
+    teardown {FileUtils.rm_rf @dir}
+
+    should 'plot two datasets' do
+      Gnuplot::Plot.any_instance.expects(:data).times(2).returns([])
+      Analysis.plot @results, :x_axis => :size, :y_axis => :meanDelay, :dir => @dir
     end
 
-    should 'create an svg file' do
-      @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.x_axis  = :bundles
-        analysis.gnuplot = true
+    should 'create only one file' do
+      Analysis.plot @results, :x_axis => :size, :y_axis => :meanDelay, :dir => @dir
+      assert_same_elements [File.join(@dir, "[meanDelay].svg")], Dir.glob("#{@dir}*")
+    end
 
-        analysis.configure_plot do |plot|
-          plot.ylabel "Why?"
-          plot.xlabel "What?"
-        end
-        analysis.configure_data :x_axis => :bundles do |row, x, network_model, traffic_model|
-	  row.value "1", rand unless x.nil?
-        end
-	analysis.plot :x_axis => :bundles, :y_axis => ["1"]
+    should 'print custom labels on the graph' do
+      block_called = false
+      Analysis.plot(@results, :x_axis => :size, :y_axis => :meanDelay, :dir => @dir) do |plot|
+	plot.title "mytitle"
+	plot.xlabel "myx"
+	plot.ylabel "myy"
+	block_called = true
       end
-      assert File.exist?(File.join(@dir, 'scen1routingepidemic1.svg'))
-      assert File.exist?(File.join(@dir, 'scen2routingepidemic1.svg'))
-      assert File.exist?(File.join(@dir, 'scen1routingDPSP1.svg'))
-      assert File.exist?(File.join(@dir, 'scen2routingDPSP1.svg'))
+      assert block_called
     end
 
-    should 'combine datasets into one plot when the :combine option is set' do
-      @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
-	  row.value "1", rand unless x.nil?
-        end
-	analysis.plot :x_axis => :bundles, :y_axis => ["1"]
-      end
-      assert_same_elements [File.join(@dir, 'scen11.svg'), File.join(@dir, 'scen21.svg')], Dir.glob("#{@dir}/*.svg")
+    should 'use a translation hash to print labels' do
+      Gnuplot::DataSet.any_instance.expects(:title=).at_least_once.with :Routing
+      translate = {:dpsp => :Routing, :epidemic => :Routing}
+      Analysis.plot(@results, :x_axis => :size, :y_axis => :meanDelay, :dir => @dir, :translate => translate)
     end
 
-    should 'combine data with different values into one plot' do
-      @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
-	  unless x.nil?
-	    row.value "delivered", x
-	    row.value "delay",     x + 10
-	  end
-	end
-	analysis.plot :x_axis => :bundles, :y_axis => ["delivered", "delay"]
-      end
-      assert_same_elements [File.join(@dir, 'scen1delivereddelay.svg'),
-	File.join(@dir, 'scen2delivereddelay.svg')],
-       	Dir.glob("#{@dir}/*.svg")
+  end
+
+  should 'set common minima and maxima for datasets' do
+    Gnuplot::Plot.any_instance.expects(:yrange).at_least_once.with("[2340.0:4070.0]")
+    processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
     end
 
-    should 'plot errorbars, if the standard error is supplied' do
-      @analysis = Analysis.new(@variants,:experiment=>@experiment) do |analysis|
-        analysis.x_axis  = :bundles
-	analysis.configure_data :combine => :routing, :x_axis => :bundles do |row, x, network_model, traffic_model|
-	  unless x.nil?
-	    row.value     "delay", x + 10
-	    row.std_error "delay", 10
-	  end
-	end
-        analysis.plot :x_axis => :bundles, :y_axis => ["delay"] #do |dataset|
-        #end
-      end
-      assert_same_elements [File.join(@dir, 'scen1delay.svg'), File.join(@dir, 'scen2delay.svg')], Dir.glob("#{@dir}/*.svg")
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
+
+    dir = "tmp/"
+    Analysis.plot results, :x_axis => :size, :y_axis => :meanDelay, :dir => dir
+    FileUtils.rm_rf dir
+  end
+
+  should 'plot error bars' do
+    Gnuplot::DataSet.any_instance.expects(:with=).at_least_once.with "yerrorlines"
+    processed = Analysis.preprocess(@variants) do |variant, net, traffic|
+      emit :meanDelay => traffic.averageDelay, :meanDelay_error => 50
     end
 
+    results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
+
+    dir = "tmp/"
+    Analysis.plot results, :x_axis => :size, :y_axis => :meanDelay, :dir => dir
+    FileUtils.rm_rf dir
   end
 
 end
