@@ -19,8 +19,8 @@ module Sim
     module ClassMethods
 
       def simulation_context(name, &blk)
-        if Thoughtbot::Shoulda.current_context
-          Thoughtbot::Shoulda.current_context.context(name, &blk)
+        if Shoulda.current_context
+          Shoulda.current_context.context(name, &blk)
         else
           context = Sim::MaidenVoyage::Context.new(name, self, &blk)
           context.build
@@ -58,7 +58,7 @@ module Sim
       MaidenVoyage.send(*args, &block)
     end
 
-    class Context < Thoughtbot::Shoulda::Context
+    class Context < Shoulda::Context
 
       attr_accessor :prepare_blocks, :network, :workload
       attr_reader   :sim, :network_model, :traffic_model, :sim_run
