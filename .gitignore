@@ -8,3 +8,5 @@ simulations/analysis
 *.log
 doc/tech-report/rdtn-tr.pdf
 id_rsa-gsg-keypair
+*#*#
+*~
