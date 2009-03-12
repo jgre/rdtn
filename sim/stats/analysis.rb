@@ -12,7 +12,7 @@ module Analysis
       if block.nil?
 	var[0]
       else
-        ret = block[var]
+        ret = block[*var]
         ret = ret.is_a?(Array) ? ret : [ret]
         ret.map {|r| r.merge var[0]}
       end
