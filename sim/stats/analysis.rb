@@ -7,27 +7,14 @@ require 'gnuplot'
 
 module Analysis
 
-  class MapObject
-    attr_reader :results
-
-    def initialize
-      @results = []
-    end
-
-    def emit(hash)
-      @results << hash
-    end
-  end
-
-
   def self.preprocess(variants, &block)
     ret = variants.map do |var|
       if block.nil?
 	var[0]
-      else 
-	mo = MapObject.new
-	mo.instance_exec var, &block
-	mo.results.map {|res| var[0].merge res}
+      else
+        ret = block[var]
+        ret = ret.is_a?(Array) ? ret : [ret]
+        ret.map {|r| r.merge var[0]}
       end
     end
     ret.flatten

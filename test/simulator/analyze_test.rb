@@ -29,7 +29,7 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'call a block from preprocess' do
     results = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      {:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
     end
     expected = [
       {:routing => :epidemic, :size => 10, :meanDelay => 3600, :delivered =>42},
@@ -42,10 +42,12 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'allow multiple values to be returned for one variant' do
     results = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      ret = []
+      ret << {:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
       traffic.delays.each_with_index do |delay, i|
-	emit :delayIndex => i, :delay => delay
+	ret << {:delayIndex => i, :delay => delay}
       end
+      ret
     end
     expected = [
       {:routing => :epidemic, :size => 10, :meanDelay => 3600, :delivered =>42},
@@ -72,7 +74,7 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'aggregate the data according to given x and y axes' do
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      {:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
@@ -86,7 +88,7 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'add error values when aggregating data' do
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :meanDelay_error => 0.5
+      {:meanDelay => traffic.averageDelay, :meanDelay_error => 0.5}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
@@ -110,7 +112,7 @@ class AnalyzeTest < Test::Unit::TestCase
       [{:routing => :dpsp, :size => 20, :lifetime => 3600}, nil, stub(:numberOfDeliveredBundles => 73)]
     ]
     processed = Analysis.preprocess(variants) do |variant, net, traffic|
-      emit :delivered => traffic.numberOfDeliveredBundles
+      {:delivered => traffic.numberOfDeliveredBundles}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :delivered, :combine => :routing, :enumerate => [:lifetime]
@@ -130,7 +132,7 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'plot the aggregated data' do
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      {:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
@@ -145,7 +147,7 @@ class AnalyzeTest < Test::Unit::TestCase
 
     setup do
       processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-	emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+	{:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
       end
       @results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :combine => :routing
       @dir = "tmp/"
@@ -186,7 +188,7 @@ class AnalyzeTest < Test::Unit::TestCase
   should 'set common minima and maxima for datasets' do
     Gnuplot::Plot.any_instance.expects(:yrange).at_least_once.with("[2340.0:4070.0]")
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles
+      {:meanDelay => traffic.averageDelay, :delivered => traffic.numberOfDeliveredBundles}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
@@ -199,7 +201,7 @@ class AnalyzeTest < Test::Unit::TestCase
   should 'plot error bars' do
     Gnuplot::DataSet.any_instance.expects(:with=).at_least_once.with "yerrorlines"
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      emit :meanDelay => traffic.averageDelay, :meanDelay_error => 50
+      {:meanDelay => traffic.averageDelay, :meanDelay_error => 50}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
