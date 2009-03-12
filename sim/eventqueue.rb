@@ -162,7 +162,6 @@ module Sim
     include Enumerable
 
     def initialize(time0 = 0)
-      #@events = []
       @events = nil # Linked List
       @time0  = 0  # All event before time0 will be ignored
       @cur_ev = 0  # The index of the current event
@@ -193,14 +192,6 @@ module Sim
 	cur = go_right(cur, cur)
       end
 
-
-      #@events.each(&blk)
-      #ev = @events
-      #until ev.nil?
-      #  yield(ev)
-      #  ev = ev.next
-      #  break if ev == @events
-      #end
       self
     end
 
@@ -208,43 +199,11 @@ module Sim
       inject(0) {|memo, ev| memo + 1}
     end
 
-    #def addEvent(time, nodeId1, nodeId2, type)
-    #  @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
-    #  #@events.push(Event.new(time, nodeId1, nodeId2, type))
-    #  ev = Event.new(time, nodeId1, nodeId2, type)
-    #  if @events.nil?
-    #    @events = ev
-    #  else
-    #    @events.insert(ev)
-    #  end
-    #  self
-    #end
-
     def addEventSorted(time, nodeId1, nodeId2, type)
       @nodes[nodeId1] = @nodes[nodeId2] = nil #we only use the keys for counting
       ev = Event.new(time, nodeId1, nodeId2, type)
       @events = Event.insert(@events, ev)
 
-      #idx = nil
-      #next_time = find {|event| event.time > time}
-      #if next_time.nil?
-      #  addEvent(time, nodeId1, nodeId2, type)
-      #else
-      #  next_time.insert(ev)
-      #  @events = ev if next_time == @events
-      #end
-      #@events.each_with_index do |event, index|
-      #  if event.time > time
-      #    idx = index
-      #    break
-      #  end
-      #end
-      #if idx
-      #  @events.insert(idx, Event.new(time, nodeId1, nodeId2, type))
-      #else
-      #  addEvent(time, nodeId1, nodeId2, type) # only when we could not find a
-      #                                         # place for the event
-      #end
       self
     end
 
@@ -270,6 +229,10 @@ module Sim
 
     def nodeCount
       @nodes.length
+    end
+
+    def nodeNames
+      @nodes.keys
     end
 
     def marshal_dump
