@@ -85,7 +85,7 @@ module Sim
 
     def events=(events)
       @events = events
-      createNodes(@events.nodeCount) if @nodes.empty?
+      createNodes(@events.nodeNames) if @nodes.empty?
       @duration = @events.last.time
     end
 
@@ -159,15 +159,23 @@ module Sim
 
       events, traffic_model = sim.run
       network_model = NetworkModel.new(events)
-      [network_model, traffic_model]
+
+      [spec.selected, network_model, traffic_model]
     end
 
     def self.analyzeBySpec(spec, variants, base_dir)
       spec_obj = Specification.loadSpec(spec).new
-      dirname = "#{spec}-#{File.basename(base_dir)}"
-      Analysis.new(variants, :experiment => dirname) do |analysis|
-	spec_obj.analyze(analysis)
+      preps = variants.map do |var, net, traffic, prep|
+        unless prep
+          Analysis.preprocess([var, net, traffic]) do |*args|
+            prep = spec_obj.preprocess(*args)
+          end
+        end
+        prep
       end
+
+      dirname = "#{spec}-#{File.basename(base_dir)}"
+      spec_obj.analyze(preps, dirname)
     end
 
   end

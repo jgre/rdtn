@@ -36,14 +36,14 @@ class MITParser
 
   private
 
-  MIT_RE = /@(\d+)(\.\d+)? (\d+) <-> (\d+) (up|down)/
+  MIT_RE = /@(\d+)(\.\d+)? (\w+) <-> (\w+) (up|down)/
 
   def process(file)
     file.each do |line|
       if MIT_RE =~ line
         time  = $1.to_i
-        node1 = $3.to_i
-        node2 = $4.to_i
+        node1 = $3
+        node2 = $4
         type  = case $5
                 when "up"   then :simConnection
                 when "down" then :simDisconnection
