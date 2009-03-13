@@ -52,7 +52,7 @@ class PubSubScenario < Sim::Specification
   end
 
   def analyze(preprocessed, dir)
-    results = Analysis.aggregate preprocessed, :x_axis => :sender_count, :y_axis => :meanDelay, :enumerate => [:routing]
+    results = Analysis.aggregate preprocessed, :x_axis => :sender_count, :y_axis => :meanDelay, :enumerate => [:router]
 
     Analysis.plot results, :x_axis => :sender_count, :y_axis => :meanDelay, :dir => dir
   end
