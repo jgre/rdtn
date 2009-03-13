@@ -12,8 +12,8 @@ class StatBundle
 
   def initialize(t0, bundle)
     @bundleId     = bundle.bundleId
-    if %r{dtn://kasuari(\d+)/?} =~ bundle.destEid
-      @dest       = $1.to_i
+    if %r{dtn://kasuari(\w+)/?} =~ bundle.destEid
+      @dest       = $1
     else
       @dest       = bundle.destEid
     end
