@@ -113,15 +113,14 @@ unless analysis_only
       end
 
       if s.respond_to? :preprocess
-
-        Analysis.preprocess([[variant, network, traffic]]) do |var,net,traffic|
-          prep = s.preprocess(var, net, traffic)
-          if store_in_s3
-            AWS::S3::S3Object.store "#{obj_id}/prep", Marshal.dump(prep), BUCKET
-          else
-            open(File.join(dir, 'prep'), 'w') {|f| Marshal.dump(prep, f)}
-          end
-          prep
+        prep = Analysis.preprocess([[variant, network, traffic]]) do |var,net,traffic|
+          s.preprocess(var, net, traffic)
+        end
+        prep = prep.first
+        if store_in_s3
+          AWS::S3::S3Object.store "#{obj_id}/prep", Marshal.dump(prep), BUCKET
+        else
+          open(File.join(dir, 'prep'), 'w') {|f| Marshal.dump(prep, f)}
         end
       end
     end
