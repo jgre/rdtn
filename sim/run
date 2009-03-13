@@ -67,6 +67,7 @@ spec_to_sqs   = false
 store_in_s3   = false
 launch_ami    = nil
 keypair       = nil
+force_prep    = false
 opts     = OptionParser.new
 opts.on('-p[=N]', '--parallel[=N]', Integer) {|n| parallel = n || 2}
 opts.on('-g', '--git')                       {git      = true}
@@ -79,6 +80,7 @@ opts.on('-3', '--store-in-s3')               {store_in_s3   = true}
 opts.on('-r[=rev]', '--revision[=rev]')      {|rev| revision = rev}
 opts.on('-e[=AMI]', '--ec2[=AMI]')           {|ami| launch_ami = ami}
 opts.on('-k[=keypair]','--keypair[=keypair]'){|kp| keypair = kp}
+opts.on('-f',          '--force-prep')       {|f| force_prep = true}
 spec = opts.parse(ARGV).first
 
 # FIXME error message if no spec is given
@@ -173,7 +175,8 @@ if analysis
     end
   end
 
-  Sim::Core.analyzeBySpec(spec, variants, dir)
+  analyze_dir = File.join(File.dirname(__FILE__), "../simulations/analysis/#{spec}-#{revision}")
+  Sim::Core.analyzeBySpec(spec, variants, analyze_dir, force_prep)
 end
 
 if launch_ami && keypair
