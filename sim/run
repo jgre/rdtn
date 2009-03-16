@@ -188,6 +188,6 @@ if analysis
 end
 
 if launch_ami && keypair
-  `ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -d halt-when-done`
-  #`ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -t c1.medium -d halt-when-done`
+  #`ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -d halt-when-done`
+  `ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -t c1.medium -d halt-when-done`
 end
