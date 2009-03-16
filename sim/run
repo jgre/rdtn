@@ -97,7 +97,9 @@ unless analysis_only
   else
     until (s = specs.shift).nil?
       puts "Running variant #{s.var_idx}"
+      start_time = Time.now
       variant, network, traffic = Sim::Core.runBySpec s
+      stop_time  = Time.now
 
       obj_id = "#{s.class}/#{revision}/#{s.var_idx}"
       dir = File.join(File.dirname(__FILE__),"../simulations/results/#{obj_id}")
@@ -105,11 +107,13 @@ unless analysis_only
 	AWS::S3::S3Object.store "#{obj_id}/network",Marshal.dump(network),BUCKET
 	AWS::S3::S3Object.store "#{obj_id}/traffic",Marshal.dump(traffic),BUCKET
 	AWS::S3::S3Object.store "#{obj_id}/variant",YAML.dump(variant),BUCKET
+        AWS::S3::S3Object.store "#{obj_id}/duration",YAML.dump([start_time, stop_time]),BUCKET
       else
 	FileUtils.mkdir_p dir
 	open(File.join(dir, 'network'), 'w'){|f| Marshal.dump(network, f)}
 	open(File.join(dir, 'traffic'), 'w'){|f| Marshal.dump(traffic, f)}
         open(File.join(dir, 'variant'), 'w'){|f| YAML.dump(variant, f)}
+        open(File.join(dir, 'duration'), 'w'){|f| YAML.dump([start_time, stop_time], f)}
       end
 
       if s.respond_to? :preprocess
@@ -140,6 +144,7 @@ if analysis
       network = bucket["#{spec}/#{revision}/#{i}/network"]
       traffic = bucket["#{spec}/#{revision}/#{i}/traffic"]
       prep    = bucket["#{spec}/#{revision}/#{i}/prep"]
+      duration= bucket["#{spec}/#{revision}/#{i}/duration"]
       if [variant, network, traffic].any?(&:nil?)
 	puts "ERROR: incomplete data for variant #{i}:\n  #{[variant, network, traffic].inspect}"
 	next
@@ -147,10 +152,14 @@ if analysis
 	puts "Downloaded variant #{i}"
       end
 
-      open(File.join(dir, 'network'), 'w'){|f| f.write(network.value.to_s)}
-      open(File.join(dir, 'traffic'), 'w'){|f| f.write(traffic.value.to_s)}
-      open(File.join(dir, 'variant'), 'w'){|f| f.write(variant.value.to_s)}
-      open(File.join(dir, 'prep'),    'w'){|f| f.write(prep.value.to_s)}
+      store_dir = File.join(dir, "#{i}")
+      FileUtils.mkdir_p store_dir
+
+      open(File.join(store_dir,'network'), 'w'){|f| f.write(network.value.to_s)}
+      open(File.join(store_dir,'traffic'), 'w'){|f| f.write(traffic.value.to_s)}
+      open(File.join(store_dir,'variant'), 'w'){|f| f.write(variant.value.to_s)}
+      open(File.join(store_dir,'prep'),    'w'){|f| f.write(prep.value.to_s)}
+      open(File.join(store_dir,'duration'),'w'){|f| f.write(duration.value.to_s)}
 
       variants << [YAML.load(variant.value.to_s), Marshal.load(network.value.to_s), Marshal.load(traffic.value.to_s), Marshal.load(prep.value.to_s)]
     end
@@ -168,7 +177,7 @@ if analysis
       variant = open(variantfile) {|f| YAML.load(f)}
       network = open(networkfile) {|f| Marshal.load(f)}
       traffic = open(trafficfile) {|f| Marshal.load(f)}
-      prep    = open(prepfile) {|f| Marshal.load(f)}
+      prep    = open(prepfile)    {|f| Marshal.load(f)}
 
       [variant, network, traffic, prep]
     end
@@ -180,4 +189,5 @@ end
 
 if launch_ami && keypair
   `ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -d halt-when-done`
+  #`ec2-run-instances #{launch_ami} -k #{keypair} -n #{parallel} -t c1.medium -d halt-when-done`
 end
