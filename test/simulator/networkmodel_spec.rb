@@ -40,6 +40,7 @@ describe NetworkModel do
 
   it 'should calculate the total contact duration' do
     @net.totalContactDuration.should == 4
+    @net.contactDurations.inject{|sum, dur| sum + dur}.should == 4
   end
 
   it 'should calculate the average contact duration' do

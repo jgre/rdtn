@@ -98,6 +98,10 @@ class NetworkModel
     totalContactDuration / numberOfContacts.to_f
   end
 
+  def contactDurations
+    @contacts.inject([]) {|memo, keyval| memo + keyval[1].contactDurations}
+  end
+
   def uniqueContacts
     @contacts.length
   end

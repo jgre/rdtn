@@ -36,4 +36,8 @@ class ContactHistory
     @contacts.inject(0) {|sum, cont| sum + cont.duration }
   end
 
+  def contactDurations
+    @contacts.inject([]) {|memo, cont| memo << cont.duration}
+  end
+
 end

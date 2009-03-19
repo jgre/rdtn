@@ -39,6 +39,7 @@ describe ContactHistory do
       @ch.contactEnd(13 + i*2)
       
       @ch.totalContactDuration.should == (i+1)*2
+      @ch.contactDurations.should == [0] + [2] * (i+1)
     end
   end
 
