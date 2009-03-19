@@ -88,14 +88,14 @@ class AnalyzeTest < Test::Unit::TestCase
 
   should 'add error values when aggregating data' do
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      {:meanDelay => traffic.averageDelay, :meanDelay_error => 0.5}
+      {:meanDelay => traffic.averageDelay, "meanDelay_error" => 0.5}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]
 
     expected = {
-      {:routing => :epidemic} => {{} => {:size => [10, 20], :meanDelay => [3600, 3700], :meanDelay_error => [0.5, 0.5]}},
-      {:routing => :dpsp} => {{} => {:size => [10, 20], :meanDelay => [3602, 2600], :meanDelay_error => [0.5, 0.5]}}
+      {:routing => :epidemic} => {{} => {:size => [10, 20], :meanDelay => [3600, 3700], "meanDelay_error" => [0.5, 0.5]}},
+      {:routing => :dpsp} => {{} => {:size => [10, 20], :meanDelay => [3602, 2600], "meanDelay_error" => [0.5, 0.5]}}
     }
     assert_equal expected, results
   end
@@ -201,7 +201,7 @@ class AnalyzeTest < Test::Unit::TestCase
   should 'plot error bars' do
     Gnuplot::DataSet.any_instance.expects(:with=).at_least_once.with "yerrorlines"
     processed = Analysis.preprocess(@variants) do |variant, net, traffic|
-      {:meanDelay => traffic.averageDelay, :meanDelay_error => 50}
+      {:meanDelay => traffic.averageDelay, "meanDelay_error" => 50}
     end
 
     results = Analysis.aggregate processed, :x_axis => :size, :y_axis => :meanDelay, :enumerate => [:routing]

@@ -23,7 +23,7 @@ module Analysis
   def self.aggregate(processed, options)
     x_axis  = options[:x_axis]
     y_axis  = options[:y_axis]
-    error   = "#{y_axis}_error".to_sym
+    error   = "#{y_axis}_error"
     enum    = options[:enumerate] || []
     combine = options[:combine]   || []
 
@@ -69,7 +69,7 @@ module Analysis
 	  yield plot if block_given?
 
 	  plotset.each do |comb_key, data|
-	    error = data["#{y_axis}_error".to_sym] || []
+	    error = data["#{y_axis}_error"] || []
 	    plot.data << Gnuplot::DataSet.new([data[x_axis], data[y_axis], error]) do |ds|
 	      title_str = comb_key.values.first || key.values.first
 	      ds.title = translate[title_str] || title_str
