@@ -265,4 +265,64 @@ class TrafficModelTest < Test::Unit::TestCase
     end
 
   end
+
+  context 'With a warmup period' do
+
+    setup do
+      t0   = Time.now
+      @b1  = Bundling::Bundle.new('test', 'dtn://kasuari2/', 'dtn://kasuari1')
+      @b2  = Bundling::Bundle.new('test', 'dtn://kasuari3/', 'dtn://kasuari1')
+      @b2.creationTimestamp += 1
+      @b3  = Bundling::Bundle.new('test', 'dtn://kasuari3/', 'dtn://kasuari1')
+      @b2.creationTimestamp += 10
+      @log = [
+        Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1),
+        Sim::LogEntry.new(1, :bundleCreated, 1, nil, :bundle => @b2),
+        Sim::LogEntry.new(10, :bundleCreated, 1, nil, :bundle => @b3),
+        Sim::LogEntry.new(1, :bundleForwarded, 1, 2, :bundle => @b1),
+        Sim::LogEntry.new(11, :bundleForwarded, 1, 3, :bundle => @b2),
+        Sim::LogEntry.new(12, :bundleForwarded, 1, 3, :bundle => @b3),
+        Sim::LogEntry.new(1, :transmissionError, 1, 3, :transmitted => 100, :bundle => @b1),
+        Sim::LogEntry.new(15, :transmissionError, 1, 3, :transmitted => 2, :bundle => @b1),
+      ]
+      @tm  = TrafficModel.new(t0, @log)
+      @warmup = 10
+    end
+
+    should 'count only the bundles after the warmup phase' do
+      assert_equal 1, @tm.numberOfBundles(:warmup => @warmup)
+    end
+
+    should 'only expect bundles after the warmup phase' do
+      assert_equal 1, @tm.numberOfExpectedBundles(:warmup => @warmup)
+    end
+
+    should 'only count delivered bundles after the warmup phase' do
+      assert_equal 1, @tm.numberOfDeliveredBundles(:warmup => @warmup)
+    end
+
+    should 'only list delays after the warmup phase' do
+      assert_equal 1, @tm.delays(false, :warmup => @warmup).length
+    end
+
+    should 'only count replicas after the warmup phase' do
+      assert_equal 1, @tm.numberOfReplicas(nil, :warmup => @warmup)
+      assert_equal 1, @tm.replicasPerBundle(:warmup => @warmup)
+    end
+
+    should 'only count transmissions after the warmup phase' do
+      assert_equal 1, @tm.numberOfTransmissions(:warmup => @warmup)
+      assert_equal 1, @tm.transmissionsPerBundle(:warmup => @warmup)
+    end
+
+    should 'only count bytes transmitted after the warmup phase' do
+      assert_equal 4, @tm.bytesTransmitted(:warmup => @warmup)
+    end
+
+    should 'only count transmission failures after the warmup phase' do
+      assert_equal 1, @tm.numberOfTransmissionErrors(:warmup => @warmup)
+      assert_equal 2, @tm.failedTransmissionVolume(:warmup => @warmup)
+    end
+
+  end
 end
