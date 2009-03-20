@@ -8,27 +8,6 @@ require 'memoize'
 
 Struct.new('Registration', :node, :startTime, :endTime)
 
-def ruby_version_geq(target)
-  tg  = []
-  cur = []
-  if /(\d+)\.(\d+).(\d+)/ =~ target
-    tg = [$1, $2, $3]
-  end
-  if /(\d+)\.(\d+).(\d+)/ =~ RUBY_VERSION
-    cur = [$1, $2, $3]
-  end
-  tg.each_with_index {|val, i| return false unless cur[i].to_i >= val.to_i}
-  true
-end
-
-unless ruby_version_geq("1.8.7")
-  class Array
-    def find_index(obj)
-      self.each_with_index {|entry, i| return i if entry == obj}
-    end
-  end
-end
-
 class TrafficModel
 
   extend Memoize
