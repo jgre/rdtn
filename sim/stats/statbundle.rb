@@ -12,12 +12,20 @@ class StatBundle
 
   def initialize(t0, bundle)
     @bundleId     = bundle.bundleId
-    if %r{dtn://kasuari(\w+)/?} =~ bundle.destEid
+    if %r{dtn://kasuari(\d+)/?} =~ bundle.destEid
+      @dest       = $1.to_i
+    elsif %r{dtn://kasuari(\w+)/?} =~ bundle.destEid
       @dest       = $1
     else
       @dest       = bundle.destEid
     end
-    @src          = $1.to_i if %r{dtn://kasuari(\d+)/?} =~ bundle.srcEid.to_s
+    if %r{dtn://kasuari(\d+)/?} =~ bundle.srcEid.to_s
+      @src        = $1.to_i
+    elsif %r{dtn://kasuari(\w+)/?} =~ bundle.srcEid.to_s
+      @src        = $1
+    else
+      @src        = bundle.srcEid.to_s
+    end
     @payload_size = bundle.payload.bytesize
     @created      = bundle.created.to_i - t0.to_i
     @lifetime     = bundle.lifetime
