@@ -48,13 +48,51 @@ class PubSubScenario < Sim::Specification
   end
 
   def preprocess(variant, network, traffic)
-    {:meanDelay => traffic.averageDelay}
+    delays    = traffic.delays
+    durations = network.contactDurations
+    bufferUse = traffic.bufferUse(3600).map {|use| (use / 1024**2) / (1024**2 * 20).to_f * 100}
+    ret = [
+    {
+      # basic traffic stats
+      "Delivered Bundles" => traffic.numberOfDeliveredBundles,
+      "Delivery Ratio"    => traffic.deliveryRatio,
+      "Delay"             => delays.mean,
+      "Delay_error"       => delays.sterror,
+
+      # transmission stats
+      "Successful Transmissions" => traffic.bytesTransmitted / 1024**2,
+      "Failed Transmissions"     => traffic.failedTransmissionVolume / 1024**2,
+
+      # network stats
+      "Contact Duration"       => durations.mean,
+      "Contact Duration_error" => durations.sterror,
+      "Contact Count"          => network.numberOfContacts,
+
+      # buffer use
+      "Buffer Use"       => bufferUse.mean,
+      "Buffer Use_error" => bufferUse.sterror,
+    }]
+    neighbor_counts = network.nodes.map {|node|network.neighbors(node).length}
+    neighbor_counts.sort!
+    neighbor_counts.each_with_index do |neighbor_count, idx|
+      ret << {"# of Neighbors" => neighbor_count, :node_index => idx}
+    end
+    ret
   end
 
   def analyze(preprocessed, dir)
-    results = Analysis.aggregate preprocessed, :x_axis => :sender_count, :y_axis => :meanDelay, :enumerate => [:router]
+    translations = {[:epidemic] => "Epidemic", :sender_count => "# of Senders"}
 
-    Analysis.plot results, :x_axis => :sender_count, :y_axis => :meanDelay, :dir => dir
+    ["Delivered Bundles", "Delivery Ratio", "Delay", "Successful Transmissions",
+     "Failed Transmissions", "Contact Duration",
+     "Contact Count"].each do |y_axis|
+      results = Analysis.aggregate preprocessed, :x_axis => :sender_count, :y_axis => y_axis, :combine => :router
+
+      Analysis.plot results, :x_axis => :sender_count, :y_axis => y_axis, :dir => dir, :translate => translations
+    end
+
+    results = Analysis.aggregate preprocessed, :x_axis => :node_index, :y_axis => "# of Neighbors", :enumerate => [:sender_count]
+    Analysis.plot results, :x_axis => :node_index, :y_axis => "# of Neighbors", :dir => dir, :translate => translations
   end
 
 end
