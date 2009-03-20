@@ -29,13 +29,15 @@ module Analysis
 
     res = {}
     processed.each do |entry|
-      enum_key = entry.select {|k, v| enum.include? k}
-      comb_key = entry.select {|k, v| combine == k}
-      comb = res[enum_key]  ||= {}
-      val  = comb[comb_key] ||= {}
-      (val[x_axis] ||= []) << entry[x_axis]
-      (val[y_axis] ||= []) << entry[y_axis]
-      (val[error]  ||= []) << entry[error] if entry[error]
+      if entry[x_axis] and entry[y_axis]
+        enum_key = entry.select {|k, v| enum.include? k}
+        comb_key = entry.select {|k, v| combine == k}
+        comb = res[enum_key]  ||= {}
+        val  = comb[comb_key] ||= {}
+        (val[x_axis] ||= []) << entry[x_axis]
+        (val[y_axis] ||= []) << entry[y_axis]
+        (val[error]  ||= []) << entry[error] if entry[error]
+      end
     end
     res
   end
@@ -47,8 +49,8 @@ module Analysis
     dir     = options[:dir]
     translate = options[:translate] || {}
 
-    miny = aggregated.values.inject([]){|memo, set| memo + set.values.inject([]){|memo, data| memo + data[y_axis]}}.min
-    maxy = aggregated.values.inject([]){|memo, set| memo + set.values.inject([]){|memo, data| memo + data[y_axis]}}.max
+    miny = aggregated.values.inject([]){|memo, set| memo + set.values.inject([]){|memo, data| memo + data[y_axis]}}.compact.min
+    maxy = aggregated.values.inject([]){|memo, set| memo + set.values.inject([]){|memo, data| memo + data[y_axis]}}.compact.max
     miny -= miny*0.1
     maxy += maxy*0.1
 
@@ -58,11 +60,11 @@ module Analysis
       fname = File.join(dir, "#{key} [#{y_axis}].svg".gsub(/[\":\{\}\/ ,]/, ""))
       Gnuplot.open do |gp|
 	Gnuplot::Plot.new(gp) do |plot|
-	  plot.title    key
+	  plot.title    key.to_s
 	  plot.terminal 'svg'
 	  plot.output   fname
-	  plot.xlabel   x_axis.to_s
-	  plot.ylabel   y_axis.to_s
+	  plot.xlabel   translate[x_axis] || x_axis.to_s
+	  plot.ylabel   translate[y_axis] || y_axis.to_s
 
 	  plot.yrange   "[#{miny}:#{maxy}]"
 

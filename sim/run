@@ -120,7 +120,6 @@ unless analysis_only
         prep = Analysis.preprocess([[variant, network, traffic]]) do |var,net,traffic|
           s.preprocess(var, net, traffic)
         end
-        prep = prep.first
         if store_in_s3
           AWS::S3::S3Object.store "#{obj_id}/prep", Marshal.dump(prep), BUCKET
         else
@@ -158,7 +157,14 @@ if analysis
       open(File.join(store_dir,'network'), 'w'){|f| f.write(network.value.to_s)}
       open(File.join(store_dir,'traffic'), 'w'){|f| f.write(traffic.value.to_s)}
       open(File.join(store_dir,'variant'), 'w'){|f| f.write(variant.value.to_s)}
-      open(File.join(store_dir,'prep'),    'w'){|f| f.write(prep.value.to_s)}
+      if force_prep
+        prep  = Analysis.preprocess([[variant, network, traffic]]) do |var, net, traf|
+          Sim::Specification.loadSpec(spec).new.preprocess(var, net, traf)
+        end
+        open(File.join(store_dir,'prep'),    'w') {|f| Marshal.dump(prep, f)}
+      else
+        open(File.join(store_dir,'prep'),    'w'){|f| f.write(prep.value.to_s)}
+      end
       open(File.join(store_dir,'duration'),'w'){|f| f.write(duration.value.to_s)}
 
       variants << [YAML.load(variant.value.to_s), Marshal.load(network.value.to_s), Marshal.load(traffic.value.to_s), Marshal.load(prep.value.to_s)]
@@ -177,14 +183,21 @@ if analysis
       variant = open(variantfile) {|f| YAML.load(f)}
       network = open(networkfile) {|f| Marshal.load(f)}
       traffic = open(trafficfile) {|f| Marshal.load(f)}
-      prep    = open(prepfile)    {|f| Marshal.load(f)}
+      if force_prep
+        prep  = Analysis.preprocess([[variant, network, traffic]]) do |var, net, traf|
+          Sim::Specification.loadSpec(spec).new.preprocess(var, net, traf)
+        end
+        open(prepfile, 'w') {|f| Marshal.dump(prep, f)}
+      else
+        prep  = open(prepfile)    {|f| Marshal.load(f)}
+      end
 
       [variant, network, traffic, prep]
     end
   end
 
   analyze_dir = File.join(File.dirname(__FILE__), "../simulations/analysis/#{spec}-#{revision}")
-  Sim::Core.analyzeBySpec(spec, variants, analyze_dir, force_prep)
+  Sim::Core.analyzeBySpec(spec, variants, analyze_dir)
 end
 
 if launch_ami && keypair

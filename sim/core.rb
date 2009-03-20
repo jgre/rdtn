@@ -163,17 +163,12 @@ module Sim
       [spec.selected, network_model, traffic_model]
     end
 
-    def self.analyzeBySpec(spec, variants, base_dir, force_prep = false)
+    def self.analyzeBySpec(spec, variants, base_dir)
       spec_obj = Specification.loadSpec(spec).new
       preps = variants.map do |var, net, traffic, prep|
-        if prep.nil? || force_prep
-          prep = Analysis.preprocess([[var, net, traffic]]) do |*args|
-            spec_obj.preprocess(*args)
-          end
-          prep = prep.first
-        end
         prep
       end
+      preps.flatten!
 
       spec_obj.analyze(preps, base_dir)
     end
