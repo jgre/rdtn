@@ -89,4 +89,54 @@ describe NetworkModel do
     @net.duration.should == 4
   end
 
+  describe 'with warmup phase' do
+
+    before(:each) do
+      @events.addEvent(9, 1, 2, :simConnection)
+      @events.addEvent(11, 1, 2, :simDisconnection)
+      @events.addEvent(12, 1, 3, :simConnection)
+      @events.addEvent(15, 1, 3, :simDisconnection)
+
+      @net = NetworkModel.new(@events)
+      @net.warmup = 10
+    end
+
+    it 'should calculate the duration without warmup' do
+      @net.duration.should == 5
+    end
+
+    it 'should calculate the degree of nodes' do
+      @net.degree(1).should == 2
+      @net.degree(2).should == 1
+      @net.degree(3).should == 1
+    end
+
+    it 'should calculate the neighbors per node' do
+      @net.neighbors(1).length.should == 2
+      @net.neighbors(2).length.should == 1
+      @net.neighbors(3).length.should == 1
+    end
+
+    it 'should calculate the number of contacts' do
+      @net.numberOfContacts.should == 2
+    end
+
+    it 'should calculate the total contact duration' do
+      @net.totalContactDuration.should == 4
+    end
+
+    it 'should count unique contacts' do
+      @net.uniqueContacts.should == 2
+    end
+
+    it 'should calculate the average degree' do
+      @net.averageDegree.should == 4.0 / 3.0
+    end
+
+    it 'should provide a list of the contact durations' do
+      @net.contactDurations.should == [1, 3]
+    end
+
+  end
+
 end

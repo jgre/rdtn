@@ -28,16 +28,20 @@ class ContactHistory
     @contacts.last.endContact(time) if @contacts.last and @contacts.last.open?
   end
 
-  def numberOfContacts
-    @contacts.length
+  def relevantContacts(warmup = 0)
+    @contacts.find_all {|c| c.endTime.nil? || c.endTime >= warmup}
   end
 
-  def totalContactDuration
-    @contacts.inject(0) {|sum, cont| sum + cont.duration }
+  def numberOfContacts(warmup = 0)
+    relevantContacts(warmup).length
   end
 
-  def contactDurations
-    @contacts.inject([]) {|memo, cont| memo << cont.duration}
+  def totalContactDuration(warmup = 0)
+    relevantContacts(warmup).inject(0) {|sum, cont| sum + cont.duration(warmup)}
+  end
+
+  def contactDurations(warmup = 0)
+    relevantContacts(warmup).inject([]) {|memo, cont| memo << cont.duration(warmup)}
   end
 
 end

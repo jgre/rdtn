@@ -286,42 +286,42 @@ class TrafficModelTest < Test::Unit::TestCase
         Sim::LogEntry.new(15, :transmissionError, 1, 3, :transmitted => 2, :bundle => @b1),
       ]
       @tm  = TrafficModel.new(t0, @log)
-      @warmup = 10
+      @tm.warmup = 10
     end
 
     should 'count only the bundles after the warmup phase' do
-      assert_equal 1, @tm.numberOfBundles(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfBundles
     end
 
     should 'only expect bundles after the warmup phase' do
-      assert_equal 1, @tm.numberOfExpectedBundles(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfExpectedBundles
     end
 
     should 'only count delivered bundles after the warmup phase' do
-      assert_equal 1, @tm.numberOfDeliveredBundles(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfDeliveredBundles
     end
 
     should 'only list delays after the warmup phase' do
-      assert_equal 1, @tm.delays(false, :warmup => @warmup).length
+      assert_equal 1, @tm.delays.length
     end
 
     should 'only count replicas after the warmup phase' do
-      assert_equal 1, @tm.numberOfReplicas(nil, :warmup => @warmup)
-      assert_equal 1, @tm.replicasPerBundle(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfReplicas
+      assert_equal 1, @tm.replicasPerBundle
     end
 
     should 'only count transmissions after the warmup phase' do
-      assert_equal 1, @tm.numberOfTransmissions(:warmup => @warmup)
-      assert_equal 1, @tm.transmissionsPerBundle(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfTransmissions
+      assert_equal 1, @tm.transmissionsPerBundle
     end
 
     should 'only count bytes transmitted after the warmup phase' do
-      assert_equal 4, @tm.bytesTransmitted(:warmup => @warmup)
+      assert_equal 4, @tm.bytesTransmitted
     end
 
     should 'only count transmission failures after the warmup phase' do
-      assert_equal 1, @tm.numberOfTransmissionErrors(:warmup => @warmup)
-      assert_equal 2, @tm.failedTransmissionVolume(:warmup => @warmup)
+      assert_equal 1, @tm.numberOfTransmissionErrors
+      assert_equal 2, @tm.failedTransmissionVolume
     end
 
   end

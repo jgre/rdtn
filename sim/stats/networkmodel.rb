@@ -27,12 +27,14 @@ require 'contacthistory'
 class NetworkModel
 
   attr_reader :contacts, :duration
+  attr_accessor :warmup
 
   def initialize(eq = nil)
     # Node -> List of ContactHistories involving Node
     @incidents   = {} 
     @contacts    = {} 
     @duration    = 0
+    @warmup      = 0
     self.events  = eq if eq
   end
 
@@ -61,6 +63,10 @@ class NetworkModel
     end
   end
 
+  def duration
+    @duration - @warmup.to_i
+  end
+
   def nodes
     @incidents.keys
   end
@@ -74,7 +80,7 @@ class NetworkModel
       et = edges(node).find_all {|edge| edge.cost == 0}
       et.map {|edge| node == edge.node1 ? edge.node2 : edge.node1}
     else
-      @incidents[node].map {|ch| node == ch.node1 ? ch.node2 : ch.node1}
+      @incidents[node].map {|ch| node == ch.node1 ? ch.node2 : ch.node1 if ch.numberOfContacts(@warmup.to_i) > 0}.compact
     end
   end
 
@@ -87,11 +93,11 @@ class NetworkModel
   end
 
   def numberOfContacts
-    @contacts.inject(0) {|sum, keyval| sum + keyval[1].numberOfContacts }
+    @contacts.inject(0) {|sum, keyval| sum + keyval[1].numberOfContacts(@warmup.to_i)}
   end
 
   def totalContactDuration
-    @contacts.inject(0) {|sum, keyval| sum + keyval[1].totalContactDuration }
+    @contacts.inject(0) {|sum, keyval| sum + keyval[1].totalContactDuration(@warmup.to_i)}
   end
 
   def averageContactDuration
@@ -99,11 +105,11 @@ class NetworkModel
   end
 
   def contactDurations
-    @contacts.inject([]) {|memo, keyval| memo + keyval[1].contactDurations}
+    @contacts.inject([]) {|memo, keyval| memo + keyval[1].contactDurations(@warmup.to_i)}
   end
 
   def uniqueContacts
-    @contacts.length
+    @contacts.find_all {|key, ch| ch.numberOfContacts(@warmup.to_i) > 0}.length
   end
 
   def totalTheoreticalHopCount
@@ -147,7 +153,7 @@ class NetworkModel
   end
 
   def degree(node)
-    @incidents[node].inject(0) {|sum, ch| sum + ch.numberOfContacts}
+    @incidents[node].inject(0) {|sum, ch| sum + ch.numberOfContacts(@warmup.to_i)}
   end
 
   def degrees

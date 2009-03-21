@@ -12,6 +12,8 @@ class TrafficModel
 
   extend Memoize
 
+  attr_accessor :warmup
+
   def initialize(t0, log = nil)
     @t0        = t0
     @bundles   = {} # bundleId -> StatBundle
@@ -20,6 +22,7 @@ class TrafficModel
     @bufferUse = Hash.new {|hash, key| hash[key] = []}
     @duration  = 0
     @errors    = []
+    @warmup    = 0
     self.log   = log if log
   end
 
@@ -66,22 +69,20 @@ class TrafficModel
     end
   end
 
-  def regularBundles(options = {})
-    warmup = options[:warmup].to_i
-    relevantBundles(options).find_all {|b| !b.signaling?}
+  def regularBundles
+    relevantBundles.find_all {|b| !b.signaling?}
   end
 
-  def numberOfBundles(options = {})
-    regularBundles(options).length
+  def numberOfBundles
+    regularBundles.length
   end
 
   def relevantBundles(options = {})
-    warmup = options[:warmup].to_i
-    @bundles.values.find_all {|b| b.created >= warmup}
+    @bundles.values.find_all {|b| b.created >= @warmup.to_i}
   end
 
-  def delays(considerReg = false, options = {})
-    relevantBundles(options).inject([]) do |cat, bundle|
+  def delays(considerReg = false)
+    relevantBundles.inject([]) do |cat, bundle|
       cat + bundle.delays(@regs[bundle.dest], considerReg)
     end
   end
@@ -90,36 +91,36 @@ class TrafficModel
   #     @bundles.values.map {|bundle| [bundle.bundleId, bundle.delays]}
   #   end
 
-  def totalDelay(considerReg = false, options = {})
-    delays(considerReg, options).inject(0) {|sum, delay| sum + delay}
+  def totalDelay(considerReg = false)
+    delays(considerReg).inject(0) {|sum, delay| sum + delay}
   end
 
-  def averageDelay(considerReg = false, options = {})
-    if delays(considerReg, options).empty?
+  def averageDelay(considerReg = false)
+    if delays(considerReg).empty?
       0
     else
-      totalDelay(considerReg, options) / delays.length.to_f
+      totalDelay(considerReg) / delays.length.to_f
     end
   end
 
-  def medianDelay(considerReg = false, options = {})
-    if delays(considerReg, options).empty?
+  def medianDelay(considerReg = false)
+    if delays(considerReg).empty?
       0
     else
-      delays(considerReg, options).sort[delays.length / 2]
+      delays(considerReg).sort[delays.length / 2]
     end
   end
 
-  def numberOfReplicas(bundle = nil, options = {})
-    lst = bundle.nil? ? relevantBundles(options) : [@bundles[bundle.bundleId]].compact
+  def numberOfReplicas(bundle = nil)
+    lst = bundle.nil? ? relevantBundles : [@bundles[bundle.bundleId]].compact
     lst.inject(0) {|sum, bundle| sum + bundle.nReplicas}
   end
 
-  def replicasPerBundle(options = {})
-    if numberOfBundles(options) == 0
+  def replicasPerBundle
+    if numberOfBundles == 0
       0
     else
-      numberOfReplicas(nil, options) / numberOfBundles(options).to_f
+      numberOfReplicas / numberOfBundles.to_f
     end
   end
 
@@ -128,15 +129,14 @@ class TrafficModel
   end
   remember :memo_dijkstra
 
-  def channel_content(channel, options = {})
-    relevantBundles(options).find_all {|b| b.dest == channel}.sort_by {|b| b.created}
+  def channel_content(channel)
+    relevantBundles.find_all {|b| b.dest == channel}.sort_by {|b| b.created}
   end
   remember :channel_content
 
   def numberOfExpectedBundles(options = {})
     net    = options[:net]
     quota  = options[:quota]
-    warmup = options[:warmup]
 
     def reg_before_expiry?(b, reg)
       b.expires.nil? or b.expires > reg.startTime
@@ -161,7 +161,7 @@ class TrafficModel
       (reg.endTime.nil? or reg.endTime > int[0]) and (int[1].nil? or reg.startTime < int[1])
     end
 
-    regularBundles(options).inject(0) do |sum, bundle|
+    regularBundles.inject(0) do |sum, bundle|
       dists, paths = memo_dijkstra(net, bundle.src, bundle.created.to_i) if net
       dests = (@regs[bundle.dest] || []).find_all do |reg|
 	if quota
@@ -177,38 +177,38 @@ class TrafficModel
   end
   remember :numberOfExpectedBundles
 
-  def numberOfDeliveredBundles(options = {})
-    regularBundles(options).inject(0){|sum, b| sum+b.nDelivered(@regs[b.dest])}
+  def numberOfDeliveredBundles
+    regularBundles.inject(0){|sum, b| sum+b.nDelivered(@regs[b.dest])}
   end
 
-  def deliveryRatio(options = {})
-    numberOfDeliveredBundles(options) / numberOfExpectedBundles(options).to_f
+  def deliveryRatio
+    numberOfDeliveredBundles / numberOfExpectedBundles.to_f
   end
 
   def numberOfTransmissions(options = {})
-    bundleLst = options[:ignoreSignaling] ? regularBundles(options) : relevantBundles(options)
+    bundleLst = options[:ignoreSignaling] ? regularBundles : relevantBundles
     bundleLst.inject(0) {|sum, bundle| sum + bundle.transmissions}
   end
 
   def bytesTransmitted(options = {})
-    bundleLst = options[:ignoreSignaling] ? regularBundles(options) : relevantBundles(options)
+    bundleLst = options[:ignoreSignaling] ? regularBundles : relevantBundles
     bundleLst.inject(0) {|sum, b| sum + b.transmissions * b.payload_size}
   end
 
   def transmissionsPerBundle(options = {})
-    if numberOfBundles(options) == 0
+    if numberOfBundles == 0
       0
     else
-      numberOfTransmissions(options) / numberOfBundles(options).to_f
+      numberOfTransmissions(options) / numberOfBundles.to_f
     end
   end
 
-  def signalingBundles(options = {})
-    relevantBundles(options).find_all {|b| b.signaling?}
+  def signalingBundles
+    relevantBundles.find_all {|b| b.signaling?}
   end
 
-  def numberOfSignalingBundles(options = {})
-    signalingBundles(options).length
+  def numberOfSignalingBundles
+    signalingBundles.length
   end
 
   def bufferUse(samplingRate, node = nil, options = {})
@@ -220,7 +220,7 @@ class TrafficModel
       if @bufferUse[node]
 	uses     = @bufferUse[node].sort_by {|time, size| time}
 	samplingRate.step(@duration, samplingRate) do |time|
-          next if time < options[:warmup].to_i
+          next if time < @warmup.to_i
 	  until uses[i].nil? or uses[i][0] > time; i += 1; end
 	  ret << uses[i-1][1]
 	end
@@ -234,9 +234,8 @@ class TrafficModel
   end
 
   def failedTransmissions(options = {})
-    warmup = options[:warmup].to_i
     filtered = @errors.find_all do |transmitted, bundleId, time|
-      time.to_i >= warmup && !(options[:ignoreSignaling] && @bundles[bundleId].signaling?)
+      time.to_i >= @warmup.to_i && !(options[:ignoreSignaling] && @bundles[bundleId].signaling?)
     end
     filtered.map {|transmitted, bundleId| transmitted}
   end

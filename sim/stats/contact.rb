@@ -20,9 +20,9 @@ class Contact
     @startTime and @endTime.nil?
   end
 
-  def duration
+  def duration(warmup = 0)
     return 0 if @startTime.nil? or open?
-    @endTime - @startTime
+    @endTime - [@startTime, warmup].max
   end
 
   def to_s
