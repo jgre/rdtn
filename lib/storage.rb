@@ -98,7 +98,6 @@ class Storage < Monitor
     synchronize do
       @curSize += bundle.payloadLength
       if dup = @bundles[bundle.bundleId]
-	dup.forwardLog.merge(bundle.forwardLog) unless dup.nil?
 	raise BundleAlreadyStored, bundle.bundleId
       end
       @bundles[bundle.bundleId] = bundle

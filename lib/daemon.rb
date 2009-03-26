@@ -30,6 +30,7 @@ require 'contactmgr'
 require 'storage'
 require 'configuration'
 require "metablock"
+require 'forwardlog'
 
 module RdtnDaemon
 
@@ -42,8 +43,9 @@ module RdtnDaemon
       @config = RdtnConfig.new(self)
       @config.localEid    = localEid if localEid
       @config.registerComponent(:localSender, self)
+      Bundling::ForwardLog.registerComponent(@config, @evDis)
 
-      Bundling::ParserManager.registerEvents(@evDis)
+      Bundling::ParserManager.registerEvents(@config, @evDis)
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
       Storage.new(@config, @evDis)
       ContactManager.new(@config, @evDis)

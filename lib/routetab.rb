@@ -96,16 +96,6 @@ class RoutingTable < Router
     rdebug("Forward: #{bundle.destEid}, #{bundle.srcEid}")
     matches = self.match(bundle.destEid.to_s)
 
-    # Avoid returning the bundle directly to its sender.
-    matches.delete_if do |entry| 
-      l = entry.link(@contactManager)
-      if l
-	      l == bundle.incomingLink
-      else
-	      true
-      end
-    end
-    
     exclusiveLink = matches.find {|entry| entry.exclusive}
     matches = [exclusiveLink] if exclusiveLink
     matches.each {|entry| enqueue(bundle, entry.link(@contactManager))}

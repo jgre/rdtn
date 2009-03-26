@@ -21,6 +21,8 @@ require "rubygems"
 require "shoulda"
 require "yaml"
 require "bundle"
+require "forwardlog"
+require "mocha"
 
 class BDummyLink
 
@@ -70,22 +72,17 @@ class TestBundle < Test::Unit::TestCase
 
   def test_marshalling
     bundle = Bundling::Bundle.new("test", "dtn://test", "dtn://test")
-    bundle.incomingLink = 42
     bundle.custodyAccepted = true
-    bundle.forwardLog.addEntry(:incoming, :transmitted, "dtn://hugo")
     str    = Marshal.dump(bundle)
     b2     = Marshal.load(str)
     assert_equal(bundle.to_s, b2.to_s)
     assert_equal(bundle.payload, b2.payload)
-    assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
-    assert_nil(b2.incomingLink)
     assert(b2.custodyAccepted?)
   end
 
   def test_yaml_marshalling
     bundle = Bundling::Bundle.new("test", "dtn://test", "dtn://test")
     bundle.custodyAccepted = true
-    bundle.forwardLog.addEntry(:incoming, :transmitted, "dtn://hugo")
     str    = YAML.dump(bundle)
     b2     = YAML.load(str)
     assert_equal(bundle.to_s, b2.to_s)
@@ -93,21 +90,21 @@ class TestBundle < Test::Unit::TestCase
     b2.srcEid = "dtn://hugo"
     assert_equal("dtn://hugo", b2.srcEid.to_s)
     assert_equal("dtn://test", bundle.srcEid.to_s)
-    assert_equal(bundle.forwardLog.getLatestEntry, b2.forwardLog.getLatestEntry)
-    assert_nil(b2.incomingLink)
     assert(b2.custodyAccepted?)
   end
 
   def test_bundle_events
-    Bundling::ParserManager.registerEvents(@evDis)
+    Bundling::ParserManager.registerEvents(@config, @evDis)
+    Bundling::ForwardLog.registerComponent(@config, @evDis)
     eventSent = false
     @evDis.subscribe(:bundleParsed) { |bundle| eventSent = true}
-    @evDis.dispatch(:bundleData, StringIO.new(@inBundle), nil)
+    @evDis.dispatch(:bundleData, StringIO.new(@inBundle), stub(:remoteEid=>nil))
     assert(eventSent)
   end
 
   def test_short_bundles
-    Bundling::ParserManager.registerEvents(@evDis)
+    Bundling::ParserManager.registerEvents(@config, @evDis)
+    Bundling::ForwardLog.registerComponent(@config, @evDis)
     link = BDummyLink.new
     eventSent = false
     @evDis.subscribe(:bundleParsed) { |bundle| eventSent = true}

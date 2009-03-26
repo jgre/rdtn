@@ -21,11 +21,20 @@ module Bundling
 
     Struct.new("ForwardLogEntry", :action, :status, :neighbor, :link, :time)
 
+    def self.registerComponent(config, evDis)
+      log = Hash.new {|h, k| h[k] = ForwardLog.new}
+      config.registerComponent(:forwardLog, log)
+    end
+
     def initialize
       @logEntries = []
       # :action can be one of :incoming, :replicate, :forward
       # :status is :infligh, :transmitted, :transmissionError,
       # :transmissionPending
+    end
+
+    def inspect
+      @logEntries.map {|le| "  #{le.action} #{le.status} #{le.neighbor}"}.join("\n")
     end
 
     def addEntry(action, status, neighbor, link = nil, time = RdtnTime.now)
@@ -52,6 +61,12 @@ module Bundling
       @logEntries[-1]
     end
 
+    def incomingLink
+      if incoming = @logEntries.find {|le| le.action == :incoming}
+        incoming.link
+      end
+    end
+
     attr_accessor :logEntries
 
     def merge(fwlog)
@@ -74,7 +89,7 @@ module Bundling
 	    rdebug("shouldAct? No, was already forwarded.")
 	    false
 	  when :replicate
-	    ret=(entry.neighbor != neighbor and entry.link != link #and
+	    ret=(entry.neighbor != neighbor and entry.link != link and
 	     (singletonReceiver.nil? or entry.neighbor!=singletonReceiver))
 
 	    rdebug("shouldAct? No, was already replicated to the right place.") unless ret

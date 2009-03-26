@@ -36,7 +36,7 @@ class DPSPRouter < Router
 
     @evToForward = @evDis.subscribe(:bundleToForward) do |b|
       if b.isSubscriptionBundle? && b.srcEid != @config.localEid
-	link = b.incomingLink
+	link = @config.forwardLog[b.bundleId].incomingLink
 	if @handshake
 	  @neighbors[link.remoteEid] = subset = YAML.load(b.payload)
 	  @subSet.import subset

@@ -23,7 +23,6 @@ require "eidscheme"
 require "rdtnevent"
 require "genparser"
 require "rdtntime"
-require "forwardlog"
 
 module Bundling
 
@@ -64,31 +63,33 @@ module Bundling
     # convergence layer.
     @@incomingBundles = {}
 
-    def self.registerEvents(evDis)
+    def self.registerEvents(config, evDis)
       evDis.subscribe(:bundleData) do |*args|
-	ParserManager::handleBundleData(evDis, *args)
+	ParserManager::handleBundleData(config, evDis, *args)
       end
 
       #TODO start housekeeping thread
     end
 
-    def self.handleBundleData(evDis, queue, link)
+    def self.handleBundleData(config, evDis, queue, link)
       if queue.closed?
 	rwarn("':bundleData' event received, but the queue is closed.")
 	@@incomingBundles.delete(queue.object_id)
       else
-        pm=@@incomingBundles[queue.object_id] ||= ParserManager.new(evDis, link)
+        pm=@@incomingBundles[queue.object_id] ||= ParserManager.new(config,
+                                                                    evDis, link)
         pm.doParse(queue)
         @@incomingBundles.delete(queue.object_id) unless pm.active?
       end
     end
 
-    def initialize(evDis, link)
+    def initialize(config, evDis, link)
+      @config  = config
       @evDis   = evDis
       @active  = true
-      @bundle  = Bundle.new(nil, nil, nil, :incomingLink => link)
+      @bundle  = Bundle.new
       @idleSince = nil
-      @bundle.incomingLink = link
+      @link      = link
 
       #@evDis.subscribe(:linkClosed) do |lnk|
       #  if lnk == @link
@@ -113,7 +114,8 @@ module Bundling
 	@active = false
       else
 	if @bundle.parserFinished?
-	  rdebug("Parsing Bundle finished")
+          @config.forwardLog[@bundle.bundleId].addEntry(:incoming, :transmitted,
+                                                        @link.remoteEid, @link)
 	  @evDis.dispatch(:bundleParsed, @bundle)
 	  queue.close
 	  @active = false
@@ -126,7 +128,6 @@ module Bundling
 
   end
 
-
   # Representation of a Bundle including the parser and serialization. Refer to
   # the bundles protocol specification for the semantics of the attributes.
 
@@ -136,9 +137,9 @@ module Bundling
 
     PAYLOAD_BLOCK = 1
 
-    attr_accessor :incomingLink, :destEid, :srcEid, :reportToEid, :custodianEid,
+    attr_accessor :destEid, :srcEid, :reportToEid, :custodianEid,
       :queue, :fragmentOffset, :aduLength
-    attr_reader   :forwardLog, :blocks
+    attr_reader :blocks
 
     SUPPORTED_VERSIONS = [5]
 
@@ -192,13 +193,6 @@ module Bundling
       @custodyAccepted = false
       @deleted         = false
       @custodyTimer    = nil
-
-      @forwardLog = Bundling::ForwardLog.new
-      if link = options[:incomingLink]
-        neighbor = link ? link.remoteEid : nil
-        @forwardLog.addEntry(:incoming, :transmitted, neighbor, link)
-	@incomingLink = link
-      end
 
       if payload
 	@blocks.push(PayloadBlock.new(self, payload))
@@ -628,21 +622,20 @@ module Bundling
 
     def deepCopy
       ret = Bundle.new
-      ret.forwardLog = @forwardLog.deepCopy
       ret.blocks = @blocks.map {|block| block.deepCopy(ret)}
       instance_variables.each do |var|
-        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var.to_s)
+        unless %w{@genParserFields @blocks}.include?(var.to_s)
           ret.instance_variable_set(var.to_s, instance_variable_get(var.to_s))
         end
       end
       return ret
     end
 
-    def wireCopy(incomingLink)
-      ret = Bundle.new(nil, nil, nil, :incomingLink => incomingLink)
+    def wireCopy
+      ret = Bundle.new
       ret.blocks = @blocks.map {|block| block.deepCopy(ret)}
       instance_variables.each do |var|
-        unless %w{@genParserFields @incomingLink @forwardLog @blocks}.include?(var.to_s)
+        unless %w{@genParserFields @blocks}.include?(var.to_s)
           ret.instance_variable_set(var.to_s, instance_variable_get(var.to_s))
         end
       end
@@ -661,14 +654,13 @@ module Bundling
     end
 
     attr_accessor :blocks
-    attr_writer   :forwardLog
-    protected :blocks, :blocks=, :forwardLog=
+    protected :blocks, :blocks=
 
     private
 
     def dumpFields
       instance_variables.find_all do |var|
-        var.to_s != "@genParserFields" and var.to_s != "@incomingLink"
+        var.to_s != "@genParserFields"
       end
     end
 

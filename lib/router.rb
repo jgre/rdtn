@@ -125,13 +125,13 @@ class Router
       neighbor   = link.remoteEid
       rdebug("Singleton #{bundle.destinationIsSingleton?}, #{bundle.destEid}")
       singleDest = bundle.destinationIsSingleton? ? bundle.destEid : nil
-      if bundle.forwardLog.shouldAct?(action, neighbor, link, singleDest)
-	bundle.forwardLog.addEntry(action, :inflight, neighbor, link)
+      if @config.forwardLog[bundle.bundleId].shouldAct?(action, neighbor, link, singleDest)
+	@config.forwardLog[bundle.bundleId].addEntry(action, :inflight, neighbor, link)
 
 	# FIXME: unsubscribe
 	@evDis.subscribe(:transmissionError) do |b, l|
 	  if b.bundleId == bundle.bundleId and l == link
-	    b.forwardLog.updateEntry(action, :transmissionError, neighbor, l)
+	    @config.forwardLog[b.bundleId].updateEntry(action, :transmissionError, neighbor, l)
 	  end
 	end
 

@@ -92,7 +92,9 @@ module Sim
 
     def receiveBundle(bundle, link)
       @peerLink = link unless @peerLink
-      @evDis.dispatch(:bundleParsed, bundle.wireCopy(self))
+      @config.forwardLog[bundle.bundleId].addEntry(:incoming, :transmitted,
+                                                   @remoteEid, self)
+      @evDis.dispatch(:bundleParsed, bundle.wireCopy)
     end
 
   end

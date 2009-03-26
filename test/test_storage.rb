@@ -22,7 +22,7 @@ require "rubygems"
 require "shoulda"
 require "storage"
 require "bundle"
-
+require "forwardlog"
 
 class TestStorage < Test::Unit::TestCase
 
@@ -151,15 +151,15 @@ class TestStorage < Test::Unit::TestCase
 
   def test_duplicates
     b1 = Bundling::Bundle.new("test", "dtn://test.dest", "dtn://test.src")
-    b1.forwardLog.addEntry(:forward, :inflight, "dtn://neighbor1")
+    Bundling::ForwardLog.registerComponent(@config, @evDis)
+    @config.forwardLog[b1.bundleId].addEntry(:forward, :inflight, "dtn://neighbor1")
     @store.storeBundle(b1)
     b2 = b1.deepCopy
-    b2.forwardLog.addEntry(:incoming, :transmitted, "dtn://neighbor2")
+    @config.forwardLog[b2.bundleId].addEntry(:incoming, :transmitted, "dtn://neighbor2")
     res1 = @store.getBundle(b1.bundleId)
-    assert_equal("dtn://neighbor1", res1.forwardLog.getLatestEntry.neighbor)
     assert_raise(BundleAlreadyStored) {@store.storeBundle(b2)}
     res2 = @store.getBundle(b1.bundleId)
-    assert_equal("dtn://neighbor2", res1.forwardLog.getLatestEntry.neighbor)
+    assert_equal("dtn://neighbor2", @config.forwardLog[res1.bundleId].getLatestEntry.neighbor)
   end
 
 end
