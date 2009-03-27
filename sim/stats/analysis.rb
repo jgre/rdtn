@@ -27,16 +27,28 @@ module Analysis
     enum    = options[:enumerate] || []
     combine = options[:combine]   || []
 
-    res = {}
+    tuples   = {}
     processed.each do |entry|
       if entry[x_axis] and entry[y_axis]
         enum_key = entry.select {|k, v| enum.include? k}
         comb_key = entry.select {|k, v| combine == k}
-        comb = res[enum_key]  ||= {}
-        val  = comb[comb_key] ||= {}
-        (val[x_axis] ||= []) << entry[x_axis]
-        (val[y_axis] ||= []) << entry[y_axis]
-        (val[error]  ||= []) << entry[error] if entry[error]
+        comb = tuples[enum_key]  ||= {}
+        val  = comb[comb_key] ||= []
+        val << [entry[x_axis], entry[y_axis], entry[error]]
+      end
+    end
+
+    res = {}
+    tuples.each do |enum_key, entry|
+      en   = res[enum_key] = {}
+      entry.each do |comb_key, comb|
+        tuple_lst = comb.sort_by(&:first)
+        hash = {}
+        hash[x_axis] = tuple_lst.map(&:first)
+        hash[y_axis] = tuple_lst.map {|e| e[1]}
+        hash[error]  = tuple_lst.map(&:last)
+        hash.delete(error) if hash[error].compact.empty?
+        en[comb_key] = hash
       end
     end
     res
