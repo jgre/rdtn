@@ -319,4 +319,11 @@ class TestBundle < Test::Unit::TestCase
     assert_equal 'wrong', b2.payload
   end
 
+  should 'allow bundles without payload' do
+    b  = Bundling::Bundle.new nil, "dtn://dest/", "dtn://src/"
+    b2 = Bundling::Bundle.new
+    b2.parse StringIO.new(b.to_s)
+    assert_nil b2.payload
+  end
+
 end
