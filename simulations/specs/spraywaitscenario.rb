@@ -22,7 +22,7 @@ class SprayWaitScenario < Sim::Specification
       sender = rand(999)
       rec    = rand(999)
       rec += 1 if sender == rec
-      sim.node("n#{sender + 1}").sendDataTo data, "dtn://kasuarin#{rec + 1}/", nil, :lifetime => 3600 * 6
+      sim.node("n#{sender + 1}").sendDataTo data, "dtn://kasuarin#{rec + 1}/", nil, :lifetime => nil
       true
     end
   end
