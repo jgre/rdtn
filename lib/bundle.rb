@@ -467,7 +467,7 @@ module Bundling
       if block
 	block.payloadLength
       else
-	nil
+	0
       end
     end
 
