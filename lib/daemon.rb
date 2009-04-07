@@ -31,6 +31,8 @@ require 'storage'
 require 'configuration'
 require "metablock"
 require 'forwardlog'
+require 'subscriptionset'
+require 'cache'
 
 module RdtnDaemon
 
@@ -48,6 +50,10 @@ module RdtnDaemon
       Bundling::ParserManager.registerEvents(@config, @evDis)
       Bundling::BundleWorkflow.registerEvents(@config, @evDis)
       Storage.new(@config, @evDis)
+      Cache.new(@config, @evDis)
+      @config.registerComponent(:subscriptionSet,
+                                SubscriptionSet.new(@config, @evDis))
+
       ContactManager.new(@config, @evDis)
       # Create a default router
       RoutingTable.new(@config, @evDis)

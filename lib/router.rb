@@ -55,6 +55,7 @@ class Router
     @localReg = []
     @queues   = Hash.new {|h, k| h[k] = []}
     @config.registerComponent(:router, self) {self.stop}
+    @subSet   = @config.subscriptionSet
 
     @rtEvAvailable = @evDis.subscribe(:routeAvailable) do |re|
       if re.link.is_a?(AppIF::AppProxy)
@@ -66,6 +67,23 @@ class Router
     end
 
     @rtEvToForward = @evDis.subscribe(:bundleToForward) do |b|
+      if ccn_blk = b.findBlock(CCNBlock)
+        uri = ccn_blk.uri
+        case ccn_blk.method
+        when :subscribe
+          @subSet.subscribe(uri, b.srcEid)
+          if content = @config.cache[uri]
+            notifySubscribers(uri, content, b.srcEid)
+          end
+        when :publish
+          @config.cache.addContent(uri, b.payload)
+          @subSet.subscribers(uri).each do |subs|
+            notifySubscribers(uri, b.payload, subs)
+          end
+        when :delete
+          @config.cache.delete(uri)
+        end
+      end
       @localReg.each {|re| localDelivery(b, re.link) if re.match?(b.destEid)}
     end
 
@@ -87,6 +105,13 @@ class Router
   end
 
   protected
+
+  def notifySubscribers(uri, content, subs)
+    resp_bndl = Bundling::Bundle.new content, subs
+    resp_bndl.addBlock CCNBlock.new(resp_bndl, uri, :publish)
+    link = @config.contactManager.findLink {|l| subs == l.remoteEid}
+    enqueue resp_bndl, link, :forward if link
+  end
 
   def localDelivery(bundle, link)
     action = bundle.destinationIsSingleton? ? :forward : :replicate

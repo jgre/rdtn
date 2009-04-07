@@ -1,9 +1,10 @@
 class SubscriptionSet
 
   class Subscription
-    attr_accessor :node, :created, :expires, :delay, :hopCount
+    attr_accessor :uri, :node, :created, :expires, :delay, :hopCount
 
-    def initialize(node, options)
+    def initialize(uri, node, options)
+      @uri      = uri
       @node     = node
       @created  = options[:created] || RdtnTime.now
       @expires  = options[:expires]# || RdtnTime.now + 86400
@@ -24,15 +25,19 @@ class SubscriptionSet
   end
 
   def subscribe(uri, node = @node, options = {})
-    subs = Subscription.new(node, options)
+    subs = Subscription.new(uri, node, options)
     subs.expires ||= RdtnTime.now + @defaultExpiry unless node == @node
-    if channel!(uri).include? node
-      s0 = channel!(uri)[node]
+    addSubscription(subs)
+  end
+
+  def addSubscription(subs)
+    if channel!(subs.uri).include? node
+      s0 = channel!(subs.uri)[node]
       s0.hopCount = [subs.hopCount, s0.hopCount].min
       s0.delay    = [subs.delay,    s0.delay   ].min
       s0.expires  = [subs.expires,  s0.expires ].max unless node == @node
     else
-      channel!(uri)[node] = subs
+      channel!(subs.uri)[node] = subs
     end
   end
 
