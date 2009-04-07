@@ -160,7 +160,9 @@ module GenParser
   def GenParser.decodeNullTerminated(sio, length=nil)
     oldPos = sio.pos
     data = sio.gets(0.chr)
-    if length and data.bytesize > length
+    if data.nil?
+      raise InputTooShort, length
+    elsif length and data.bytesize > length
       data.slice!(length, -1) # Cut off the unwanted end
       sio.pos = oldPos+length
     else
