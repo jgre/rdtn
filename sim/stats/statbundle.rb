@@ -26,7 +26,7 @@ class StatBundle
     else
       @src        = bundle.srcEid.to_s
     end
-    @payload_size = bundle.payload.bytesize
+    @payload_size = bundle.payloadLength
     @created      = bundle.created.to_i - t0.to_i
     @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?

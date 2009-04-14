@@ -1,7 +1,7 @@
 class SubscriptionSet
 
   class Subscription
-    attr_accessor :uri, :node, :created, :expires, :delay, :hopCount
+    attr_accessor :uri, :node, :created, :expires, :delay, :hopCount, :delivered_revs
 
     def initialize(uri, node, options)
       @uri      = uri
@@ -10,6 +10,7 @@ class SubscriptionSet
       @expires  = options[:expires]# || RdtnTime.now + 86400
       @delay    = options[:delay]   || (RdtnTime.now.to_i - @created.to_i)
       @hopCount = options[:hopCount].to_i
+      @delivered_revs = []
     end
 
   end
@@ -31,13 +32,13 @@ class SubscriptionSet
   end
 
   def addSubscription(subs)
-    if channel!(subs.uri).include? node
-      s0 = channel!(subs.uri)[node]
+    if channel!(subs.uri).include? subs.node
+      s0 = channel!(subs.uri)[subs.node]
       s0.hopCount = [subs.hopCount, s0.hopCount].min
       s0.delay    = [subs.delay,    s0.delay   ].min
-      s0.expires  = [subs.expires,  s0.expires ].max unless node == @node
+      s0.expires  = [subs.expires,  s0.expires ].max unless subs.node == @node
     else
-      channel!(subs.uri)[node] = subs
+      channel!(subs.uri)[subs.node] = subs
     end
   end
 
@@ -54,6 +55,10 @@ class SubscriptionSet
     channel!(uri).keys
   end
 
+  def subscriptions(node)
+    @channels.find_all{|uri, nodes| nodes.key? node}.map(&:first)
+  end
+
   def delays(uri)
     ret = {}
     channel!(uri).each {|node, sub| ret[node] = sub.delay}
@@ -64,6 +69,19 @@ class SubscriptionSet
     ret = {}
     channel!(uri).each {|node, sub| ret[node] = sub.hopCount}
     ret
+  end
+
+  def deliveredRevision(node, uri, rev)
+    if @channels.key?(uri) && @channels[uri].key?(node)
+      @channels[uri][node].delivered_revs << rev
+    end
+  end
+
+  def hasRevision?(node, uri, rev)
+    if @channels.key?(uri) && @channels[uri].key?(node)
+      del_revs = channels[uri][node].delivered_revs
+      del_revs.max >= rev unless del_revs.empty?
+    end
   end
 
   def housekeeping!

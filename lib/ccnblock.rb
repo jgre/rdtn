@@ -9,11 +9,13 @@ class CCNBlock < Bundling::Block
   field :ccnblockLength, :decode => GenParser::SdnvDecoder
   field :uri,            :decode => GenParser::NullTerminatedDecoder
   field :method,         :decode => GenParser::NullTerminatedDecoder
+  field :revision,       :decode => GenParser::NullTerminatedDecoder
 
-  def initialize(bundle, uri = nil, method = nil)
+  def initialize(bundle, uri = nil, method = nil, options = {})
     super(bundle)
-    @uri    = uri
-    @method = method
+    @uri      = uri
+    @method   = method
+    @revision = options[:revision] || 0
   end
 
   def to_s
@@ -24,6 +26,8 @@ class CCNBlock < Bundling::Block
     data << @uri
     data << "\0"
     data << @method.to_s
+    data << "\0"
+    data << @revision.to_s
     data << "\0"
     data
   end

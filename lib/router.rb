@@ -64,6 +64,14 @@ class Router
           store.each {|b| localDelivery(b, re.link) if re.match?(b.destEid)}
         end
       end
+      subs = @subSet.subscriptions(re.destination)
+      #puts "(#{@config.localEid}) route to #{re.destination}: #{subs.inspect}"
+      subs.each do |uri|
+        if content = @config.cache[uri]
+          notifySubscribers(uri, content, re.destination,
+                            @config.cache.currentRevision(uri))
+        end
+      end
     end
 
     @rtEvToForward = @evDis.subscribe(:bundleToForward) do |b|
@@ -71,16 +79,22 @@ class Router
         uri = ccn_blk.uri
         case ccn_blk.method
         when :subscribe
+          #puts "(#{@config.localEid}) incoming sub from #{b.srcEid}"
           @subSet.subscribe(uri, b.srcEid)
+          #puts "(#{@config.localEid}) subscribing #{b.srcEid} to #{uri}: #{@subSet.subscribers(uri).inspect}"
           if content = @config.cache[uri]
-            notifySubscribers(uri, content, b.srcEid)
+            notifySubscribers(uri, content, b.srcEid,
+                              @config.cache.currentRevision(uri))
           end
+        when :unsubscribe
+          @subSet.unsubscribe(uri, b.srcEid)
         when :publish
-          @config.cache.addContent(uri, b.payload)
+          @config.cache.addContent(uri, b.payload, ccn_blk.revision)
           @subSet.subscribers(uri).each do |subs|
-            notifySubscribers(uri, b.payload, subs)
+            notifySubscribers(uri, b.payload, subs, ccn_blk.revision)
           end
         when :delete
+          #puts "(#{@config.localEid}:#{RdtnTime.now.sec}) Deleting #{uri}"
           @config.cache.delete(uri)
         end
       end
@@ -94,6 +108,11 @@ class Router
 
     @rtEvForwarded = @evDis.subscribe(:bundleForwarded) do |b, link|
       shiftQueue(link)
+      if ccn_blk = b.findBlock(CCNBlock)
+        if ccn_blk.method == :publish
+          link.remoteEids.each {|node| @subSet.deliveredRevision(node, ccn_blk.uri, ccn_blk.revision)}
+        end
+      end
     end
   end
 
@@ -106,11 +125,14 @@ class Router
 
   protected
 
-  def notifySubscribers(uri, content, subs)
-    resp_bndl = Bundling::Bundle.new content, subs
-    resp_bndl.addBlock CCNBlock.new(resp_bndl, uri, :publish)
-    link = @config.contactManager.findLink {|l| subs == l.remoteEid}
-    enqueue resp_bndl, link, :forward if link
+  def notifySubscribers(uri, content, subs, rev)
+    unless @subSet.hasRevision?(subs, uri, rev)
+      #puts "(#{@config.localEid}:#{RdtnTime.now.sec}) notify subs #{uri}, #{subs}"
+      resp_bndl = Bundling::Bundle.new content, subs
+      resp_bndl.addBlock CCNBlock.new(resp_bndl, uri, :publish, :revision=>rev)
+      link = @config.contactManager.findLink {|l| subs == l.remoteEid}
+      enqueue resp_bndl, link, :forward if link
+    end
   end
 
   def localDelivery(bundle, link)

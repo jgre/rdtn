@@ -1,10 +1,14 @@
 $: << File.join(File.dirname(__FILE__), '..', 'lib')
+$:.unshift File.join(File.dirname(__FILE__), '../sim/maidenvoyage')
 
 require 'test/unit'
 require 'rubygems'
 require 'shoulda'
 require 'pubsub'
 require 'daemon'
+require 'maidenvoyage'
+require 'graph'
+require 'spraywaitrouter'
 
 class TestPubSub < Test::Unit::TestCase
 
@@ -61,6 +65,92 @@ class TestPubSub < Test::Unit::TestCase
       assert_nil received
     end
     
+  end
+
+  simulation_context 'PubSub with three permanently connected nodes' do
+
+    uri  = "http://example.com/feed/"
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge :sub1 => :source
+      g.edge :sub2 => :source
+      g.edge :sub2 => :nonsub
+      sim.events = g.events
+      sim.nodes.router :spraywait, :initial_copycount => 1
+
+      data = "test data"
+      sim.node(:source).register("dtn:internet-gw/") {}
+      sim.at(1)  {PubSub.subscribe(sim.node(:sub1), uri) {}}
+      sim.at(2)  {PubSub.publish(sim.node(:source), uri, data)}
+      sim.at(3)  {PubSub.subscribe(sim.node(:sub2), uri) {}}
+      sim.at(5)  {PubSub.publish(sim.node(:source), uri, data + "update")}
+      sim.at(10) {PubSub.unsubscribe(sim.node(:sub2), uri) {}}
+      sim.at(12) {PubSub.publish(sim.node(:source), uri, data + "update2")}
+    end
+
+    should 'deliver published content to a subscriber' do
+      assert traffic_model.contentItem(uri).delivered?(:sub2)
+    end
+
+    should 'not deliver published content to non-subscribing nodes' do
+      assert(!traffic_model.contentItem(uri).delivered?(:nonsub))
+    end
+
+    should 'deliver published content to previously existing subscribers' do
+      assert traffic_model.contentItem(uri).delivered?(:sub1)
+    end
+    
+    should 'deliver updated of published content to a subscriber' do
+      assert traffic_model.contentItem(uri).delivered?(:sub1, nil, :revision=>0)
+      assert traffic_model.contentItem(uri).delivered?(:sub1, nil, :revision=>1)
+      assert traffic_model.contentItem(uri).delivered?(:sub2, nil, :revision=>0)
+      assert traffic_model.contentItem(uri).delivered?(:sub2, nil, :revision=>1)
+    end
+
+    should 'not deliver updates after unsubscribing' do
+      assert traffic_model.contentItem(uri).delivered?(:sub1, nil, :revision=>2)
+      assert(!traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>2))
+    end
+    
+  end
+
+  simulation_context 'Two intermittendly connected nodes' do
+
+    uri1  = "http://example.com/feed1/"
+    uri2  = "http://example.com/feed2/"
+    
+    prepare do
+      g = Sim::Graph.new
+      g.edge :sub1 => :source, :start => 5,  :end => 10
+      g.edge :sub1 => :source, :start => 15, :end => 20
+      sim.events = g.events
+      sim.nodes.router :spraywait, :initial_copycount => 1
+
+      data = "test data"
+      sim.node(:source).register("dtn:internet-gw/") {}
+      sim.at(1) do
+        PubSub.subscribe(sim.node(:sub1), uri1) {}
+        PubSub.subscribe(sim.node(:sub1), uri2) {}
+        false
+      end
+      sim.at(2)  {PubSub.publish(sim.node(:source), uri1, data); false}
+      sim.at(11) {PubSub.publish(sim.node(:source), uri2, data+"update");false}
+      sim.at(13) {PubSub.delete(sim.node(:source), uri2); flase}
+    end
+
+    should 'deliver subscribed content when connectivity is available' do
+      assert traffic_model.contentItem(uri1).delivered?(:sub1, nil)
+    end
+    
+    should 'not deliver content that was deleted' do
+      assert(!traffic_model.contentItem(uri2).delivered?(:sub1, nil))
+    end
+
+    should 'not send the same revision twice' do
+      assert_equal [1, 0], traffic_model.transmissionsPerContentItem
+    end
+
   end
   
 end

@@ -5,6 +5,8 @@ require 'statbundle'
 require 'core'
 require 'networkmodel'
 require 'memoize'
+require 'contentitem'
+require 'statsubscription'
 
 Struct.new('Registration', :node, :startTime, :endTime)
 
@@ -23,6 +25,9 @@ class TrafficModel
     @duration  = 0
     @errors    = []
     @warmup    = 0
+    @content   = {} # URI -> ContentItem
+    @subscribers = {} # URI -> {node -> [intervals]}
+    @cacheUse  = Hash.new {|hash, key| hash[key] = []}
     self.log   = log if log
   end
 
@@ -30,14 +35,41 @@ class TrafficModel
     log.each {|e| event e}
   end
 
+  def initBundle(node, bundle)
+    @bundles[bundle.bundleId] = StatBundle.new(@t0, bundle) unless @bundles[bundle.bundleId]
+    sb = @bundles[bundle.bundleId]
+    if ccn_blk = bundle.findBlock(CCNBlock)
+      uri = ccn_blk.uri
+      case ccn_blk.method
+      when :publish
+        unless @content[uri]
+          @content[uri] = ContentItem.new(bundle, sb)
+        end
+        @content[uri].revisionCreated(ccn_blk.revision, sb.created)
+      when :subscribe
+        sub = ((@subscribers[uri] ||= {})[sb.src] ||= StatSubscription.new)
+        sub.subscribe sb.created
+      when :unsubscribe
+        @subscribers[uri][sb.src].unsubscribe(sb.created)
+      end
+    end
+  end
+  
   def event(e)
     @duration = [@duration, e.time].max
     case e.eventId
     when :bundleCreated
-      @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle)
+      initBundle(e.nodeId1, e.bundle)
     when :bundleForwarded
-      @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle) unless @bundles[e.bundle.bundleId]
+      initBundle(e.nodeId1, e.bundle)
       @bundles[e.bundle.bundleId].forwarded(e.time, e.nodeId1, e.nodeId2)
+      if ccn_blk = e.bundle.findBlock(CCNBlock)
+        uri = ccn_blk.uri
+        case ccn_blk.method
+        when :publish
+          @content[uri].incident e.nodeId2, ccn_blk.revision, e.time
+        end
+      end
     when :registered
       @regs[e.eid] << Struct::Registration.new(e.nodeId1, e.time)
     when :unregistered
@@ -46,7 +78,7 @@ class TrafficModel
     when :bundleStored
       lastEntry = @bufferUse[e.nodeId1].last
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
-      @bufferUse[e.nodeId1] << [e.time, lastSize + e.bundle.payload.bytesize]
+      @bufferUse[e.nodeId1] << [e.time, lastSize + e.bundle.payloadLength]
     when :bundleRemoved
       lastEntry = @bufferUse[e.nodeId1].last
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
@@ -54,6 +86,14 @@ class TrafficModel
     when :transmissionError
       @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle) unless @bundles[e.bundle.bundleId]
       @errors << [e.transmitted, e.bundle.bundleId, e.time]
+    when :contentCached
+      lastEntry = @cacheUse[e.nodeId1].last
+      lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
+      @cacheUse[e.nodeId1] << [e.time, lastSize + e.bundle.payload.bytesize]
+    when :contentUncached
+      lastEntry = @cacheUse[e.nodeId1].last
+      lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
+      @cacheUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
     end
   end
 
@@ -86,10 +126,6 @@ class TrafficModel
       cat + bundle.delays(@regs[bundle.dest], considerReg)
     end
   end
-
-  # def annotatedDelays
-  #     @bundles.values.map {|bundle| [bundle.bundleId, bundle.delays]}
-  #   end
 
   def totalDelay(considerReg = false)
     delays(considerReg).inject(0) {|sum, delay| sum + delay}
@@ -244,18 +280,99 @@ class TrafficModel
     failedTransmissions(options).inject {|sum, error| sum + error}
   end
 
+  def contentItemCount
+    @content.length
+  end
+
+  def contentItem(uri)
+    @content[uri]
+  end
+
+  def subscribers(uri, startTime = nil, endTime = nil)
+    if @subscribers.key? uri
+      if startTime.nil?
+        @subscribers[uri].keys
+      else
+        @subscribers[uri].find_all {|node, sub| sub.overlap?(startTime, endTime)}.map(&:first)
+      end
+    else
+      []
+    end
+  end
+
+  def subscription(uri, node)
+    if @subscribers.key?(uri) && @subscribers[uri].key?(node)
+      @subscribers[uri][node]
+    end
+  end
+
+  def expectedContentItemCount
+    @content.inject(0) do |sum, uri_item|
+      uri, item = uri_item
+      sum + subscribers(uri, item.created).length
+    end
+  end
+
+  def deliveredContentItemCount
+    @content.inject(0) do |sum, uri_item|
+      uri, item = uri_item
+      sum + subscribers(uri, item.created).find_all {|sub| item.delivered?(sub)}.length
+    end
+  end
+
+  def contentItemDeliveryRatio
+    deliveredContentItemCount / expectedContentItemCount.to_f
+  end
+
+  def contentItemDelays
+    ret = @content.inject([]) do |memo, uri_item|
+      uri, item = uri_item
+      memo + @subscribers[uri].inject([]) do |sub_memo, sub|
+        subscriber, interval = sub
+        del = item.delay(subscriber, interval)
+        sub_memo << del
+      end
+    end
+    ret.flatten.compact
+  end
+
+  def cacheUse(samplingRate, node = nil)
+    if node.nil?
+      @cacheUse.keys.inject([]) {|memo, node| memo+cacheUse(samplingRate,node)}
+    else
+      ret      = []
+      i        = 0
+      if @cacheUse[node]
+	uses     = @cacheUse[node].sort_by {|time, size| time}
+	samplingRate.step(@duration, samplingRate) do |time|
+          next if time < @warmup.to_i
+	  until uses[i].nil? or uses[i][0] > time; i += 1; end
+	  ret << uses[i-1][1]
+	end
+      end
+      ret
+    end
+  end
+
+  def transmissionsPerContentItem
+    @content.values.map {|item| item.transmissions}
+  end
+  
   def marshal_dump
-    [@t0, @bundles, Hash.new.merge(@regs), @duration,Hash.new.merge(@bufferUse), @errors]
+    [@t0, @bundles, Hash.new.merge(@regs), @duration,
+     Hash.new.merge(@bufferUse), @errors, @content, @subscribers,
+     Hash.new.merge(@cacheUse)]
   end
 
   def marshal_load(lst)
-    @t0, @bundles, @regs, @duration, @bufferUse, @errors = lst
+    @t0, @bundles, @regs, @duration, @bufferUse, @errors, @content, @subscribers, @cacheUse = lst
   end
 
   def to_yaml_properties
     @regs = Hash.new.merge(@regs)
     @bufferUse = Hash.new.merge(@bufferUse)
-    %w{@t0 @bundles @regs @duration @bufferUse @errors}
+    @cacheUse = Hash.new.merge(@cacheUse)
+    %w{@t0 @bundles @regs @duration @bufferUse @errors @content @subscribers @cacheUse}
   end
 
 end

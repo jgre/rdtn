@@ -38,7 +38,7 @@ module RdtnDaemon
 
   class Daemon
 
-    attr_reader :evDis, :config
+    attr_reader :evDis, :config, :localRegistrations
 
     def initialize(localEid = nil)
       @evDis = EventDispatcher.new

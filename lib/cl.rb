@@ -46,7 +46,7 @@ class Link
   MIN_READ_BUFFER=1048576
 
   attr_reader :bytesToRead
-  attr_accessor :name, :remoteEid
+  attr_accessor :name, :remoteEid, :remoteEids
   # The policy determines when a link is opened and when it gets closed by the
   # contact manager. There are three possible values:
   # :alwaysOn (default)
@@ -65,6 +65,7 @@ class Link
     @bytesToRead = MIN_READ_BUFFER
     @senderThreads = Queue.new
     @receiverThreads = Queue.new
+    @remoteEids = []
     @evDis.dispatch(:linkCreated, self)
   end
 

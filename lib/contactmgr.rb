@@ -113,7 +113,11 @@ class ContactManager < Monitor
   end
 
   def linkOpen(link)
-    if link.remoteEid
+    if link.remoteEids
+      link.remoteEids.each do |eid|
+        @evDis.dispatch(:routeAvailable, RoutingEntry.new(eid, link))
+      end
+    elsif link.remoteEid
       @evDis.dispatch(:routeAvailable, RoutingEntry.new(link.remoteEid, link))
     end
   end

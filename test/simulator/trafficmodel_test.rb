@@ -6,6 +6,7 @@ require 'test/unit'
 require 'shoulda'
 require 'trafficmodel'
 require 'logentry'
+require 'ccnblock'
 
 class TrafficModelTest < Test::Unit::TestCase
 
@@ -73,14 +74,6 @@ class TrafficModelTest < Test::Unit::TestCase
       assert_equal 2.0/3, @tm.deliveryRatio
     end
 
-    should_eventually 'calculate the replicas per delivered bundle' do
-      assert_equal 4/2, @tm.replicasPerDeliveredBundle
-    end
-
-    should_eventually 'calculate the number of transmissions per delivered bundle' do
-      assert_equal 4/2.0, @tm.transmissionsPerDeliveredBundle
-    end
-
   end
 
   context 'In a multicast scenario, TrafficModel' do
@@ -88,7 +81,7 @@ class TrafficModelTest < Test::Unit::TestCase
     setup do
       @t0   = Time.now
       @b1  = Bundling::Bundle.new('test', 'dtn://group/', 'dtn://kasuari1',
-                                 :multicast => true)
+                                  :multicast => true)
       @tm = TrafficModel.new(@t0)
       @tm.event(Sim::LogEntry.new(0, :bundleCreated, 1, nil, :bundle => @b1))
       @tm.event(Sim::LogEntry.new(0, :registered, 2, nil, :eid=>'dtn://group/'))
@@ -325,4 +318,97 @@ class TrafficModelTest < Test::Unit::TestCase
     end
 
   end
+
+  context 'With CCN' do
+
+    setup do
+      t0 = Time.now
+      @uri = "http://example.com/feed/"
+      @b = Bundling::Bundle.new('test', nil, 'dtn://kasuari1')
+      @b.addBlock CCNBlock.new(@b, @uri, :publish, :revision => 0)
+      @b.creationTimestamp += 10
+      @upd = Bundling::Bundle.new('updated', nil, 'dtn://kasuari1')
+      @upd.addBlock CCNBlock.new(@upd, @uri, :publish, :revision => 1)
+      @upd.creationTimestamp += 11
+
+      @sub2 = Bundling::Bundle.new(nil, nil, 'dtn://kasuari2')
+      @sub2.addBlock CCNBlock.new(@sub2, @uri, :subscribe)
+      @sub3 = Bundling::Bundle.new(nil, nil, 'dtn://kasuari3')
+      @sub3.addBlock CCNBlock.new(@sub3, @uri, :subscribe)
+      @sub4 = Bundling::Bundle.new(nil, nil, 'dtn://kasuari4')
+      @sub4.addBlock CCNBlock.new(@sub4, @uri, :subscribe)
+      @unsub4 = Bundling::Bundle.new(nil, nil, 'dtn://kasuari4')
+      @unsub4.addBlock CCNBlock.new(@unsub4, @uri, :unsubscribe)
+      @unsub4.creationTimestamp += 5
+      @unsub3 = Bundling::Bundle.new(nil, nil, 'dtn://kasuari3')
+      @unsub3.addBlock CCNBlock.new(@unsub3, @uri, :unsubscribe)
+      @unsub3.creationTimestamp += 15
+      
+      @log = [
+              Sim::LogEntry.new(10, :bundleCreated, 1, nil, :bundle => @b),
+              Sim::LogEntry.new(10, :bundleCreated, 2, nil, :bundle => @sub2),
+              Sim::LogEntry.new(10, :bundleCreated, 3, nil, :bundle => @sub3),
+              Sim::LogEntry.new(1,  :bundleCreated, 4, nil, :bundle => @sub4),
+              Sim::LogEntry.new(5,  :bundleCreated, 4, nil, :bundle => @unsub4),
+              Sim::LogEntry.new(15, :bundleCreated, 4, nil, :bundle => @unsub3),
+              Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => @upd),
+              Sim::LogEntry.new(10, :contentCached, 1, nil, :bundle => @b),
+              Sim::LogEntry.new(11, :bundleForwarded, 1, 2, :bundle => @b),
+              Sim::LogEntry.new(11, :bundleForwarded, 1, 4, :bundle => @b),
+              Sim::LogEntry.new(12, :bundleForwarded, 1, 4, :bundle => @b),
+              Sim::LogEntry.new(11, :contentCached,  4, nil, :bundle => @b),
+              Sim::LogEntry.new(20, :contentUncached,  4, nil, :bundle => @b),
+              Sim::LogEntry.new(19, :bundleForwarded, 1, 2, :bundle => @upd),
+      ]
+      @tm  = TrafficModel.new(t0, @log)      
+    end
+
+    should 'track the content items' do
+      assert_equal 1, @tm.contentItemCount
+    end
+
+    should 'track which nodes received which content items' do
+      assert  @tm.contentItem(@uri).delivered?(2, @tm.subscription(@uri, 2))
+      assert(!@tm.contentItem(@uri).delivered?(3, @tm.subscription(@uri, 3)))
+      assert(!@tm.contentItem(@uri).delivered?(4, @tm.subscription(@uri, 4)))
+    end
+
+    should 'track subscriptions' do
+      assert_same_elements [2, 3, 4], @tm.subscribers(@uri)
+      assert_same_elements [2, 3], @tm.subscribers(@uri, 10)
+    end
+
+    should 'calculate the number of expected content items' do
+      assert_equal 3, @tm.expectedContentItemCount
+    end
+
+    should 'calculate the number of successfully delivered content items' do
+      assert_equal 2, @tm.deliveredContentItemCount
+    end
+
+    should 'calculate the delivery ratio for content items' do
+      assert_equal 2/3.0, @tm.contentItemDeliveryRatio
+    end
+
+    should 'calculate the delays for delivery content items' do
+      assert_equal [1, 8], @tm.contentItemDelays
+    end
+
+    should 'calculate the bytes cached for all nodes and all sample times' do
+      assert_same_elements [4, 4, 4, 4, 0, 0, 4, 0], @tm.cacheUse(5)
+    end
+
+    should 'calculate transmissions per content item' do
+      assert_equal [4], @tm.transmissionsPerContentItem
+    end
+
+    should 'track revisions' do
+      assert(!@tm.contentItem(@uri).delivered?(3, nil, :revision => 1))
+      assert @tm.contentItem(@uri).delivered?(2, nil, :revision => 1)
+    end
+
+    should 'take deletions into account'
+
+  end
+  
 end

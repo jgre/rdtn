@@ -5,8 +5,10 @@ require 'ccnblock'
 module PubSub
 
   def self.publish(daemon, uri, data, options = {})
+    prev_rev = daemon.config.cache.currentRevision(uri)
+    rev = prev_rev ? prev_rev + 1 : 0
     bundle = Bundling::Bundle.new data
-    bundle.addBlock CCNBlock.new(bundle, uri, :publish)
+    bundle.addBlock CCNBlock.new(bundle, uri, :publish, :revision => rev)
     daemon.sendBundle bundle
   end
 
@@ -29,13 +31,19 @@ module PubSub
     
     daemon.config.localSubs[uri] = handler
 
-    sub_bundle = Bundling::Bundle.new nil, "dtn:internet-gw/"
+    sub_bundle = Bundling::Bundle.new(nil, "dtn:internet-gw/", nil,
+                                      :multicast => true)
     sub_bundle.addBlock CCNBlock.new(sub_bundle, uri, :subscribe)
     daemon.sendBundle sub_bundle
   end
 
   def self.unsubscribe(daemon, uri)
     daemon.config.localSubs.delete(uri)
+
+    sub_bundle = Bundling::Bundle.new(nil, "dtn:internet-gw/", nil,
+                                      :multicast => true)
+    sub_bundle.addBlock CCNBlock.new(sub_bundle, uri, :unsubscribe)
+    daemon.sendBundle sub_bundle
   end
 
   def self.deliver(daemon, bundle)

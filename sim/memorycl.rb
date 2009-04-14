@@ -34,6 +34,7 @@ module Sim
       @nodeId      = nodeId
       @dest        = dest
       @remoteEid   = "dtn://kasuari#{@dest}/" if dest
+      @remoteEids  = ([@remoteEid] + sim.node(@dest).localRegistrations.keys).compact if sim
       @peerLink    = peerLink
       @bytesPerSec = bytesPerSec
       @sim         = sim
@@ -50,6 +51,7 @@ module Sim
       @dest        = @memIf.nodeId
       @peerLink    = @memIf.acceptConnection(self)
       @remoteEid   = "dtn://kasuari#{@dest}/"
+      @remoteEids  = ([@remoteEid] + @sim.node(@dest).localRegistrations.keys).compact if @sim
       @bytesPerSec = options[:bytesPerSec]
       @evDis.dispatch(:linkOpen, self) if @peerLink
     end
@@ -75,7 +77,7 @@ module Sim
     def sendBundle(bundle)
       @queuedBundle = bundle
       @queuedSince  = RdtnTime.now
-      @sim.after(bundle.payload.bytesize / @bytesPerSec.to_f) do
+      @sim.after(bundle.payloadLength / @bytesPerSec.to_f) do
         if @peerLink
 	  @queuedBundle = nil
 
