@@ -5,7 +5,7 @@ require 'rdtntime'
 class EpidemicRouter < Router
 
   def initialize(config, evDis, options = {})
-    super(config, evDis)
+    super
     @contMgr     = @config.contactManager
     @vaccination = options[:vaccination]
 

@@ -89,11 +89,11 @@ class TrafficModel
     when :contentCached
       lastEntry = @cacheUse[e.nodeId1].last
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
-      @cacheUse[e.nodeId1] << [e.time, lastSize + e.bundle.payload.bytesize]
+      @cacheUse[e.nodeId1] << [e.time, lastSize + e.size]
     when :contentUncached
       lastEntry = @cacheUse[e.nodeId1].last
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
-      @cacheUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
+      @cacheUse[e.nodeId1] << [e.time, lastSize - e.size]
     end
   end
 
@@ -342,8 +342,8 @@ class TrafficModel
     else
       ret      = []
       i        = 0
-      if @cacheUse[node]
-	uses     = @cacheUse[node].sort_by {|time, size| time}
+      if @cacheUse[node] and (!@cacheUse[node].empty?)
+	uses = @cacheUse[node].sort_by {|time, size| time}
 	samplingRate.step(@duration, samplingRate) do |time|
           next if time < @warmup.to_i
 	  until uses[i].nil? or uses[i][0] > time; i += 1; end

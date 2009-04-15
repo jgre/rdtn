@@ -62,6 +62,9 @@ module Sim
       def @nodes.subscription_range=(range)
 	each_value {|node| node.router.subsRange = range if node.router.respond_to? :subsRange=}
       end
+      def @nodes.cache_limit=(limit)
+        each_value {|node| node.config.cache.limit = limit}
+      end
 
       RdtnTime.scheduleFunc = lambda {|sec, &handler| after(sec, &handler)}
 
@@ -101,14 +104,15 @@ module Sim
       open(filename) {|f| self.events = Marshal.load(f) }
     end
 
-    def at(time)
+    def at(time, repetition_timer = nil)
       @timerEventId += 1
+      repetition_timer = time unless repetition_timer
       sym = "timerEvent#@timerEventId".to_sym
       @events.addEventSorted(time, nil, nil, sym)
       ev = @evDis.subscribe(sym) do |t|
 	repeat = yield(t)
-	if repeat and (t + time).to_i <= @duration.to_i
-	  @events.addEventSorted(t + time, nil, nil, sym)
+	if repeat and (t + repetition_timer).to_i <= @duration.to_i
+	  @events.addEventSorted(t + repetition_timer, nil, nil, sym)
 	else
 	  @evDis.unsubscribe(sym, ev)
 	end
@@ -117,7 +121,7 @@ module Sim
     end
 
     def after(time)
-      at(@te.timer + time) {|t| yield(t)}
+      at(@te.timer + time, time) {|t| yield(t)}
     end
 
     def node(id)

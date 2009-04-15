@@ -352,12 +352,12 @@ class TrafficModelTest < Test::Unit::TestCase
               Sim::LogEntry.new(5,  :bundleCreated, 4, nil, :bundle => @unsub4),
               Sim::LogEntry.new(15, :bundleCreated, 4, nil, :bundle => @unsub3),
               Sim::LogEntry.new(11, :bundleCreated, 1, nil, :bundle => @upd),
-              Sim::LogEntry.new(10, :contentCached, 1, nil, :bundle => @b),
+              Sim::LogEntry.new(10, :contentCached, 1, nil, :size => @b.payload.bytesize),
               Sim::LogEntry.new(11, :bundleForwarded, 1, 2, :bundle => @b),
               Sim::LogEntry.new(11, :bundleForwarded, 1, 4, :bundle => @b),
               Sim::LogEntry.new(12, :bundleForwarded, 1, 4, :bundle => @b),
-              Sim::LogEntry.new(11, :contentCached,  4, nil, :bundle => @b),
-              Sim::LogEntry.new(20, :contentUncached,  4, nil, :bundle => @b),
+              Sim::LogEntry.new(11, :contentCached,  4, nil, :size => @b.payload.bytesize),
+              Sim::LogEntry.new(20, :contentUncached,  4, nil, :size => @b.payload.bytesize),
               Sim::LogEntry.new(19, :bundleForwarded, 1, 2, :bundle => @upd),
       ]
       @tm  = TrafficModel.new(t0, @log)      

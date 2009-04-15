@@ -31,6 +31,10 @@ class StatBundle
     @lifetime     = bundle.lifetime
     @multicast    = !bundle.destinationIsSingleton?
     @signaling    = bundle.isVaccination? || bundle.isSubscriptionBundle?
+    if ccn_blk = bundle.findBlock(CCNBlock)
+      @signaling = (ccn_blk.method != :publish)
+      #puts "Signaling #{ccn_blk.method} #{bundle.inspect}" if @signaling
+    end
 
     @transmissions = 0
     @incidents     = Hash.new {|hash, key| hash[key] = []} # Node->list of times

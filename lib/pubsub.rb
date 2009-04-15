@@ -8,7 +8,7 @@ module PubSub
     prev_rev = daemon.config.cache.currentRevision(uri)
     rev = prev_rev ? prev_rev + 1 : 0
     bundle = Bundling::Bundle.new data
-    bundle.addBlock CCNBlock.new(bundle, uri, :publish, :revision => rev)
+    bundle.addBlock CCNBlock.new(bundle, uri, :publish, {:revision => rev}.merge(options))
     daemon.sendBundle bundle
   end
 

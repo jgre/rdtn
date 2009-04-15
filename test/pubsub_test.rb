@@ -17,7 +17,7 @@ class TestPubSub < Test::Unit::TestCase
     setup do
       @daemon = RdtnDaemon::Daemon.new("dtn://receiver.dtn/")
       @store  = @daemon.config.store
-      @daemon.router(:epidemic)
+      @daemon.router(:epidemic, :cacheSubscriptions => true)
       @uri    = "pubsub://test/collection"
     end
 
@@ -77,7 +77,7 @@ class TestPubSub < Test::Unit::TestCase
       g.edge :sub2 => :source
       g.edge :sub2 => :nonsub
       sim.events = g.events
-      sim.nodes.router :spraywait, :initial_copycount => 1
+      sim.nodes.router :spraywait, :initial_copycount => 1, :cacheSubscriptions => true
 
       data = "test data"
       sim.node(:source).register("dtn:internet-gw/") {}
@@ -112,6 +112,10 @@ class TestPubSub < Test::Unit::TestCase
       assert traffic_model.contentItem(uri).delivered?(:sub1, nil, :revision=>2)
       assert(!traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>2))
     end
+
+    should 'signal subscriptions only once' do
+      assert_equal 5, traffic_model.signalingBundles.length
+    end
     
   end
 
@@ -125,7 +129,7 @@ class TestPubSub < Test::Unit::TestCase
       g.edge :sub1 => :source, :start => 5,  :end => 10
       g.edge :sub1 => :source, :start => 15, :end => 20
       sim.events = g.events
-      sim.nodes.router :spraywait, :initial_copycount => 1
+      sim.nodes.router :spraywait, :initial_copycount => 1, :cacheSubscriptions => true
 
       data = "test data"
       sim.node(:source).register("dtn:internet-gw/") {}
@@ -136,7 +140,7 @@ class TestPubSub < Test::Unit::TestCase
       end
       sim.at(2)  {PubSub.publish(sim.node(:source), uri1, data); false}
       sim.at(11) {PubSub.publish(sim.node(:source), uri2, data+"update");false}
-      sim.at(13) {PubSub.delete(sim.node(:source), uri2); flase}
+      sim.at(13) {PubSub.delete(sim.node(:source), uri2); false}
     end
 
     should 'deliver subscribed content when connectivity is available' do
@@ -149,6 +153,70 @@ class TestPubSub < Test::Unit::TestCase
 
     should 'not send the same revision twice' do
       assert_equal [1, 0], traffic_model.transmissionsPerContentItem
+    end
+
+  end
+
+  simulation_context 'PubSub without subscription caching' do
+
+    uri  = "http://example.com/feed/"
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge :sub1 => :source
+      g.edge :sub2 => :source, :end => 30
+      sim.events = g.events
+      sim.nodes.router :spraywait, :initial_copycount => 1, :cacheSubscriptions => false, :pollInterval => 10
+
+      data = "test data"
+      sim.node(:source).register("dtn:internet-gw/") {}
+      sim.at(1)  {PubSub.subscribe(sim.node(:sub1), uri) {}; false}
+      sim.at(2)  {PubSub.publish(sim.node(:source), uri, data); false}
+      sim.at(3)  {PubSub.subscribe(sim.node(:sub2), uri) {}; false}
+      sim.at(12) {PubSub.publish(sim.node(:source), uri, data + "update2"); false}
+    end
+
+    should 'deliver the subscribed content' do
+      assert(traffic_model.contentItem(uri).delivered?(:sub1,nil,:revision=>0))
+      assert(traffic_model.contentItem(uri).delivered?(:sub1,nil,:revision=>1))
+      assert(traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>0))
+      assert(traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>1))
+    end
+
+    should 'incur signaling traffic' do
+      assert_equal 6, traffic_model.signalingBundles.length
+    end
+
+  end
+
+  simulation_context 'PubSub with subscription caching' do
+
+    uri  = "http://example.com/feed/"
+
+    prepare do
+      g = Sim::Graph.new
+      g.edge :sub1 => :source
+      g.edge :sub2 => :source, :end => 30
+      sim.events = g.events
+      sim.nodes.router :spraywait, :initial_copycount => 1, :cacheSubscriptions => true, :pollInterval => 10
+
+      data = "test data"
+      sim.node(:source).register("dtn:internet-gw/") {}
+      sim.at(1)  {PubSub.subscribe(sim.node(:sub1), uri) {}; false}
+      sim.at(2)  {PubSub.publish(sim.node(:source), uri, data); false}
+      sim.at(3)  {PubSub.subscribe(sim.node(:sub2), uri) {}; false}
+      sim.at(12) {PubSub.publish(sim.node(:source), uri, data + "update2"); false}
+    end
+
+    should 'deliver the subscribed content' do
+      assert(traffic_model.contentItem(uri).delivered?(:sub1,nil,:revision=>0))
+      assert(traffic_model.contentItem(uri).delivered?(:sub1,nil,:revision=>1))
+      assert(traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>0))
+      assert(traffic_model.contentItem(uri).delivered?(:sub2,nil,:revision=>1))
+    end
+
+    should 'incur signaling traffic' do
+      assert_equal 4, traffic_model.signalingBundles.length
     end
 
   end

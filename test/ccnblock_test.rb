@@ -10,7 +10,7 @@ class TestCCNBlock < Test::Unit::TestCase
   def setup
     @bundle = Bundling::Bundle.new('test', 'dtn://test.dtn/')
     @uri    = "http://example.com/feed/"
-    @ccn    = CCNBlock.new(@bundle, @uri, :publish)
+    @ccn    = CCNBlock.new(@bundle, @uri, :publish, :lifetime => 3600)
     @bundle.addBlock @ccn
   end
 
@@ -24,6 +24,8 @@ class TestCCNBlock < Test::Unit::TestCase
     assert_equal @ccn.uri, ccn2.uri
     assert_equal @ccn.method, ccn2.method
     assert_equal :publish, ccn2.method
+    assert_equal 3600, ccn2.lifetime
+    assert_equal({:lifetime => 3600}, ccn2.metadata)
   end
 
 end

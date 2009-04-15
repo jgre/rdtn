@@ -48,6 +48,14 @@ module Sim
       @evDis.subscribe(:bundleRemoved) do |bundle|
 	@sim.log(:bundleRemoved, @id, nil, :bundle => bundle)
       end
+      @evDis.subscribe(:contentCached) do |uri, rev, content|
+        @sim.log(:contentCached, @id, nil, :revision => rev,
+                 :size => content.bytesize)
+      end
+      @evDis.subscribe(:contentUncached) do |uri, rev, content|
+        @sim.log(:contentUncached, @id, nil, :revision => rev,
+                 :size => content.bytesize)
+      end
     end
 
     def process(nSec)

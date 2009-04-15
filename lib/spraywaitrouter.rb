@@ -6,7 +6,7 @@ require 'copycountblock'
 class SprayWaitRouter < Router
 
   def initialize(config, evDis, options = {})
-    super(config, evDis)
+    super
     @init_cc = options[:initial_copycount] || 10
     @contMgr     = @config.contactManager
     
@@ -34,10 +34,12 @@ class SprayWaitRouter < Router
       b.addBlock cc_block
     end
     singleDest = b.destinationIsSingleton? ? b.destEid : nil
-    if (cc_block.copycount > 1 or l.remoteEid == b.destEid) and @config.forwardLog[b.bundleId].shouldAct?(:replicate, l.remoteEid, l, singleDest)
-      copy, _ = cc_block.bisect!
-      # FIXME: Alert the storage that the bundle has changed
-      enqueue(copy, l, :replicate)
+    l.remoteEids.each do |eid|
+      if (cc_block.copycount > 1 or eid == b.destEid) and @config.forwardLog[b.bundleId].shouldAct?(:replicate, eid, l, singleDest)
+        copy, _ = cc_block.bisect!
+        # FIXME: Alert the storage that the bundle has changed
+        enqueue(copy, l, :replicate)
+      end
     end
   end
 

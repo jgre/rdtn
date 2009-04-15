@@ -49,13 +49,16 @@ end
 
 class Router
 
-  def initialize(config, evDis)
+  def initialize(config, evDis, options = {})
     @config   = config
     @evDis    = evDis
     @localReg = []
     @queues   = Hash.new {|h, k| h[k] = []}
     @config.registerComponent(:router, self) {self.stop}
     @subSet   = @config.subscriptionSet
+    @cacheSubscriptions = options[:cacheSubscriptions]
+    @pollInterval = options[:pollInterval]
+    @pollSubscriptions = []
 
     @rtEvAvailable = @evDis.subscribe(:routeAvailable) do |re|
       if re.link.is_a?(AppIF::AppProxy)
@@ -65,11 +68,11 @@ class Router
         end
       end
       subs = @subSet.subscriptions(re.destination)
-      #puts "(#{@config.localEid}) route to #{re.destination}: #{subs.inspect}"
       subs.each do |uri|
         if content = @config.cache[uri]
           notifySubscribers(uri, content, re.destination,
-                            @config.cache.currentRevision(uri))
+                            @config.cache.currentRevision(uri),
+                            @config.cache.metadata(uri))
         end
       end
     end
@@ -79,23 +82,46 @@ class Router
         uri = ccn_blk.uri
         case ccn_blk.method
         when :subscribe
-          #puts "(#{@config.localEid}) incoming sub from #{b.srcEid}"
-          @subSet.subscribe(uri, b.srcEid)
-          #puts "(#{@config.localEid}) subscribing #{b.srcEid} to #{uri}: #{@subSet.subscribers(uri).inspect}"
+          if @cacheSubscriptions or @config.localEid == b.srcEid
+            @subSet.subscribe(uri, b.srcEid)
+          end
+          if @config.localEid == b.srcEid and @pollInterval and (!@pollSubscriptions.include?(uri))
+            @pollSubscriptions << uri
+            RdtnTime.schedule(@pollInterval) do
+              if @pollSubscriptions.include? uri
+                sub_bundle = Bundling::Bundle.new(nil, "dtn:internet-gw/", nil,
+                                                  :multicast => true)
+                sub_bundle.addBlock CCNBlock.new(sub_bundle, uri, :subscribe)
+                @config.localSender.sendBundle sub_bundle
+                true
+              end
+            end
+          end
+          if (@cacheSubscriptions and
+              @config.localSender.localRegistrations.include? b.destEid)
+            ack = Bundling::Bundle.new(nil, b.srcEid)
+            ack.addBlock(CCNBlock.new(ack, uri, :subscription_ack))
+            @config.localSender.sendBundle ack
+          end
           if content = @config.cache[uri]
             notifySubscribers(uri, content, b.srcEid,
-                              @config.cache.currentRevision(uri))
+                              @config.cache.currentRevision(uri),
+                              @config.cache.metadata(uri))
           end
         when :unsubscribe
           @subSet.unsubscribe(uri, b.srcEid)
         when :publish
-          @config.cache.addContent(uri, b.payload, ccn_blk.revision)
+          @config.cache.addContent(uri, b.payload, ccn_blk.revision,
+                                   ccn_blk.metadata)
           @subSet.subscribers(uri).each do |subs|
-            notifySubscribers(uri, b.payload, subs, ccn_blk.revision)
+            notifySubscribers(uri, b.payload, subs, ccn_blk.revision,
+                              ccn_blk.metadata)
           end
         when :delete
           #puts "(#{@config.localEid}:#{RdtnTime.now.sec}) Deleting #{uri}"
           @config.cache.delete(uri)
+        when :subscription_ack
+          @pollSubscriptions.delete uri
         end
       end
       @localReg.each {|re| localDelivery(b, re.link) if re.match?(b.destEid)}
@@ -125,11 +151,10 @@ class Router
 
   protected
 
-  def notifySubscribers(uri, content, subs, rev)
+  def notifySubscribers(uri, content, subs, rev, metadata)
     unless @subSet.hasRevision?(subs, uri, rev)
-      #puts "(#{@config.localEid}:#{RdtnTime.now.sec}) notify subs #{uri}, #{subs}"
       resp_bndl = Bundling::Bundle.new content, subs
-      resp_bndl.addBlock CCNBlock.new(resp_bndl, uri, :publish, :revision=>rev)
+      resp_bndl.addBlock CCNBlock.new(resp_bndl, uri, :publish, {:revision=>rev}.merge(metadata))
       link = @config.contactManager.findLink {|l| subs == l.remoteEid}
       enqueue resp_bndl, link, :forward if link
     end
