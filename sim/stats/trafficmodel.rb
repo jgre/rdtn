@@ -82,7 +82,7 @@ class TrafficModel
     when :bundleRemoved
       lastEntry = @bufferUse[e.nodeId1].last
       lastSize  = lastEntry.nil? ? 0 : lastEntry[1]
-      @bufferUse[e.nodeId1] << [e.time, lastSize - e.bundle.payload.bytesize]
+      @bufferUse[e.nodeId1] << [e.time, lastSize - e.bundle.payloadLength]
     when :transmissionError
       @bundles[e.bundle.bundleId] = StatBundle.new(@t0, e.bundle) unless @bundles[e.bundle.bundleId]
       @errors << [e.transmitted, e.bundle.bundleId, e.time]
@@ -327,10 +327,14 @@ class TrafficModel
   def contentItemDelays
     ret = @content.inject([]) do |memo, uri_item|
       uri, item = uri_item
-      memo + @subscribers[uri].inject([]) do |sub_memo, sub|
-        subscriber, interval = sub
-        del = item.delay(subscriber, interval)
-        sub_memo << del
+      if @subscribers[uri].nil?
+        memo
+      else
+        memo + @subscribers[uri].inject([]) do |sub_memo, sub|
+          subscriber, interval = sub
+          del = item.delay(subscriber, interval)
+          sub_memo + del
+        end
       end
     end
     ret.flatten.compact

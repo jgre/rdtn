@@ -26,6 +26,10 @@ class SubscriptionSet
   end
 
   def subscribe(uri, node = @node, options = {})
+    #puts "(#@node, #{RdtnTime.now.sec}) subscribe #{uri} from #{node}"
+    if uri == "dtn://kasuari2/"
+      puts caller[0..3]
+    end
     subs = Subscription.new(uri, node, options)
     subs.expires ||= RdtnTime.now + @defaultExpiry unless node == @node
     addSubscription(subs)
@@ -48,7 +52,7 @@ class SubscriptionSet
   end
 
   def subscribed?(uri)
-    @channels.include? uri
+    @channels.include?(uri) and (!@channels[uri].empty?)
   end
 
   def subscribers(uri)

@@ -65,6 +65,9 @@ module Sim
       def @nodes.cache_limit=(limit)
         each_value {|node| node.config.cache.limit = limit}
       end
+      def @nodes.cache_replacement=(policy)
+        each_value {|node| node.config.cache.replacementPolicy = policy}
+      end
 
       RdtnTime.scheduleFunc = lambda {|sec, &handler| after(sec, &handler)}
 

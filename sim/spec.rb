@@ -1,6 +1,6 @@
 require 'combinationhash'
 require 'rubygems'
-#require 'ruby2ruby'
+require 'pubsub'
 
 module Sim
 
@@ -39,9 +39,9 @@ module Sim
       when Proc
 	@selected[id] = var.respond_to?(:to_ruby) ? var.to_ruby : ret
 	var.call
-      when Array
-	@selected[id] = var # store both the value and the description for evaluations.
-	var[0] # return the value of a [value, description] pair
+      #when Array
+	#@selected[id] = var # store both the value and the description for evaluations.
+	#var[0] # return the value of a [value, description] pair
       else
 	@selected[id] = var
       end

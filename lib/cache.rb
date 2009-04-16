@@ -52,7 +52,7 @@ class Cache
     @size += content.bytesize
     @evDis.dispatch(:contentCached, uri, revision, content)
     if lifetime = metadata[:lifetime]
-      RdtnTime.schedule(lifetime) {delete uri}
+      RdtnTime.schedule(lifetime) {delete uri if revision == currentRevision(uri); false}
     end
   end
 
@@ -61,6 +61,7 @@ class Cache
   end
 
   def delete(uri)
+    #puts "(#{@config.localEid}) deleting #{uri} #{currentRevision(uri)}"
     @evDis.dispatch(:contentUncached, uri, currentRevision(uri), content(uri))
     @size -= content(uri).bytesize
     @cache.delete(uri)
@@ -68,7 +69,7 @@ class Cache
   end
 
   def deleteByPolicy!
-    puts "Deleting by policy #@size"
+    # puts "Deleting by policy #@size"
     del = self.send(@replacementPolicy) || @cache.keys.first
     delete del
   end
